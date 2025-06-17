@@ -11,21 +11,22 @@ const generateToken = (id) => {
 
 const registerUser = async (req, res, next) => {
   try {
-    const { tentantId, userName, password } = req.body;
+    const { tenantId, userName, password } = req.body;
 
-    const existingUser = await pool.query('SELECT * FROM users WHERE userName = $1 AND tentantId = $2', [userName, tentantId]);
+    const existingUser = await pool.query(
+      'SELECT * FROM users WHERE userName = $1 AND tenantId = $2',
+      [userName, tenantId]
+    );
+
     if (existingUser.rows.length > 0) {
-      return res.status(400).json({
-        success: false,
-        message: 'User already exists'
-      });
+      return res.status(400).json({ success: false, message: 'User already exists' });
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
 
     const newUser = await pool.query(
-      'INSERT INTO users (userName, tentantId, password) VALUES ($1, $2, $3) RETURNING id, userName, tentantId',
-      [userName, tentantId, hashedPassword]
+      'INSERT INTO users (userName, tenantId, password) VALUES ($1, $2, $3) RETURNING id, userName, tenantId',
+      [userName, tenantId, hashedPassword]
     );
 
     const user = newUser.rows[0];
@@ -35,7 +36,7 @@ const registerUser = async (req, res, next) => {
       data: {
         id: user.id,
         userName: user.userName,
-        tentantId: user.tentantId,
+        tenantId: user.tenantId,
         token: generateToken(user.id)
       }
     });
@@ -46,29 +47,22 @@ const registerUser = async (req, res, next) => {
 
 const loginUser = async (req, res, next) => {
   try {
-    const { tentantId, userName, password } = req.body;
+    const { tenantId, userName, password } = req.body;
 
     const result = await pool.query(
-      'SELECT * FROM users WHERE userName = $1 AND tentantId = $2',
-      [userName, tentantId]
+      'SELECT * FROM users WHERE userName = $1 AND tenantId = $2',
+      [userName, tenantId]
     );
 
     if (result.rows.length === 0) {
-      return res.status(401).json({
-        success: false,
-        message: 'Invalid credentials'
-      });
+      return res.status(401).json({ success: false, message: 'Invalid credentials' });
     }
 
     const user = result.rows[0];
-
     const isMatch = await bcrypt.compare(password, user.password);
 
     if (!isMatch) {
-      return res.status(401).json({
-        success: false,
-        message: 'Invalid credentials'
-      });
+      return res.status(401).json({ success: false, message: 'Invalid credentials' });
     }
 
     res.status(200).json({
@@ -76,7 +70,7 @@ const loginUser = async (req, res, next) => {
       data: {
         id: user.id,
         userName: user.userName,
-        tentantId: user.tentantId,
+        tenantId: user.tenantId,
         token: generateToken(user.id)
       }
     });
@@ -85,17 +79,7 @@ const loginUser = async (req, res, next) => {
   }
 };
 
-const sendTokenResponse = (user, statusCode, res) => {
-  const token = user.getSignedJwtToken();
-
-  res.status(statusCode).json({
-    success: true,
-    token
-  });
-};
-
 module.exports = {
   registerUser,
   loginUser,
-  sendTokenResponse
 };

@@ -1,5 +1,7 @@
-CREATE TABLE IF NOT EXISTS loginUser (
+CREATE TABLE IF NOT EXISTS users (
   id SERIAL PRIMARY KEY,
-  username VARCHAR(100) UNIQUE NOT NULL,
-  password TEXT NOT NULL
+  userName VARCHAR(100) NOT NULL,
+  tenantId VARCHAR(100) NOT NULL,
+  password TEXT NOT NULL,
+  UNIQUE (userName, tenantId)
 );
