@@ -2,7 +2,9 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const config = require('./config/default');
+
 const authRoutes = require('./routes/auth');
+const protectedRoutes = require('./routes/protected');
 
 const app = express();
 
@@ -11,6 +13,7 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
 app.use('/api/auth', authRoutes);
+app.use('/api', protectedRoutes);
 
 const server = app.listen(config.port, () => {
   console.log(`Server running in ${config.env} mode on port ${config.port}`);

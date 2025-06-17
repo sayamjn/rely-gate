@@ -14,7 +14,7 @@ const registerUser = async (req, res, next) => {
     const { tenantId, userName, password } = req.body;
 
     const existingUser = await pool.query(
-      'SELECT * FROM users WHERE userName = $1 AND tenantId = $2',
+      'SELECT * FROM loginuser WHERE username = $1 AND tenantid = $2',
       [userName, tenantId]
     );
 
@@ -25,7 +25,7 @@ const registerUser = async (req, res, next) => {
     const hashedPassword = await bcrypt.hash(password, 10);
 
     const newUser = await pool.query(
-      'INSERT INTO users (userName, tenantId, password) VALUES ($1, $2, $3) RETURNING id, userName, tenantId',
+      'INSERT INTO loginuser (username, tenantid, passwrd) VALUES ($1, $2, $3) RETURNING loginid, username, tenantid',
       [userName, tenantId, hashedPassword]
     );
 
@@ -34,10 +34,10 @@ const registerUser = async (req, res, next) => {
     res.status(201).json({
       success: true,
       data: {
-        id: user.id,
-        userName: user.userName,
-        tenantId: user.tenantId,
-        token: generateToken(user.id)
+        id: user.loginid,
+        userName: user.username,
+        tenantId: user.tenantid,
+        token: generateToken(user.loginid)
       }
     });
   } catch (error) {
@@ -50,7 +50,7 @@ const loginUser = async (req, res, next) => {
     const { tenantId, userName, password } = req.body;
 
     const result = await pool.query(
-      'SELECT * FROM users WHERE userName = $1 AND tenantId = $2',
+      'SELECT * FROM loginuser WHERE username = $1 AND tenantid = $2',
       [userName, tenantId]
     );
 
@@ -59,7 +59,7 @@ const loginUser = async (req, res, next) => {
     }
 
     const user = result.rows[0];
-    const isMatch = await bcrypt.compare(password, user.password);
+    const isMatch = await bcrypt.compare(password, user.passwrd);
 
     if (!isMatch) {
       return res.status(401).json({ success: false, message: 'Invalid credentials' });
@@ -68,10 +68,10 @@ const loginUser = async (req, res, next) => {
     res.status(200).json({
       success: true,
       data: {
-        id: user.id,
-        userName: user.userName,
-        tenantId: user.tenantId,
-        token: generateToken(user.id)
+        id: user.loginid,
+        userName: user.username,
+        tenantId: user.tenantid,
+        token: generateToken(user.loginid)
       }
     });
   } catch (error) {
