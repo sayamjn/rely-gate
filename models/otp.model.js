@@ -57,7 +57,7 @@ class OTPModel {
   static async markOTPAsUsed(refId) {
     const sql = `
       UPDATE PortalOTP 
-      SET IsActive = 'N', UpdatedDate = NOW()
+      SET IsActive = 'N'
       WHERE PPOTPID = $1
     `;
 
