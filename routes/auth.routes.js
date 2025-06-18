@@ -1,11 +1,10 @@
 const express = require("express");
-const { body, query, validationResult } = require("express-validator");
+const { body, validationResult } = require("express-validator");
 const AuthController = require("../controllers/auth.controller");
 const { authenticateToken } = require("../middleware/auth");
 
 const router = express.Router();
 
-// Validation error handler middleware
 const handleValidationErrors = (req, res, next) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) {

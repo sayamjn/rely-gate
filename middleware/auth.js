@@ -1,6 +1,5 @@
 const jwt = require('jsonwebtoken');
 
-//Authenticate JWT token from Authorization header
 const authenticateToken = (req, res, next) => {
   const authHeader = req.headers['authorization'];
   const token = authHeader?.startsWith('Bearer ') ? authHeader.split(' ')[1] : null;
@@ -24,7 +23,6 @@ const authenticateToken = (req, res, next) => {
   }
 };
 
-//Authorize based on role
 const authorizeRole = (...allowedRoles) => {
   return (req, res, next) => {
     if (!req.user) {
@@ -45,7 +43,6 @@ const authorizeRole = (...allowedRoles) => {
   };
 };
 
-//Restrict access to matching tenant
 const validateTenantAccess = (req, res, next) => {
   const requestedTenantId = req.body.tenantId || req.query.tenantId || req.params.tenantId;
 

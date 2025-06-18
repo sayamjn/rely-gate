@@ -1,6 +1,5 @@
 const { Pool } = require('pg');
 
-// Create connection pool
 const pool = new Pool({
   host: process.env.DB_HOST,
   user: process.env.DB_USER,
@@ -9,7 +8,6 @@ const pool = new Pool({
   port: process.env.DB_PORT,
 });
 
-// Test database connection
 const testConnection = async () => {
   try {
     const client = await pool.connect();
@@ -21,7 +19,6 @@ const testConnection = async () => {
   }
 };
 
-// Query helper function
 const query = async (text, params) => {
   const start = Date.now();
   try {
@@ -35,7 +32,6 @@ const query = async (text, params) => {
   }
 };
 
-// Get a client from the pool
 const getClient = async () => {
   const client = await pool.connect();
   const query = client.query.bind(client);

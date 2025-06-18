@@ -150,7 +150,6 @@ class UserModel {
     return result.rows[0];
   }
 
-  // Check if user exists
   static async checkUserExists({ userName, tenantId }) {
     const sql = `
       SELECT 1 FROM LoginUser

@@ -2,23 +2,7 @@ const jwt = require('jsonwebtoken');
 const UserModel = require('../models/user.model');
 const bcrypt = require('bcrypt');
 
-const RESPONSE_CODES = {
-  SUCCESS: 'S',
-  ERROR: 'E',
-  EXISTS: 'F',
-  MOBILE_EXISTS: 'X'
-};
-
-const RESPONSE_MESSAGES = {
-  SUCCESS: 'Record(s) saved successfully',
-  ERROR: 'Record(s) failed to save',
-  LOGIN_SUCCESS: 'Login successful',
-  REGISTER_SUCCESS: 'User registered successfully',
-  USER_EXISTS: 'User already exists',
-  INVALID_CREDENTIALS: 'Invalid username or password',
-  USER_INACTIVE: 'User account is inactive',
-  MISSING_FIELDS: 'Username, password, and tenantId are required'
-};
+const responseUtils = require("../utils/constants")
 
 const generateToken = (payload) => {
   return jwt.sign(payload, process.env.JWT_SECRET, {
@@ -27,15 +11,14 @@ const generateToken = (payload) => {
 };
 
 class AuthController {
-  // POST /auth/register
   static async register(req, res) {
     try {
       const { tenantId, userName, password } = req.body;
 
       if (!tenantId || !userName || !password) {
         return res.status(400).json({
-          responseCode: RESPONSE_CODES.ERROR,
-          responseMessage: RESPONSE_MESSAGES.MISSING_FIELDS
+          responseCode: responseUtils.RESPONSE_CODES.ERROR,
+          responseMessage: responseUtils.RESPONSE_MESSAGES.MISSING_FIELDS
         });
       }
 
@@ -43,8 +26,8 @@ class AuthController {
 
       if (exists) {
         return res.status(409).json({
-          responseCode: RESPONSE_CODES.EXISTS,
-          responseMessage: RESPONSE_MESSAGES.USER_EXISTS
+          responseCode: responseUtils.RESPONSE_CODES.EXISTS,
+          responseMessage: responseUtils.RESPONSE_MESSAGES.USER_EXISTS
         });
       }
 
@@ -53,8 +36,8 @@ class AuthController {
       const token = generateToken({ loginId: newUser.loginid, tenantId });
 
       res.status(201).json({
-        responseCode: RESPONSE_CODES.SUCCESS,
-        responseMessage: RESPONSE_MESSAGES.REGISTER_SUCCESS,
+        responseCode: responseUtils.RESPONSE_CODES.SUCCESS,
+        responseMessage: responseUtils.RESPONSE_MESSAGES.REGISTER_SUCCESS,
         token,
         loginuser: {
           id: newUser.loginid,
@@ -65,22 +48,21 @@ class AuthController {
     } catch (error) {
       console.error('Register error:', error);
       res.status(500).json({
-        responseCode: RESPONSE_CODES.ERROR,
-        responseMessage: RESPONSE_MESSAGES.ERROR,
+        responseCode: responseUtils.RESPONSE_CODES.ERROR,
+        responseMessage: responseUtils.RESPONSE_MESSAGES.ERROR,
         error: process.env.NODE_ENV === 'development' ? error.message : undefined
       });
     }
   }
 
-  // POST /auth/login
   static async login(req, res) {
     try {
       const { username, password, tenantid } = req.body;
 
       if (!username || !password || !tenantid) {
         return res.status(400).json({
-          responseCode: RESPONSE_CODES.ERROR,
-          responseMessage: RESPONSE_MESSAGES.MISSING_FIELDS
+          responseCode: responseUtils.RESPONSE_CODES.ERROR,
+          responseMessage: responseUtils.RESPONSE_MESSAGES.MISSING_FIELDS
         });
       }
 
@@ -88,8 +70,8 @@ class AuthController {
 
       if (!user) {
         return res.status(401).json({
-          responseCode: RESPONSE_CODES.ERROR,
-          responseMessage: RESPONSE_MESSAGES.INVALID_CREDENTIALS
+          responseCode: responseUtils.RESPONSE_CODES.ERROR,
+          responseMessage: responseUtils.RESPONSE_MESSAGES.INVALID_CREDENTIALS
         });
       }
 
@@ -97,15 +79,15 @@ class AuthController {
 
       if (!isValidPassword) {
         return res.status(401).json({
-          responseCode: RESPONSE_CODES.ERROR,
-          responseMessage: RESPONSE_MESSAGES.INVALID_CREDENTIALS
+          responseCode: responseUtils.RESPONSE_CODES.ERROR,
+          responseMessage: responseUtils.RESPONSE_MESSAGES.INVALID_CREDENTIALS
         });
       }
 
       if (user.isactive !== 'Y') {
         return res.status(403).json({
-          responseCode: RESPONSE_CODES.ERROR,
-          responseMessage: RESPONSE_MESSAGES.USER_INACTIVE
+          responseCode: responseUtils.RESPONSE_CODES.ERROR,
+          responseMessage: responseUtils.RESPONSE_MESSAGES.USER_INACTIVE
         });
       }
 
@@ -142,16 +124,16 @@ class AuthController {
       };
 
       res.json({
-        responseCode: RESPONSE_CODES.SUCCESS,
-        responseMessage: RESPONSE_MESSAGES.LOGIN_SUCCESS,
+        responseCode: responseUtils.RESPONSE_CODES.SUCCESS,
+        responseMessage: responseUtils.RESPONSE_MESSAGES.LOGIN_SUCCESS,
         token,
         loginuser: userResponse
       });
     } catch (error) {
       console.error('Login error:', error);
       res.status(500).json({
-        responseCode: RESPONSE_CODES.ERROR,
-        responseMessage: RESPONSE_MESSAGES.ERROR,
+        responseCode: responseUtils.RESPONSE_CODES.ERROR,
+        responseMessage: responseUtils.RESPONSE_MESSAGES.ERROR,
         error: process.env.NODE_ENV === 'development' ? error.message : undefined
       });
     }
@@ -163,7 +145,7 @@ static async getUserInfo(req, res) {
 
     if (!user) {
       return res.status(401).json({
-        responseCode: RESPONSE_CODES.ERROR,
+        responseCode: responseUtils.RESPONSE_CODES.ERROR,
         responseMessage: 'Unauthorized: Invalid or missing token'
       });
     }
@@ -172,7 +154,7 @@ static async getUserInfo(req, res) {
 
     if (!fullUser) {
       return res.status(404).json({
-        responseCode: RESPONSE_CODES.ERROR,
+        responseCode: responseUtils.RESPONSE_CODES.ERROR,
         responseMessage: 'User not found'
       });
     }
@@ -193,14 +175,14 @@ static async getUserInfo(req, res) {
     };
 
     res.json({
-      responseCode: RESPONSE_CODES.SUCCESS,
+      responseCode: responseUtils.RESPONSE_CODES.SUCCESS,
       loginuser: userInfo
     });
   } catch (error) {
     console.error('Get user info error:', error);
     res.status(500).json({
-      responseCode: RESPONSE_CODES.ERROR,
-      responseMessage: RESPONSE_MESSAGES.ERROR
+      responseCode: responseUtils.RESPONSE_CODES.ERROR,
+      responseMessage: responseUtils.RESPONSE_MESSAGES.ERROR
     });
   }
 }
