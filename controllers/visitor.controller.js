@@ -165,7 +165,8 @@ class VisitorController {
         visitPurpose, totalVisitor, photoPath, vehiclePhotoPath
       } = req.body;
 
-      const userTenantId = req.user.tenantId;
+      const userTenantId = req.user;
+      console.log("userTenantId: ", userTenantId)
       const createdBy = req.user.username;
 
       if (tenantId && parseInt(tenantId) !== userTenantId) {
@@ -333,6 +334,135 @@ class VisitorController {
       res.json(result);
     } catch (error) {
       console.error('Error in checkoutVisitor:', error);
+      res.status(500).json({
+        responseCode: 'E',
+        responseMessage: 'Internal server error'
+      });
+    }
+  }
+
+    static async checkinVisitor(req, res) {
+    try {
+      const { visitorRegId, tenantId } = req.body;
+      const userTenantId = req.user.tenantId;
+      const createdBy = req.user.username;
+
+      if (tenantId && parseInt(tenantId) !== userTenantId) {
+        return res.status(403).json({
+          responseCode: 'E',
+          responseMessage: 'Access denied for this tenant'
+        });
+      }
+
+      if (!visitorRegId) {
+        return res.status(400).json({
+          responseCode: 'E',
+          responseMessage: 'Visitor registration ID is required'
+        });
+      }
+
+      const result = await VisitorService.checkinRegisteredVisitor(
+        parseInt(visitorRegId),
+        userTenantId,
+        createdBy
+      );
+
+      res.json(result);
+    } catch (error) {
+      console.error('Error in checkinVisitor:', error);
+      res.status(500).json({
+        responseCode: 'E',
+        responseMessage: 'Internal server error'
+      });
+    }
+  }
+
+  // PUT /api/visitors/history/:historyId/checkout
+  static async checkoutVisitorHistory(req, res) {
+    try {
+      const { historyId } = req.params;
+      const { tenantId } = req.body;
+      const userTenantId = req.user.tenantId;
+      const updatedBy = req.user.username;
+
+      if (tenantId && parseInt(tenantId) !== userTenantId) {
+        return res.status(403).json({
+          responseCode: 'E',
+          responseMessage: 'Access denied for this tenant'
+        });
+      }
+
+      if (!historyId) {
+        return res.status(400).json({
+          responseCode: 'E',
+          responseMessage: 'History ID is required'
+        });
+      }
+
+      const result = await VisitorService.checkoutRegisteredVisitor(
+        parseInt(historyId),
+        userTenantId,
+        updatedBy
+      );
+
+      res.json(result);
+    } catch (error) {
+      console.error('Error in checkoutVisitorHistory:', error);
+      res.status(500).json({
+        responseCode: 'E',
+        responseMessage: 'Internal server error'
+      });
+    }
+  }
+
+  // GET /api/visitors/:visitorRegId/history
+  static async getVisitorHistory(req, res) {
+    try {
+      const { visitorRegId } = req.params;
+      const { tenantId, limit = 10 } = req.query;
+      const userTenantId = req.user.tenantId;
+
+      if (tenantId && parseInt(tenantId) !== userTenantId) {
+        return res.status(403).json({
+          responseCode: 'E',
+          responseMessage: 'Access denied for this tenant'
+        });
+      }
+
+      const result = await VisitorService.getVisitHistory(
+        parseInt(visitorRegId),
+        userTenantId,
+        parseInt(limit)
+      );
+
+      res.json(result);
+    } catch (error) {
+      console.error('Error in getVisitorHistory:', error);
+      res.status(500).json({
+        responseCode: 'E',
+        responseMessage: 'Internal server error'
+      });
+    }
+  }
+
+  // GET /api/visitors/pending-checkout
+  static async getPendingCheckout(req, res) {
+    try {
+      const { tenantId } = req.query;
+      const userTenantId = req.user.tenantId;
+
+      if (tenantId && parseInt(tenantId) !== userTenantId) {
+        return res.status(403).json({
+          responseCode: 'E',
+          responseMessage: 'Access denied for this tenant'
+        });
+      }
+
+      const result = await VisitorService.getVisitorsPendingCheckout(userTenantId);
+
+      res.json(result);
+    } catch (error) {
+      console.error('Error in getPendingCheckout:', error);
       res.status(500).json({
         responseCode: 'E',
         responseMessage: 'Internal server error'

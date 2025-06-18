@@ -32,7 +32,7 @@ CREATE TABLE IF NOT EXISTS LoginUser (
     UpdatedBy varchar(250)
 );
 
-CREATE INDEX idx_loginuser_username_tenant ON LoginUser(UserName, TenantID);
+-- CREATE INDEX idx_loginuser_username_tenant ON LoginUser(UserName, TenantID);
 
 CREATE TABLE IF NOT EXISTS Tenant (
     TenantID SERIAL PRIMARY KEY,
@@ -48,7 +48,7 @@ INSERT INTO LoginUser (
     UserName, Passwrd, DisplayN, Email, Mobile
 ) VALUES 
 (1, 'Y', 1, 'Admin', 'John', 'Doe', 'admin', 'admin123', 'John Doe', 'admin@example.com', '1234567890'),
-(1, 'Y', 2, 'User', 'Jane', 'Smith', 'user', 'user123', 'Jane Smith', 'user@example.com', '0987654321'),
+(1, 'Y', 2, 'User', 'Jane', 'Smith', 'user', 'user123', 'Jane Smith', 'user@example.com', '9876543210'),
 (2, 'Y', 1, 'Admin', 'Bob', 'Wilson', 'admin2', 'admin123', 'Bob Wilson', 'admin2@example.com', '1122334455');
 
 -- Insert sample tenant data

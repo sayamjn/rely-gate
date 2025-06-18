@@ -163,10 +163,8 @@ class VisitorService {
         return false;
       }
 
-      // Ensure directory exists
       await fs.mkdir(filePath, { recursive: true });
 
-      // Clean base64 string
       const cleanBase64 = base64String.replace(/\n/g, '').replace(/ /g, '');
       const imageBuffer = Buffer.from(cleanBase64, 'base64');
 
@@ -190,7 +188,6 @@ class VisitorService {
         visitPurpose, totalVisitor, photoPath, vehiclePhotoPath, createdBy
       } = visitorData;
 
-      // Handle photo uploads
       let photoData = null;
       let vehiclePhotoData = null;
 
@@ -237,7 +234,6 @@ class VisitorService {
         idPhotoPath, createdBy
       } = visitorData;
 
-      // Handle photo uploads
       let photoData = null;
       let vehiclePhotoData = null;
       let idPhotoData = null;
@@ -320,6 +316,146 @@ class VisitorService {
       }
     } catch (error) {
       console.error('Error checking out visitor:', error);
+      return {
+        responseCode: responseUtils.RESPONSE_CODES.ERROR,
+        responseMessage: responseUtils.RESPONSE_MESSAGES.ERROR,
+        error: process.env.NODE_ENV === 'development' ? error.message : undefined
+      };
+    }
+  }
+
+
+  static async checkinRegisteredVisitor(visitorRegId, tenantId, createdBy) {
+    try {
+      // Get visitor details
+      const visitor = await VisitorModel.getVisitorForCheckIn(visitorRegId, tenantId);
+      
+      if (!visitor) {
+        return {
+          responseCode: responseUtils.RESPONSE_CODES.ERROR,
+          responseMessage: 'Visitor not found'
+        };
+      }
+
+      // Check if already checked in
+      const activeVisit = await VisitorModel.getActiveVisitHistory(visitorRegId, tenantId);
+      
+      if (activeVisit) {
+        return {
+          responseCode: responseUtils.RESPONSE_CODES.ERROR,
+          responseMessage: 'Visitor is already checked in',
+          data: {
+            historyId: activeVisit.regvisitorhistoryid,
+            checkInTime: activeVisit.intimeTxt
+          }
+        };
+      }
+
+      // Create visit history record
+      const visitHistory = await VisitorModel.createVisitHistory({
+        tenantId,
+        visitorRegId: visitor.visitorregid,
+        visitorRegNo: visitor.visitorregno,
+        securityCode: visitor.securitycode,
+        vistorName: visitor.vistorname,
+        mobile: visitor.mobile,
+        vehicleNo: visitor.vehicleno,
+        visitorCatId: visitor.visitorcatid,
+        visitorCatName: visitor.visitorcatname,
+        visitorSubCatId: visitor.visitorsubcatid,
+        visitorSubCatName: visitor.visitorsubcatname,
+        associatedFlat: visitor.associatedflat,
+        associatedBlock: visitor.associatedblock,
+        createdBy
+      });
+
+      return {
+        responseCode: responseUtils.RESPONSE_CODES.SUCCESS,
+        responseMessage: 'Visitor checked in successfully',
+        data: {
+          historyId: visitHistory.regvisitorhistoryid,
+          visitorName: visitor.vistorname,
+          checkInTime: new Date().toLocaleTimeString('en-US', { 
+            hour: '2-digit', 
+            minute: '2-digit', 
+            hour12: true 
+          })
+        }
+      };
+    } catch (error) {
+      console.error('Error checking in visitor:', error);
+      return {
+        responseCode: responseUtils.RESPONSE_CODES.ERROR,
+        responseMessage: responseUtils.RESPONSE_MESSAGES.ERROR,
+        error: process.env.NODE_ENV === 'development' ? error.message : undefined
+      };
+    }
+  }
+
+  // Check-out registered visitor
+  static async checkoutRegisteredVisitor(historyId, tenantId, updatedBy) {
+    try {
+      const result = await VisitorModel.updateVisitHistoryCheckout(historyId, tenantId, updatedBy);
+      
+      if (result) {
+        return {
+          responseCode: responseUtils.RESPONSE_CODES.SUCCESS,
+          responseMessage: 'Visitor checked out successfully',
+          data: {
+            historyId: result.regvisitorhistoryid,
+            checkOutTime: new Date().toLocaleTimeString('en-US', { 
+              hour: '2-digit', 
+              minute: '2-digit', 
+              hour12: true 
+            })
+          }
+        };
+      } else {
+        return {
+          responseCode: responseUtils.RESPONSE_CODES.ERROR,
+          responseMessage: 'Visit history not found or already checked out'
+        };
+      }
+    } catch (error) {
+      console.error('Error checking out visitor:', error);
+      return {
+        responseCode: responseUtils.RESPONSE_CODES.ERROR,
+        responseMessage: responseUtils.RESPONSE_MESSAGES.ERROR,
+        error: process.env.NODE_ENV === 'development' ? error.message : undefined
+      };
+    }
+  }
+
+  // Get visit history
+  static async getVisitHistory(visitorRegId, tenantId, limit = 10) {
+    try {
+      const history = await VisitorModel.getVisitHistory(visitorRegId, tenantId, limit);
+      return {
+        responseCode: responseUtils.RESPONSE_CODES.SUCCESS,
+        data: history,
+        count: history.length
+      };
+    } catch (error) {
+      console.error('Error fetching visit history:', error);
+      return {
+        responseCode: responseUtils.RESPONSE_CODES.ERROR,
+        responseMessage: responseUtils.RESPONSE_MESSAGES.ERROR,
+        error: process.env.NODE_ENV === 'development' ? error.message : undefined
+      };
+    }
+  }
+
+  // Get visitors pending checkout
+  static async getVisitorsPendingCheckout(tenantId) {
+    try {
+      const visitors = await VisitorModel.getVisitorsPendingCheckout(tenantId);
+      return {
+        responseCode: responseUtils.RESPONSE_CODES.SUCCESS,
+        data: visitors,
+        count: visitors.length
+      };
+    } catch (error) {
+      console.error('Error fetching pending checkout visitors:', error);
       return {
         responseCode: responseUtils.RESPONSE_CODES.ERROR,
         responseMessage: responseUtils.RESPONSE_MESSAGES.ERROR,

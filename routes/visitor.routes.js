@@ -5,7 +5,6 @@ const { authenticateToken, validateTenantAccess } = require('../middleware/auth'
 
 const router = express.Router();
 
-// Validation error handler middleware
 const handleValidationErrors = (req, res, next) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
@@ -136,5 +135,42 @@ router.put('/:visitorId/checkout', [
     .withMessage('Visitor ID must be numeric'),
   body('tenantId').optional().isNumeric().withMessage('TenantId must be numeric')
 ], handleValidationErrors, VisitorController.checkoutVisitor);
+
+// POST /api/visitors/checkin - Check in registered visitor
+router.post('/checkin', [
+  body('visitorRegId')
+    .notEmpty()
+    .withMessage('Visitor registration ID is required')
+    .isNumeric()
+    .withMessage('Visitor registration ID must be numeric'),
+  body('tenantId').optional().isNumeric().withMessage('TenantId must be numeric')
+], handleValidationErrors, VisitorController.checkinVisitor);
+
+// PUT /api/visitors/history/:historyId/checkout - Check out visitor by history ID
+router.put('/history/:historyId/checkout', [
+  param('historyId')
+    .notEmpty()
+    .withMessage('History ID is required')
+    .isNumeric()
+    .withMessage('History ID must be numeric'),
+  body('tenantId').optional().isNumeric().withMessage('TenantId must be numeric')
+], handleValidationErrors, VisitorController.checkoutVisitorHistory);
+
+// GET /api/visitors/:visitorRegId/history - Get visitor history
+router.get('/:visitorRegId/history', [
+  param('visitorRegId')
+    .notEmpty()
+    .withMessage('Visitor registration ID is required')
+    .isNumeric()
+    .withMessage('Visitor registration ID must be numeric'),
+  query('tenantId').optional().isNumeric().withMessage('TenantId must be numeric'),
+  query('limit').optional().isNumeric().withMessage('Limit must be numeric')
+], handleValidationErrors, VisitorController.getVisitorHistory);
+
+// GET /api/visitors/pending-checkout - Get visitors pending checkout
+router.get('/pending-checkout', [
+  query('tenantId').optional().isNumeric().withMessage('TenantId must be numeric')
+], handleValidationErrors, VisitorController.getPendingCheckout);
+
 
 module.exports = router;

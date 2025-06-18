@@ -208,6 +208,119 @@ class VisitorModel {
     const result = await query(sql, [visitorId, tenantId]);
     return result.rows[0];
   }
+
+
+    // Create visit history for registered visitor check-in
+  static async createVisitHistory(visitorData) {
+    const {
+      tenantId, visitorRegId, visitorRegNo, securityCode, vistorName, mobile,
+      vehicleNo, visitorCatId, visitorCatName, visitorSubCatId, visitorSubCatName,
+      associatedFlat, associatedBlock, createdBy
+    } = visitorData;
+
+    const sql = `
+      INSERT INTO VisitorRegVisitHistory (
+        TenantID, IsActive, IsRegFlag, VisitorRegID, VisitorRegNo, SecurityCode,
+        VistorName, Mobile, VehiclelNo, VisitorCatID, VisitorCatName,
+        VisitorSubCatID, VisitorSubCatName, AssociatedFlat, AssociatedBlock,
+        INTime, INTimeTxt, CreatedDate, UpdatedDate, CreatedBy, UpdatedBy
+      ) VALUES (
+        $1, 'Y', 'Y', $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13,
+        NOW(), TO_CHAR(NOW(), 'HH12:MI AM'), NOW(), NOW(), $14, $14
+      ) RETURNING RegVisitorHistoryID
+    `;
+
+    const result = await query(sql, [
+      tenantId, visitorRegId, visitorRegNo, securityCode, vistorName, mobile,
+      vehicleNo, visitorCatId, visitorCatName, visitorSubCatId, visitorSubCatName,
+      associatedFlat, associatedBlock, createdBy
+    ]);
+
+    return result.rows[0];
+  }
+
+  // Update visit history for checkout
+  static async updateVisitHistoryCheckout(historyId, tenantId, updatedBy) {
+    const sql = `
+      UPDATE VisitorRegVisitHistory 
+      SET OutTime = NOW(), 
+          OutTimeTxt = TO_CHAR(NOW(), 'HH12:MI AM'),
+          UpdatedDate = NOW(),
+          UpdatedBy = $3
+      WHERE RegVisitorHistoryID = $1 AND TenantID = $2
+      RETURNING RegVisitorHistoryID
+    `;
+
+    const result = await query(sql, [historyId, tenantId, updatedBy]);
+    return result.rows[0];
+  }
+
+  // Get visitor details for check-in
+  static async getVisitorForCheckIn(visitorRegId, tenantId) {
+    const sql = `
+      SELECT 
+        VisitorRegID, VisitorRegNo, SecurityCode, VistorName, Mobile,
+        VisitorCatID, VisitorCatName, VisitorSubCatID, VisitorSubCatName,
+        VehiclelNo, AssociatedFlat, AssociatedBlock, FlatID, FlatName,
+        PhotoFlag, PhotoPath, PhotoName
+      FROM VisitorRegistration
+      WHERE VisitorRegID = $1 AND TenantID = $2 AND IsActive = 'Y'
+    `;
+
+    const result = await query(sql, [visitorRegId, tenantId]);
+    return result.rows[0];
+  }
+
+  // Check if visitor is already checked in
+  static async getActiveVisitHistory(visitorRegId, tenantId) {
+    const sql = `
+      SELECT RegVisitorHistoryID, INTime, INTimeTxt
+      FROM VisitorRegVisitHistory
+      WHERE VisitorRegID = $1 AND TenantID = $2 AND IsActive = 'Y'
+        AND (OutTime IS NULL OR OutTimeTxt IS NULL OR OutTimeTxt = '')
+      ORDER BY CreatedDate DESC
+      LIMIT 1
+    `;
+
+    const result = await query(sql, [visitorRegId, tenantId]);
+    return result.rows[0];
+  }
+
+  // Get visit history for a visitor
+  static async getVisitHistory(visitorRegId, tenantId, limit = 10) {
+    const sql = `
+      SELECT 
+        RegVisitorHistoryID, VisitorRegID, VistorName, Mobile, VehiclelNo,
+        VisitorCatName, VisitorSubCatName, AssociatedFlat,
+        INTime, INTimeTxt, OutTime, OutTimeTxt,
+        CreatedDate, UpdatedDate
+      FROM VisitorRegVisitHistory
+      WHERE VisitorRegID = $1 AND TenantID = $2 AND IsActive = 'Y'
+      ORDER BY CreatedDate DESC
+      LIMIT $3
+    `;
+
+    const result = await query(sql, [visitorRegId, tenantId, limit]);
+    return result.rows;
+  }
+
+  // Get visitors pending checkout
+  static async getVisitorsPendingCheckout(tenantId) {
+    const sql = `
+      SELECT 
+        vh.RegVisitorHistoryID, vh.VisitorRegID, vh.VistorName, vh.Mobile,
+        vh.VisitorCatName, vh.VisitorSubCatName, vh.AssociatedFlat,
+        vh.INTime, vh.INTimeTxt, vr.PhotoPath, vr.PhotoName
+      FROM VisitorRegVisitHistory vh
+      JOIN VisitorRegistration vr ON vh.VisitorRegID = vr.VisitorRegID
+      WHERE vh.TenantID = $1 AND vh.IsActive = 'Y'
+        AND (vh.OutTime IS NULL OR vh.OutTimeTxt IS NULL OR vh.OutTimeTxt = '')
+      ORDER BY vh.INTime DESC
+    `;
+
+    const result = await query(sql, [tenantId]);
+    return result.rows;
+  }
 }
 
 module.exports = VisitorModel;
