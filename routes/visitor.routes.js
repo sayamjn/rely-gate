@@ -173,4 +173,32 @@ router.get('/pending-checkout', [
 ], handleValidationErrors, VisitorController.getPendingCheckout);
 
 
+
+// POST /api/visitors/:visitorRegId/qr - Generate QR code for visitor
+router.post('/:visitorRegId/qr', [
+  param('visitorRegId')
+    .notEmpty()
+    .withMessage('Visitor registration ID is required')
+    .isNumeric()
+    .withMessage('Visitor registration ID must be numeric'),
+  body('tenantId').optional().isNumeric().withMessage('TenantId must be numeric')
+], handleValidationErrors, VisitorController.generateQR);
+
+// POST /api/visitors/scan-qr - Scan QR code
+router.post('/scan-qr', [
+  body('qrString')
+    .notEmpty()
+    .withMessage('QR string is required'),
+  body('tenantId').optional().isNumeric().withMessage('TenantId must be numeric')
+], handleValidationErrors, VisitorController.scanQR);
+
+// GET /api/visitors/search - Search visitors with pagination
+router.get('/search', [
+  query('tenantId').optional().isNumeric().withMessage('TenantId must be numeric'),
+  query('page').optional().isNumeric().withMessage('Page must be numeric'),
+  query('pageSize').optional().isNumeric().withMessage('Page size must be numeric'),
+  query('visitorCatId').optional().isNumeric().withMessage('VisitorCatId must be numeric'),
+  query('visitorSubCatId').optional().isNumeric().withMessage('VisitorSubCatId must be numeric')
+], handleValidationErrors, VisitorController.searchVisitors);
+
 module.exports = router;

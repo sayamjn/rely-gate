@@ -469,6 +469,97 @@ class VisitorController {
       });
     }
   }
+
+
+  // POST /api/visitors/:visitorRegId/qr
+  static async generateQR(req, res) {
+    try {
+      const { visitorRegId } = req.params;
+      const { tenantId } = req.body;
+      const userTenantId = req.user.tenantId;
+
+      if (tenantId && parseInt(tenantId) !== userTenantId) {
+        return res.status(403).json({
+          responseCode: 'E',
+          responseMessage: 'Access denied for this tenant'
+        });
+      }
+
+      const result = await VisitorService.generateVisitorQR(
+        parseInt(visitorRegId),
+        userTenantId
+      );
+
+      res.json(result);
+    } catch (error) {
+      console.error('Error in generateQR:', error);
+      res.status(500).json({
+        responseCode: 'E',
+        responseMessage: 'Internal server error'
+      });
+    }
+  }
+
+  // POST /api/visitors/scan-qr
+  static async scanQR(req, res) {
+    try {
+      const { qrString, tenantId } = req.body;
+      const userTenantId = req.user.tenantId;
+
+      if (tenantId && parseInt(tenantId) !== userTenantId) {
+        return res.status(403).json({
+          responseCode: 'E',
+          responseMessage: 'Access denied for this tenant'
+        });
+      }
+
+      if (!qrString) {
+        return res.status(400).json({
+          responseCode: 'E',
+          responseMessage: 'QR string is required'
+        });
+      }
+
+      const result = await VisitorService.scanQRCode(
+        qrString,
+        userTenantId,
+        req.user
+      );
+
+      res.json(result);
+    } catch (error) {
+      console.error('Error in scanQR:', error);
+      res.status(500).json({
+        responseCode: 'E',
+        responseMessage: 'Internal server error'
+      });
+    }
+  }
+
+  // GET /api/visitors/search
+  static async searchVisitors(req, res) {
+    try {
+      const { tenantId, ...searchParams } = req.query;
+      const userTenantId = req.user.tenantId;
+
+      if (tenantId && parseInt(tenantId) !== userTenantId) {
+        return res.status(403).json({
+          responseCode: 'E',
+          responseMessage: 'Access denied for this tenant'
+        });
+      }
+
+      const result = await VisitorService.searchVisitors(userTenantId, searchParams);
+
+      res.json(result);
+    } catch (error) {
+      console.error('Error in searchVisitors:', error);
+      res.status(500).json({
+        responseCode: 'E',
+        responseMessage: 'Internal server error'
+      });
+    }
+  }
 }
 
 module.exports = VisitorController;

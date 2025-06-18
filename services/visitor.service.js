@@ -2,7 +2,8 @@ const VisitorModel = require('../models/visitor.model');
 const OTPModel = require('../models/otp.model');
 const fs = require('fs').promises;
 const path = require('path');
-const responseUtils = require("../utils/constants")
+const responseUtils = require("../utils/constants");
+const QRService = require('./qr.service');
 
 class VisitorService {
 
@@ -456,6 +457,245 @@ class VisitorService {
       };
     } catch (error) {
       console.error('Error fetching pending checkout visitors:', error);
+      return {
+        responseCode: responseUtils.RESPONSE_CODES.ERROR,
+        responseMessage: responseUtils.RESPONSE_MESSAGES.ERROR,
+        error: process.env.NODE_ENV === 'development' ? error.message : undefined
+      };
+    }
+  }
+
+static async generateVisitorQR(visitorRegId, tenantId) {
+  try {
+    const visitor = await VisitorModel.getVisitorForCheckIn(visitorRegId, tenantId);
+    
+    if (!visitor) {
+      return {
+        responseCode: responseUtils.RESPONSE_CODES.ERROR,
+        responseMessage: 'Visitor not found'
+      };
+    }
+
+    // DEBUG: Log what we got from database
+    console.log('Raw visitor data from DB:', visitor);
+
+    // Ensure all required fields are present
+    const completeVisitorData = {
+      tenantId: tenantId,
+      tenantid: tenantId, // Add both variants
+      TenantID: tenantId,
+      
+      visitorRegNo: visitor.visitorregno || visitor.VisitorRegNo,
+      VisitorRegNo: visitor.visitorregno || visitor.VisitorRegNo,
+      
+      securityCode: visitor.securitycode || visitor.SecurityCode,
+      SecurityCode: visitor.securitycode || visitor.SecurityCode,
+      
+      visitorCatId: visitor.visitorcatid || visitor.VisitorCatID,
+      VisitorCatID: visitor.visitorcatid || visitor.VisitorCatID,
+      
+      vistorName: visitor.vistorname || visitor.VistorName,
+      VistorName: visitor.vistorname || visitor.VistorName,
+      
+      mobile: visitor.mobile || visitor.Mobile,
+      Mobile: visitor.mobile || visitor.Mobile,
+      
+      flatName: visitor.flatname || visitor.FlatName || visitor.associatedflat,
+      FlatName: visitor.flatname || visitor.FlatName || visitor.associatedflat,
+      associatedFlat: visitor.associatedflat || visitor.flatname
+    };
+
+    console.log('Complete visitor data for QR:', completeVisitorData);
+
+    const qrData = QRService.generateQRData(completeVisitorData);
+    
+    console.log('Generated QR data:', qrData);
+    
+    const qrResult = await QRService.generateQRCode(qrData, {
+      width: 300,
+      margin: 2
+    });
+
+    if (!qrResult.success) {
+      return {
+        responseCode: responseUtils.RESPONSE_CODES.ERROR,
+        responseMessage: 'Failed to generate QR code'
+      };
+    }
+
+    return {
+      responseCode: responseUtils.RESPONSE_CODES.SUCCESS,
+      responseMessage: 'QR code generated successfully',
+      data: {
+        visitorRegId: visitor.visitorregid,
+        visitorName: visitor.vistorname,
+        qrData: qrResult.qrData,
+        qrImage: qrResult.qrImage,
+        qrBase64: qrResult.qrBase64
+      }
+    };
+  } catch (error) {
+    console.error('Error generating visitor QR:', error);
+    return {
+      responseCode: responseUtils.RESPONSE_CODES.ERROR,
+      responseMessage: responseUtils.RESPONSE_MESSAGES.ERROR,
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    };
+  }
+}
+static async scanQRCode(qrString, tenantId, userInfo) {
+  try {
+    const parseResult = QRService.parseQRData(qrString);
+    
+    if (!parseResult.success) {
+      return {
+        responseCode: responseUtils.RESPONSE_CODES.ERROR,
+        responseMessage: parseResult.error
+      };
+    }
+
+    const qrData = parseResult.data;
+
+    // Validate required fields
+    if (!qrData.tenantid || !qrData.mainid || !qrData.type) {
+      return {
+        responseCode: responseUtils.RESPONSE_CODES.ERROR,
+        responseMessage: 'Invalid QR code format - missing required fields'
+      };
+    }
+
+    // Verify QR code age
+    const verifyResult = QRService.verifyQRCode(qrData);
+    if (!verifyResult.valid) {
+      return {
+        responseCode: responseUtils.RESPONSE_CODES.ERROR,
+        responseMessage: verifyResult.reason
+      };
+    }
+
+    // Check tenant access
+    if (parseInt(qrData.tenantid) !== tenantId) {
+      return {
+        responseCode: responseUtils.RESPONSE_CODES.ERROR,
+        responseMessage: 'Access denied for this tenant'
+      };
+    }
+
+    // Get category ID from type
+    let visitorCatId = 0;
+    if (qrData.type === 'stu') visitorCatId = 3;
+    if (qrData.type === 'sta') visitorCatId = 1; 
+    if (qrData.type === 'bus') visitorCatId = 5;
+
+    // First try to find by registration number
+    let visitor = await VisitorModel.getVisitorByRegNo(qrData.mainid, tenantId, visitorCatId);
+    
+    // If not found, try to find by security code
+    if (!visitor) {
+      visitor = await VisitorModel.getVisitorBySecurityCode(qrData.mainid, tenantId);
+      
+      // Additional check for category if found by security code
+      if (visitor && visitorCatId > 0 && visitor.visitorcatid !== visitorCatId) {
+        visitor = null; // Category mismatch
+      }
+    }
+
+    if (!visitor) {
+      return {
+        responseCode: responseUtils.RESPONSE_CODES.ERROR,
+        responseMessage: 'Visitor not found or QR code invalid'
+      };
+    }
+
+    return {
+      responseCode: responseUtils.RESPONSE_CODES.SUCCESS,
+      responseMessage: 'QR code scanned successfully',
+      data: {
+        visitor: visitor,
+        qrData: qrData,
+        scanTime: new Date().toISOString(),
+        scannedBy: userInfo.username
+      }
+    };
+  } catch (error) {
+    console.error('Error scanning QR code:', error);
+    return {
+      responseCode: responseUtils.RESPONSE_CODES.ERROR,
+      responseMessage: responseUtils.RESPONSE_MESSAGES.ERROR,
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    };
+  }
+}
+
+  static getCategoryIdFromType(typeCode) {
+    const typeMap = {
+      'sta': 1, // Staff
+      'unr': 2, // Unregistered
+      'stu': 3, // Student
+      'gue': 4, // Guest
+      'bus': 5  // Bus
+    };
+    return typeMap[typeCode] || 2;
+  }
+
+  // Search visitors with advanced filtering
+  static async searchVisitors(tenantId, searchParams) {
+    try {
+      const visitors = await VisitorModel.searchVisitors(tenantId, searchParams);
+      
+      const totalCount = visitors.length > 0 ? parseInt(visitors[0].total_count) : 0;
+      const currentPage = parseInt(searchParams.page) || 1;
+      const pageSize = parseInt(searchParams.pageSize) || 20;
+      const totalPages = Math.ceil(totalCount / pageSize);
+
+      return {
+        responseCode: responseUtils.RESPONSE_CODES.SUCCESS,
+        data: visitors.map(v => {
+          const { total_count, ...visitorData } = v;
+          return visitorData;
+        }),
+        pagination: {
+          currentPage,
+          pageSize,
+          totalCount,
+          totalPages,
+          hasNext: currentPage < totalPages,
+          hasPrev: currentPage > 1
+        }
+      };
+    } catch (error) {
+      console.error('Error searching visitors:', error);
+      return {
+        responseCode: responseUtils.RESPONSE_CODES.ERROR,
+        responseMessage: responseUtils.RESPONSE_MESSAGES.ERROR,
+        error: process.env.NODE_ENV === 'development' ? error.message : undefined
+      };
+    }
+  }
+
+  // Update existing createRegisteredVisitor to include security code and reg number
+  static async createRegisteredVisitor(visitorData) {
+    try {
+      const securityCode = QRService.generateSecurityCode();
+      const visitorRegNo = QRService.generateVisitorRegNo(
+        visitorData.visitorCatId, 
+        visitorData.tenantId
+      );
+
+      visitorData.securityCode = securityCode;
+      visitorData.visitorRegNo = visitorRegNo;
+
+      const result = await VisitorModel.createRegisteredVisitor(visitorData);
+
+      return {
+        responseCode: responseUtils.RESPONSE_CODES.SUCCESS,
+        responseMessage: responseUtils.RESPONSE_MESSAGES.VISITOR_CREATED,
+        visitorRegId: result.visitorregid,
+        securityCode: result.securitycode,
+        visitorRegNo: visitorRegNo
+      };
+    } catch (error) {
+      console.error('Error creating registered visitor:', error);
       return {
         responseCode: responseUtils.RESPONSE_CODES.ERROR,
         responseMessage: responseUtils.RESPONSE_MESSAGES.ERROR,

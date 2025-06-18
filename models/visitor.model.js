@@ -1,4 +1,4 @@
-const { query } = require('../config/database');
+const { query } = require("../config/database");
 
 class VisitorModel {
   // Get visitor purposes by category
@@ -13,10 +13,10 @@ class VisitorModel {
       FROM VisitorPuposeMaster
       WHERE TenantID = $1 
         AND IsActive = 'Y'
-        ${purposeCatId > 0 ? 'AND PurposeCatID = $2' : ''}
+        ${purposeCatId > 0 ? "AND PurposeCatID = $2" : ""}
       ORDER BY VisitPurpose
     `;
-    
+
     const params = purposeCatId > 0 ? [tenantId, purposeCatId] : [tenantId];
     const result = await query(sql, params);
     return result.rows;
@@ -37,10 +37,10 @@ class VisitorModel {
       FROM VisitorSubCategory
       WHERE TenantID = $1 
         AND IsActive = 'Y'
-        ${visitorCatId > 0 ? 'AND VisitorCatID = $2' : ''}
+        ${visitorCatId > 0 ? "AND VisitorCatID = $2" : ""}
       ORDER BY VisitorSubCatName
     `;
-    
+
     const params = visitorCatId > 0 ? [tenantId, visitorCatId] : [tenantId];
     const result = await query(sql, params);
     return result.rows;
@@ -53,7 +53,7 @@ class VisitorModel {
       FROM VisitorRegistration
       WHERE Mobile = $1 AND TenantID = $2 AND VisitorCatID = $3 AND IsActive = 'Y'
     `;
-    
+
     const result = await query(sql, [mobile, tenantId, visitorCatId]);
     return result.rows[0].count > 0;
   }
@@ -74,7 +74,7 @@ class VisitorModel {
       ORDER BY vm.CreatedDate DESC
       LIMIT 5
     `;
-    
+
     const result = await query(sql, [tenantId, mobile]);
     return result.rows;
   }
@@ -82,9 +82,21 @@ class VisitorModel {
   // Create unregistered visitor
   static async createUnregisteredVisitor(visitorData) {
     const {
-      tenantId, fname, mobile, vehicleNo, flatName, visitorCatId, 
-      visitorCatName, visitorSubCatId, visitorSubCatName, visitPurposeId,
-      visitPurpose, totalVisitor, photoData, vehiclePhotoData, createdBy
+      tenantId,
+      fname,
+      mobile,
+      vehicleNo,
+      flatName,
+      visitorCatId,
+      visitorCatName,
+      visitorSubCatId,
+      visitorSubCatName,
+      visitPurposeId,
+      visitPurpose,
+      totalVisitor,
+      photoData,
+      vehiclePhotoData,
+      createdBy,
     } = visitorData;
 
     const sql = `
@@ -102,19 +114,36 @@ class VisitorModel {
       ) RETURNING VisitorID
     `;
 
-    const photoFlag = photoData ? 'Y' : 'N';
+    const photoFlag = photoData ? "Y" : "N";
     const photoName = photoData ? `UnRegVisitor_${Date.now()}.jpeg` : null;
-    const photoPath = photoData ? '/uploads/visitors/' : null;
+    const photoPath = photoData ? "/uploads/visitors/" : null;
 
-    const vehiclePhotoFlag = vehiclePhotoData ? 'Y' : 'N';
-    const vehiclePhotoName = vehiclePhotoData ? `Vehicle_${Date.now()}.jpeg` : null;
-    const vehiclePhotoPath = vehiclePhotoData ? '/uploads/vehicles/' : null;
+    const vehiclePhotoFlag = vehiclePhotoData ? "Y" : "N";
+    const vehiclePhotoName = vehiclePhotoData
+      ? `Vehicle_${Date.now()}.jpeg`
+      : null;
+    const vehiclePhotoPath = vehiclePhotoData ? "/uploads/vehicles/" : null;
 
     const result = await query(sql, [
-      tenantId, fname, mobile, vehicleNo, flatName, visitorCatId,
-      visitorCatName, visitorSubCatId, visitorSubCatName, visitPurposeId,
-      visitPurpose, totalVisitor || 1, photoFlag, photoName, photoPath,
-      vehiclePhotoFlag, vehiclePhotoName, vehiclePhotoPath, createdBy
+      tenantId,
+      fname,
+      mobile,
+      vehicleNo,
+      flatName,
+      visitorCatId,
+      visitorCatName,
+      visitorSubCatId,
+      visitorSubCatName,
+      visitPurposeId,
+      visitPurpose,
+      totalVisitor || 1,
+      photoFlag,
+      photoName,
+      photoPath,
+      vehiclePhotoFlag,
+      vehiclePhotoName,
+      vehiclePhotoPath,
+      createdBy,
     ]);
 
     return result.rows[0];
@@ -123,10 +152,24 @@ class VisitorModel {
   // Create registered visitor
   static async createRegisteredVisitor(visitorData) {
     const {
-      tenantId, vistorName, mobile, email, visitorCatId, visitorCatName,
-      visitorSubCatId, visitorSubCatName, flatId, flatName, vehicleNo,
-      identityId, idName, idNumber, photoData, vehiclePhotoData, 
-      idPhotoData, createdBy
+      tenantId,
+      vistorName,
+      mobile,
+      email,
+      visitorCatId,
+      visitorCatName,
+      visitorSubCatId,
+      visitorSubCatName,
+      flatId,
+      flatName,
+      vehicleNo,
+      identityId,
+      idName,
+      idNumber,
+      photoData,
+      vehiclePhotoData,
+      idPhotoData,
+      createdBy,
     } = visitorData;
 
     // Generate security code
@@ -148,31 +191,57 @@ class VisitorModel {
       ) RETURNING VisitorRegID, SecurityCode
     `;
 
-    const photoFlag = photoData ? 'Y' : 'N';
+    const photoFlag = photoData ? "Y" : "N";
     const photoName = photoData ? `RegVisitor_${Date.now()}.jpeg` : null;
-    const photoPath = photoData ? '/uploads/registered_visitors/' : null;
+    const photoPath = photoData ? "/uploads/registered_visitors/" : null;
 
-    const vehiclePhotoFlag = vehiclePhotoData ? 'Y' : 'N';
-    const vehiclePhotoName = vehiclePhotoData ? `RegVehicle_${Date.now()}.jpeg` : null;
-    const vehiclePhotoPath = vehiclePhotoData ? '/uploads/vehicles/' : null;
+    const vehiclePhotoFlag = vehiclePhotoData ? "Y" : "N";
+    const vehiclePhotoName = vehiclePhotoData
+      ? `RegVehicle_${Date.now()}.jpeg`
+      : null;
+    const vehiclePhotoPath = vehiclePhotoData ? "/uploads/vehicles/" : null;
 
-    const idPhotoFlag = idPhotoData ? 'Y' : 'N';
+    const idPhotoFlag = idPhotoData ? "Y" : "N";
     const idPhotoName = idPhotoData ? `RegVisitorID_${Date.now()}.jpeg` : null;
-    const idPhotoPath = idPhotoData ? '/uploads/visitor_ids/' : null;
+    const idPhotoPath = idPhotoData ? "/uploads/visitor_ids/" : null;
 
     const result = await query(sql, [
-      tenantId, vistorName, mobile, email, visitorCatId, visitorCatName,
-      visitorSubCatId, visitorSubCatName, securityCode, flatId, flatName,
-      vehicleNo, identityId, idName, idNumber, photoFlag, photoName, photoPath,
-      vehiclePhotoFlag, vehiclePhotoName, vehiclePhotoPath, idPhotoFlag, 
-      idPhotoName, idPhotoPath, createdBy
+      tenantId,
+      vistorName,
+      mobile,
+      email,
+      visitorCatId,
+      visitorCatName,
+      visitorSubCatId,
+      visitorSubCatName,
+      securityCode,
+      flatId,
+      flatName,
+      vehicleNo,
+      identityId,
+      idName,
+      idNumber,
+      photoFlag,
+      photoName,
+      photoPath,
+      vehiclePhotoFlag,
+      vehiclePhotoName,
+      vehiclePhotoPath,
+      idPhotoFlag,
+      idPhotoName,
+      idPhotoPath,
+      createdBy,
     ]);
 
     return result.rows[0];
   }
 
   // Get registered visitors
-  static async getRegisteredVisitors(tenantId, visitorCatId = 0, visitorSubCatId = 0) {
+  static async getRegisteredVisitors(
+    tenantId,
+    visitorCatId = 0,
+    visitorSubCatId = 0
+  ) {
     const sql = `
       SELECT 
         VisitorRegID, VistorName, Mobile, Email, VisitorCatID, VisitorCatName,
@@ -181,8 +250,8 @@ class VisitorModel {
         CreatedDate, UpdatedDate
       FROM VisitorRegistration
       WHERE TenantID = $1 AND IsActive = 'Y'
-        ${visitorCatId > 0 ? 'AND VisitorCatID = $2' : ''}
-        ${visitorSubCatId > 0 ? 'AND VisitorSubCatID = $3' : ''}
+        ${visitorCatId > 0 ? "AND VisitorCatID = $2" : ""}
+        ${visitorSubCatId > 0 ? "AND VisitorSubCatID = $3" : ""}
       ORDER BY CreatedDate DESC
     `;
 
@@ -209,13 +278,23 @@ class VisitorModel {
     return result.rows[0];
   }
 
-
-    // Create visit history for registered visitor check-in
+  // Create visit history for registered visitor check-in
   static async createVisitHistory(visitorData) {
     const {
-      tenantId, visitorRegId, visitorRegNo, securityCode, vistorName, mobile,
-      vehicleNo, visitorCatId, visitorCatName, visitorSubCatId, visitorSubCatName,
-      associatedFlat, associatedBlock, createdBy
+      tenantId,
+      visitorRegId,
+      visitorRegNo,
+      securityCode,
+      vistorName,
+      mobile,
+      vehicleNo,
+      visitorCatId,
+      visitorCatName,
+      visitorSubCatId,
+      visitorSubCatName,
+      associatedFlat,
+      associatedBlock,
+      createdBy,
     } = visitorData;
 
     const sql = `
@@ -231,9 +310,20 @@ class VisitorModel {
     `;
 
     const result = await query(sql, [
-      tenantId, visitorRegId, visitorRegNo, securityCode, vistorName, mobile,
-      vehicleNo, visitorCatId, visitorCatName, visitorSubCatId, visitorSubCatName,
-      associatedFlat, associatedBlock, createdBy
+      tenantId,
+      visitorRegId,
+      visitorRegNo,
+      securityCode,
+      vistorName,
+      mobile,
+      vehicleNo,
+      visitorCatId,
+      visitorCatName,
+      visitorSubCatId,
+      visitorSubCatName,
+      associatedFlat,
+      associatedBlock,
+      createdBy,
     ]);
 
     return result.rows[0];
@@ -258,14 +348,15 @@ class VisitorModel {
   // Get visitor details for check-in
   static async getVisitorForCheckIn(visitorRegId, tenantId) {
     const sql = `
-      SELECT 
-        VisitorRegID, VisitorRegNo, SecurityCode, VistorName, Mobile,
-        VisitorCatID, VisitorCatName, VisitorSubCatID, VisitorSubCatName,
-        VehiclelNo, AssociatedFlat, AssociatedBlock, FlatID, FlatName,
-        PhotoFlag, PhotoPath, PhotoName
-      FROM VisitorRegistration
-      WHERE VisitorRegID = $1 AND TenantID = $2 AND IsActive = 'Y'
-    `;
+    SELECT 
+      VisitorRegID, VisitorRegNo, SecurityCode, VistorName, Mobile,
+      VisitorCatID, VisitorCatName, VisitorSubCatID, VisitorSubCatName,
+      VehiclelNo, AssociatedFlat, AssociatedBlock, FlatID, FlatName,
+      PhotoFlag, PhotoPath, PhotoName, TenantID,
+      Email, IdentityID, IDName, IDNumber
+    FROM VisitorRegistration
+    WHERE VisitorRegID = $1 AND TenantID = $2 AND IsActive = 'Y'
+  `;
 
     const result = await query(sql, [visitorRegId, tenantId]);
     return result.rows[0];
@@ -319,6 +410,127 @@ class VisitorModel {
     `;
 
     const result = await query(sql, [tenantId]);
+    return result.rows;
+  }
+
+  static async updateVisitorSecurity(
+    visitorRegId,
+    securityCode,
+    visitorRegNo,
+    tenantId
+  ) {
+    const sql = `
+      UPDATE VisitorRegistration 
+      SET SecurityCode = $2, 
+          VisitorRegNo = $3,
+          UpdatedDate = NOW()
+      WHERE VisitorRegID = $1 AND TenantID = $4
+      RETURNING VisitorRegID, SecurityCode, VisitorRegNo
+    `;
+
+    const result = await query(sql, [
+      visitorRegId,
+      securityCode,
+      visitorRegNo,
+      tenantId,
+    ]);
+    return result.rows[0];
+  }
+
+  // Get visitor by security code
+  static async getVisitorBySecurityCode(securityCode, tenantId) {
+    const sql = `
+      SELECT 
+        VisitorRegID, VisitorRegNo, SecurityCode, VistorName, Mobile,
+        VisitorCatID, VisitorCatName, VisitorSubCatID, VisitorSubCatName,
+        FlatID, FlatName, AssociatedFlat, VehiclelNo,
+        PhotoFlag, PhotoPath, PhotoName, IsActive
+      FROM VisitorRegistration
+      WHERE SecurityCode = $1 AND TenantID = $2 AND IsActive = 'Y'
+    `;
+
+    const result = await query(sql, [securityCode, tenantId]);
+    return result.rows[0];
+  }
+
+  // Get visitor by registration number
+  static async getVisitorByRegNo(visitorRegNo, tenantId, visitorCatId = null) {
+    let sql = `
+      SELECT 
+        VisitorRegID, VisitorRegNo, SecurityCode, VistorName, Mobile,
+        VisitorCatID, VisitorCatName, VisitorSubCatID, VisitorSubCatName,
+        FlatID, FlatName, AssociatedFlat, VehiclelNo,
+        PhotoFlag, PhotoPath, PhotoName, IsActive, CreatedDate
+      FROM VisitorRegistration
+      WHERE VisitorRegNo = $1 AND TenantID = $2 AND IsActive = 'Y'
+    `;
+
+    const params = [visitorRegNo, tenantId];
+
+    if (visitorCatId) {
+      sql += " AND VisitorCatID = $3";
+      params.push(visitorCatId);
+    }
+
+    const result = await query(sql, params);
+    return result.rows[0];
+  }
+
+  // Search visitors with pagination
+  static async searchVisitors(tenantId, searchParams = {}) {
+    const {
+      search = "",
+      visitorCatId = 0,
+      visitorSubCatId = 0,
+      page = 1,
+      pageSize = 20,
+      type = "", // For different search types
+    } = searchParams;
+
+    let sql = `
+      SELECT 
+        VisitorRegID, VisitorRegNo, SecurityCode, VistorName, Mobile,
+        VisitorCatID, VisitorCatName, VisitorSubCatID, VisitorSubCatName,
+        FlatID, FlatName, AssociatedFlat, VehiclelNo,
+        PhotoFlag, PhotoPath, PhotoName, CreatedDate,
+        COUNT(*) OVER() as total_count
+      FROM VisitorRegistration
+      WHERE TenantID = $1 AND IsActive = 'Y'
+    `;
+
+    const params = [tenantId];
+    let paramIndex = 2;
+
+    if (search) {
+      sql += ` AND (
+        VistorName ILIKE $${paramIndex} OR 
+        Mobile ILIKE $${paramIndex} OR 
+        VisitorRegNo ILIKE $${paramIndex} OR
+        SecurityCode ILIKE $${paramIndex}
+      )`;
+      params.push(`%${search}%`);
+      paramIndex++;
+    }
+
+    if (visitorCatId > 0) {
+      sql += ` AND VisitorCatID = $${paramIndex}`;
+      params.push(visitorCatId);
+      paramIndex++;
+    }
+
+    if (visitorSubCatId > 0) {
+      sql += ` AND VisitorSubCatID = $${paramIndex}`;
+      params.push(visitorSubCatId);
+      paramIndex++;
+    }
+
+    const offset = (page - 1) * pageSize;
+    sql += ` ORDER BY CreatedDate DESC LIMIT $${paramIndex} OFFSET $${
+      paramIndex + 1
+    }`;
+    params.push(pageSize, offset);
+
+    const result = await query(sql, params);
     return result.rows;
   }
 }
