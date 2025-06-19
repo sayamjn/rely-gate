@@ -3,40 +3,8 @@ const path = require('path');
 const crypto = require('crypto');
 
 class FileService {
-
-    static async saveImage(imgStr, imgName, ext, filePath) {
-    try {
-      if (ext === 'N/A' || !imgStr) {
-        return false;
-      }
-
-      await fs.mkdir(filePath, { recursive: true });
-
-      const cleanBase64 = imgStr.replace(/\n/g, '').replace(/ /g, '');
-      const imageBuffer = Buffer.from(cleanBase64, 'base64');
-
-      const fullPath = path.join(filePath, `${imgName}${ext}`);
-      await fs.writeFile(fullPath, imageBuffer);
-
-      return true;
-    } catch (error) {
-      console.error('Error saving image:', error);
-      return false;
-    }
-  }
-
-  static generateImageName(prefix) {
-    const now = new Date();
-    const dateStr = now.toISOString().slice(0, 10).replace(/-/g, '_');
-    const milliseconds = now.getMilliseconds();
-    return `${prefix}_${dateStr}_${milliseconds}`;
-  }
-
-
-
   static uploadDir = path.join(process.cwd(), 'uploads');
 
-  // Upload categories
   static categories = {
     VISITORS: 'visitors',
     REGISTERED_VISITORS: 'registered_visitors',
@@ -45,7 +13,6 @@ class FileService {
     QR_CODES: 'qr_codes'
   };
 
-  // Generate secure filename
   static generateFilename(originalName, category) {
     const timestamp = Date.now();
     const random = crypto.randomBytes(4).toString('hex');
@@ -54,27 +21,22 @@ class FileService {
     return `${category}_${timestamp}_${random}${extension}`;
   }
 
-  // Save base64 image
+  // Save base64 image with enhanced error handling
   static async saveBase64Image(base64String, category, customName = null) {
     try {
       if (!base64String) {
         throw new Error('No image data provided');
       }
 
-      // Clean base64 string (remove data:image/jpeg;base64, prefix if present)
       const cleanBase64 = base64String.replace(/^data:image\/[a-z]+;base64,/, '');
       
-      // Generate filename
       const filename = customName || this.generateFilename('image.jpeg', category);
       
-      // Ensure category directory exists
       const categoryDir = path.join(this.uploadDir, category);
       await fs.mkdir(categoryDir, { recursive: true });
       
-      // Full file path
       const filePath = path.join(categoryDir, filename);
       
-      // Convert base64 to buffer and save
       const imageBuffer = Buffer.from(cleanBase64, 'base64');
       await fs.writeFile(filePath, imageBuffer);
       
@@ -92,6 +54,28 @@ class FileService {
         success: false,
         error: error.message
       };
+    }
+  }
+
+  // Enhanced legacy save image method for backward compatibility
+  static async saveImage(imgStr, imgName, ext, filePath) {
+    try {
+      if (ext === 'N/A' || !imgStr) {
+        return false;
+      }
+
+      await fs.mkdir(filePath, { recursive: true });
+
+      const cleanBase64 = imgStr.replace(/\n/g, '').replace(/ /g, '');
+      const imageBuffer = Buffer.from(cleanBase64, 'base64');
+
+      const fullPath = path.join(filePath, `${imgName}${ext}`);
+      await fs.writeFile(fullPath, imageBuffer);
+
+      return true;
+    } catch (error) {
+      console.error('Error saving image:', error);
+      return false;
     }
   }
 
@@ -150,7 +134,7 @@ class FileService {
     }
   }
 
-  // Clean up old files (optional utility)
+  // Clean up old files
   static async cleanupOldFiles(category, maxAge = 30 * 24 * 60 * 60 * 1000) { // 30 days
     try {
       const categoryDir = path.join(this.uploadDir, category);
@@ -173,6 +157,13 @@ class FileService {
       return { success: false, error: error.message };
     }
   }
+
+  static generateImageName(prefix) {
+    const now = new Date();
+    const dateStr = now.toISOString().slice(0, 10).replace(/-/g, '_');
+    const milliseconds = now.getMilliseconds();
+    return `${prefix}_${dateStr}_${milliseconds}`;
+  }
 }
 
-module.exports = FileService
+module.exports = FileService;

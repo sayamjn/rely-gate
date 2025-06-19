@@ -1,3 +1,6 @@
+const { query } = require("../config/database");
+const ResponseFormatter = require("../utils/response");
+
 class ReportService {
   static async getRegisteredSummaryReport(tenantId, subCatId, fromDate, toDate, catId) {
     try {

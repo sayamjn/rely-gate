@@ -7,7 +7,6 @@ class AnalyticsController {
       const { tenantId, date } = req.query;
       const userTenantId = req.user.tenantId;
 
-      // Validate tenant access
       if (tenantId && parseInt(tenantId) !== userTenantId) {
         return res.status(403).json({
           responseCode: 'E',
@@ -32,7 +31,6 @@ class AnalyticsController {
       const { tenantId, days = 30 } = req.query;
       const userTenantId = req.user.tenantId;
 
-      // Validate tenant access
       if (tenantId && parseInt(tenantId) !== userTenantId) {
         return res.status(403).json({
           responseCode: 'E',
@@ -60,7 +58,6 @@ class AnalyticsController {
       const { tenantId, days = 7 } = req.query;
       const userTenantId = req.user.tenantId;
 
-      // Validate tenant access
       if (tenantId && parseInt(tenantId) !== userTenantId) {
         return res.status(403).json({
           responseCode: 'E',
@@ -88,7 +85,6 @@ class AnalyticsController {
       const { tenantId, days = 30 } = req.query;
       const userTenantId = req.user.tenantId;
 
-      // Validate tenant access
       if (tenantId && parseInt(tenantId) !== userTenantId) {
         return res.status(403).json({
           responseCode: 'E',
@@ -116,7 +112,6 @@ class AnalyticsController {
       const { tenantId, limit = 20 } = req.query;
       const userTenantId = req.user.tenantId;
 
-      // Validate tenant access
       if (tenantId && parseInt(tenantId) !== userTenantId) {
         return res.status(403).json({
           responseCode: 'E',

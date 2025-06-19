@@ -1,3 +1,6 @@
+const DashboardService = require('../services/dashboard.service');
+const responseUtils = require('../utils/constants');
+
 class DashboardController {
   static async getDashboardSummary(req, res) {
     try {
@@ -5,14 +8,20 @@ class DashboardController {
       const userTenantId = req.user.tenantId;
 
       if (tenantId && parseInt(tenantId) !== userTenantId) {
-        return res.status(403).json(ResponseFormatter.error('Access denied'));
+        return res.status(403).json({
+          responseCode: responseUtils.RESPONSE_CODES.ERROR,
+          responseMessage: 'Access denied for this tenant'
+        });
       }
 
       const result = await DashboardService.getDashboardSummary(userTenantId);
       res.json(result);
     } catch (error) {
       console.error('Error in dashboard summary:', error);
-      res.status(500).json(ResponseFormatter.error('Internal server error'));
+      res.status(500).json({
+        responseCode: responseUtils.RESPONSE_CODES.ERROR,
+        responseMessage: responseUtils.RESPONSE_MESSAGES.ERROR
+      });
     }
   }
 
@@ -20,6 +29,13 @@ class DashboardController {
     try {
       const { tenantId, catId, subCatId } = req.query;
       const userTenantId = req.user.tenantId;
+
+      if (tenantId && parseInt(tenantId) !== userTenantId) {
+        return res.status(403).json({
+          responseCode: responseUtils.RESPONSE_CODES.ERROR,
+          responseMessage: 'Access denied for this tenant'
+        });
+      }
 
       const result = await DashboardService.getVisitorLatestVisitDetails(
         userTenantId, 
@@ -29,9 +45,12 @@ class DashboardController {
       res.json(result);
     } catch (error) {
       console.error('Error in latest visit details:', error);
-      res.status(500).json(ResponseFormatter.error('Internal server error'));
+      res.status(500).json({
+        responseCode: responseUtils.RESPONSE_CODES.ERROR,
+        responseMessage: responseUtils.RESPONSE_MESSAGES.ERROR
+      });
     }
   }
 }
 
-module.exports = DashboardController
+module.exports = DashboardController;

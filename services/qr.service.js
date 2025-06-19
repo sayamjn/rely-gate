@@ -3,12 +3,10 @@ const crypto = require("crypto");
 const { v4: uuidv4 } = require("uuid");
 
 class QRService {
-  // Generate security code for registered visitors
   static generateSecurityCode() {
     return Math.floor(100000 + Math.random() * 900000).toString();
   }
 
-  // Generate unique visitor registration number
   static generateVisitorRegNo(visitorCatId, tenantId) {
     const prefix = this.getCategoryPrefix(visitorCatId);
     const timestamp = Date.now().toString().slice(-6);
@@ -18,7 +16,6 @@ class QRService {
     return `${prefix}${tenantId}${timestamp}${random}`;
   }
 
-  // Get category prefix for visitor reg number
   static getCategoryPrefix(visitorCatId) {
     const prefixes = {
       1: "STA", // Staff
@@ -30,7 +27,6 @@ class QRService {
     return prefixes[visitorCatId] || "VIS";
   }
 
-  // Generate QR code data for visitor
   static generateQRData(visitor, rtype = '') {
     return {
       tenantid: visitor.tenantId || visitor.tenantid || visitor.TenantID,
@@ -40,7 +36,6 @@ class QRService {
     };
   }
 
-  // Get type code for QR
   static getTypeCode(visitorCatId) {
     const typeCodes = {
       1: "sta", // Staff
@@ -52,7 +47,6 @@ class QRService {
     return typeCodes[visitorCatId] || "vis";
   }
 
-  // Generate QR code image (base64)
   static async generateQRCode(data, options = {}) {
     try {
       const qrOptions = {
@@ -75,7 +69,7 @@ class QRService {
         qrData: data,
         qrString: qrString,
         qrImage: qrCodeDataURL,
-        qrBase64: qrCodeDataURL.split(",")[1], // Remove data:image/png;base64, prefix
+        qrBase64: qrCodeDataURL.split(",")[1], 
       };
     } catch (error) {
       console.error("Error generating QR code:", error);
@@ -112,7 +106,6 @@ class QRService {
   }
 
   static verifyQRCode(qrData, maxAge = 24 * 60 * 60 * 1000) {
-    // 24 hours default
     try {
       const now = Date.now();
       const qrAge = now - qrData.timestamp;

@@ -1,37 +1,25 @@
-const multer = require('multer');
-const csv = require('csv-parser');
+const BulkService = require('../services/bulk.service');
+const responseUtils = require('../utils/constants');
 const fs = require('fs');
-
-const upload = multer({
-  dest: 'uploads/temp/',
-  fileFilter: (req, file, cb) => {
-    if (file.mimetype === 'text/csv' || file.originalname.endsWith('.csv')) {
-      cb(null, true);
-    } else {
-      cb(new Error('Only CSV files are allowed'), false);
-    }
-  },
-  limits: {
-    fileSize: 10 * 1024 * 1024 // 10MB limit
-  }
-});
 
 class BulkController {
   static async uploadStudentData(req, res) {
     try {
       if (!req.file) {
-        return res.status(400).json(
-          ResponseFormatter.error('No file uploaded')
-        );
+        return res.status(400).json({
+          responseCode: responseUtils.RESPONSE_CODES.ERROR,
+          responseMessage: 'No file uploaded'
+        });
       }
 
       const { type, tenantId } = req.body;
       const userTenantId = req.user.tenantId;
 
       if (tenantId && parseInt(tenantId) !== userTenantId) {
-        return res.status(403).json(
-          ResponseFormatter.error('Access denied for this tenant')
-        );
+        return res.status(403).json({
+          responseCode: responseUtils.RESPONSE_CODES.ERROR,
+          responseMessage: 'Access denied for this tenant'
+        });
       }
 
       const result = await BulkService.processStudentCSV(
@@ -41,27 +29,38 @@ class BulkController {
         req.user.username
       );
 
-      fs.unlinkSync(req.file.path);
+      if (fs.existsSync(req.file.path)) {
+        fs.unlinkSync(req.file.path);
+      }
 
       res.json(result);
     } catch (error) {
       console.error('Error in bulk upload:', error);
-      res.status(500).json(
-        ResponseFormatter.error('Internal server error')
-      );
+      res.status(500).json({
+        responseCode: responseUtils.RESPONSE_CODES.ERROR,
+        responseMessage: responseUtils.RESPONSE_MESSAGES.ERROR
+      });
     }
   }
 
   static async uploadVisitorData(req, res) {
     try {
       if (!req.file) {
-        return res.status(400).json(
-          ResponseFormatter.error('No file uploaded')
-        );
+        return res.status(400).json({
+          responseCode: responseUtils.RESPONSE_CODES.ERROR,
+          responseMessage: 'No file uploaded'
+        });
       }
 
       const { visitorCatId, tenantId } = req.body;
       const userTenantId = req.user.tenantId;
+
+      if (tenantId && parseInt(tenantId) !== userTenantId) {
+        return res.status(403).json({
+          responseCode: responseUtils.RESPONSE_CODES.ERROR,
+          responseMessage: 'Access denied for this tenant'
+        });
+      }
 
       const result = await BulkService.processVisitorCSV(
         req.file.path,
@@ -70,16 +69,19 @@ class BulkController {
         req.user.username
       );
 
-      fs.unlinkSync(req.file.path);
+      if (fs.existsSync(req.file.path)) {
+        fs.unlinkSync(req.file.path);
+      }
 
       res.json(result);
     } catch (error) {
       console.error('Error in visitor bulk upload:', error);
-      res.status(500).json(
-        ResponseFormatter.error('Internal server error')
-      );
+      res.status(500).json({
+        responseCode: responseUtils.RESPONSE_CODES.ERROR,
+        responseMessage: responseUtils.RESPONSE_MESSAGES.ERROR
+      });
     }
   }
 }
 
-module.exports = BulkController
+module.exports = BulkController;

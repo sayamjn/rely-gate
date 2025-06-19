@@ -1,3 +1,5 @@
+const VisitorModel = require('../models/visitor.model');
+const FileService = require('./file.service');
 const responseUtils = require('../utils/constants');
 
 class AnalyticsService {

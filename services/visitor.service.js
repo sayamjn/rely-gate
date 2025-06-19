@@ -66,10 +66,8 @@ class VisitorService {
         }
       }
 
-      // Generate and store OTP
       const otpResult = await OTPModel.generateOTP(tenantId, mobile, appuser);
 
-      // Send SMS if enabled
       if (process.env.SMS_ENABLED === 'Y') {
         // TODO: Implement SMS service
         console.log(`SMS would be sent to ${mobile}: ${otpResult.otpNumber}`);
@@ -96,7 +94,6 @@ class VisitorService {
   // unregistered OTP with recent visitor data
   static async sendUnregisteredOTP(mobile, tenantId, appuser) {
     try {
-      // Validate mobile number
       if (!mobile || mobile.length !== 10 || !/^\d+$/.test(mobile)) {
         return {
           responseCode: responseUtils.RESPONSE_CODES.ERROR,
@@ -104,10 +101,8 @@ class VisitorService {
         };
       }
 
-      // Generate and store OTP
       const otpResult = await OTPModel.generateOTP(tenantId, mobile, appuser);
 
-      // Get recent visitor data for this mobile
       const recentVisitors = await VisitorModel.getRecentVisitorByMobile(tenantId, mobile);
 
       console.log(`OTP for ${mobile}: ${otpResult.otpNumber}`);
@@ -171,7 +166,6 @@ class VisitorService {
       const base64Data = cleanBase64.replace(/^data:image\/[a-z]+;base64,/, '');
       const imageBuffer = Buffer.from(base64Data, 'base64');
 
-      // Save file
       const fullPath = path.join(filePath, `${imageName}${extension}`);
       await fs.writeFile(fullPath, imageBuffer);
 
@@ -212,7 +206,6 @@ class VisitorService {
         vehiclePhotoData
       });
 
-      // Send FCM notification to flat residents
       try {
         await FCMService.notifyVisitorCheckIn({
           tenantId,
@@ -245,7 +238,6 @@ class VisitorService {
   // registered visitor creation
   static async createRegisteredVisitor(visitorData) {
     try {
-      // Generate security code and registration number
       const securityCode = QRService.generateSecurityCode();
       const visitorRegNo = QRService.generateVisitorRegNo(
         visitorData.visitorCatId, 
@@ -290,7 +282,6 @@ class VisitorService {
         idPhotoData
       });
 
-      // Send security code via SMS if enabled
       if (process.env.SMS_ENABLED === 'Y') {
         // TODO: Implement SMS service for security code
         console.log(`Security code ${securityCode} would be sent to ${mobile}`);
@@ -338,7 +329,6 @@ class VisitorService {
       const result = await VisitorModel.updateVisitorCheckout(visitorId, tenantId);
       
       if (result) {
-        // Send FCM notification about checkout
         try {
           const visitorDetails = await VisitorModel.getVisitorById(visitorId, tenantId);
           if (visitorDetails) {
@@ -377,7 +367,6 @@ class VisitorService {
   // registered visitor check-in
   static async checkinRegisteredVisitor(visitorRegId, tenantId, createdBy) {
     try {
-      // Get visitor details
       const visitor = await VisitorModel.getVisitorForCheckIn(visitorRegId, tenantId);
       
       if (!visitor) {
@@ -387,7 +376,6 @@ class VisitorService {
         };
       }
 
-      // Check if already checked in
       const activeVisit = await VisitorModel.getActiveVisitHistory(visitorRegId, tenantId);
       
       if (activeVisit) {
@@ -401,7 +389,6 @@ class VisitorService {
         };
       }
 
-      // Create visit history record
       const visitHistory = await VisitorModel.createVisitHistory({
         tenantId,
         visitorRegId: visitor.visitorregid,
@@ -419,7 +406,6 @@ class VisitorService {
         createdBy
       });
 
-      // Send FCM notification
       try {
         await FCMService.notifyVisitorCheckIn({
           tenantId,
@@ -462,7 +448,6 @@ class VisitorService {
       const result = await VisitorModel.updateVisitHistoryCheckout(historyId, tenantId, updatedBy);
       
       if (result) {
-        // Get visit details for FCM notification
         try {
           const visitDetails = await VisitorModel.getVisitHistoryById(historyId, tenantId);
           if (visitDetails) {
@@ -709,7 +694,7 @@ class VisitorService {
       'unr': 2, // Unregistered
       'stu': 3, // Student
       'gue': 4, // Guest
-      'bus': 5  // Business
+      'bus': 5  // Bus
     };
     return typeMap[typeCode] || 2;
   }

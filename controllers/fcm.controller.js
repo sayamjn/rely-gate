@@ -1,4 +1,5 @@
 const FCMTokenService = require("../services/fcm-token.service");
+const responseUtils = require('../utils/constants');
 
 class FCMController {
   static async registerFCMToken(req, res) {
@@ -7,9 +8,10 @@ class FCMController {
       const userTenantId = req.user.tenantId;
 
       if (tenantId && parseInt(tenantId) !== userTenantId) {
-        return res.status(403).json(
-          ResponseFormatter.error('Access denied for this tenant')
-        );
+        return res.status(403).json({
+          responseCode: responseUtils.RESPONSE_CODES.ERROR,
+          responseMessage: 'Access denied for this tenant'
+        });
       }
 
       const result = await FCMTokenService.registerToken(
@@ -23,9 +25,10 @@ class FCMController {
       res.json(result);
     } catch (error) {
       console.error('Error registering FCM token:', error);
-      res.status(500).json(
-        ResponseFormatter.error('Internal server error')
-      );
+      res.status(500).json({
+        responseCode: responseUtils.RESPONSE_CODES.ERROR,
+        responseMessage: responseUtils.RESPONSE_MESSAGES.ERROR
+      });
     }
   }
 
@@ -33,6 +36,13 @@ class FCMController {
     try {
       const { firebaseId, androidId, tenantId } = req.body;
       const userTenantId = req.user.tenantId;
+
+      if (tenantId && parseInt(tenantId) !== userTenantId) {
+        return res.status(403).json({
+          responseCode: responseUtils.RESPONSE_CODES.ERROR,
+          responseMessage: 'Access denied for this tenant'
+        });
+      }
 
       const result = await FCMTokenService.updateToken(
         firebaseId,
@@ -43,9 +53,10 @@ class FCMController {
       res.json(result);
     } catch (error) {
       console.error('Error updating FCM token:', error);
-      res.status(500).json(
-        ResponseFormatter.error('Internal server error')
-      );
+      res.status(500).json({
+        responseCode: responseUtils.RESPONSE_CODES.ERROR,
+        responseMessage: responseUtils.RESPONSE_MESSAGES.ERROR
+      });
     }
   }
 
@@ -53,6 +64,13 @@ class FCMController {
     try {
       const { androidId, notificationFlag, tenantId } = req.body;
       const userTenantId = req.user.tenantId;
+
+      if (tenantId && parseInt(tenantId) !== userTenantId) {
+        return res.status(403).json({
+          responseCode: responseUtils.RESPONSE_CODES.ERROR,
+          responseMessage: 'Access denied for this tenant'
+        });
+      }
 
       const result = await FCMTokenService.updateNotificationFlag(
         androidId,
@@ -63,9 +81,10 @@ class FCMController {
       res.json(result);
     } catch (error) {
       console.error('Error updating notification flag:', error);
-      res.status(500).json(
-        ResponseFormatter.error('Internal server error')
-      );
+      res.status(500).json({
+        responseCode: responseUtils.RESPONSE_CODES.ERROR,
+        responseMessage: responseUtils.RESPONSE_MESSAGES.ERROR
+      });
     }
   }
 }

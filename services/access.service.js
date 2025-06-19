@@ -1,5 +1,5 @@
 class AccessService {
-  // Match C# Utility.CheckUserAccess method
+  // Utility.CheckUserAccess method
   static async checkUserAccess(tenantId, role, username) {
     try {
       const sql = `

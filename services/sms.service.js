@@ -4,7 +4,6 @@ const https = require('https');
 const querystring = require('querystring');
 
 class SMSService {
-  // Get SMS gateway configuration
   static async getSMSGateway(tenantId) {
     const sql = `
       SELECT SMSGatewayID, SMSEnabledFlag, GatewayURL, ApiKeyFlag, 
@@ -32,7 +31,6 @@ class SMSService {
       2: 'Your security code for TENANT is NO.'
     };
     
-    // Get tenant name
     const tenantSql = `SELECT TenantName FROM Tenant WHERE TenantID = $1`;
     let tenantName = 'Visitor Management';
     

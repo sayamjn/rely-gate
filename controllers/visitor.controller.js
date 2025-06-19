@@ -233,7 +233,6 @@ class VisitorController {
         });
       }
 
-      // Validate required fields
       if (!vistorName || !mobile || !visitorCatId || !visitorSubCatId) {
         return res.status(400).json({
           responseCode: 'E',
@@ -280,7 +279,6 @@ class VisitorController {
       const { tenantId, visitorCatId = 0, visitorSubCatId = 0 } = req.query;
       const userTenantId = req.user.tenantId;
 
-      // Validate tenant access
       if (tenantId && parseInt(tenantId) !== userTenantId) {
         return res.status(403).json({
           responseCode: 'E',
@@ -311,7 +309,6 @@ class VisitorController {
       const { tenantId } = req.body;
       const userTenantId = req.user.tenantId;
 
-      // Validate tenant access
       if (tenantId && parseInt(tenantId) !== userTenantId) {
         return res.status(403).json({
           responseCode: 'E',

@@ -1,3 +1,10 @@
+const fs = require('fs');
+const csv = require('csv-parser');
+const { query } = require('../config/database');
+const VisitorModel = require('../models/visitor.model');
+const QRService = require('./qr.service');
+const responseUtils = require('../utils/constants');
+
 class BulkService {
   static async processStudentCSV(filePath, type, tenantId, createdBy) {
     try {
@@ -9,7 +16,6 @@ class BulkService {
         fs.createReadStream(filePath)
           .pipe(csv({ headers: false }))
           .on('data', (row) => {
-            // Skip header row
             if (isFirstRow) {
               isFirstRow = false;
               return;
@@ -31,17 +37,15 @@ class BulkService {
           })
           .on('end', async () => {
             try {
-              // Bulk insert students
-              await this.bulkInsertStudents(students);
+              await this.bulkInsertStudents(students, tenantId);
               
-              // Call stored procedure equivalent
               await this.insertBulkVisitors(tenantId);
               
-              resolve(ResponseFormatter.success(
-                null,
-                `${students.length} student records inserted successfully`,
-                students.length
-              ));
+              resolve({
+                responseCode: responseUtils.RESPONSE_CODES.SUCCESS,
+                responseMessage: `${students.length} student records inserted successfully`,
+                count: students.length
+              });
             } catch (error) {
               reject(error);
             }
@@ -50,106 +54,114 @@ class BulkService {
       });
     } catch (error) {
       console.error('Error processing student CSV:', error);
-      return ResponseFormatter.error('Failed to process CSV file');
+      return {
+        responseCode: responseUtils.RESPONSE_CODES.ERROR,
+        responseMessage: responseUtils.RESPONSE_MESSAGES.ERROR
+      };
     }
   }
 
-  static async bulkInsertStudents(students) {
-    const client = await pool.connect();
+  static async bulkInsertStudents(students, tenantId) {
     try {
-      await client.query('BEGIN');
-      
-      // Clear existing bulk upload data
-      await client.query('DELETE FROM "BulkVisitorUpload" WHERE "TenantID" = $1', [students[0]?.tenantId]);
-      
-      // Bulk insert
-      for (const student of students) {
-        await client.query(`
-          INSERT INTO "BulkVisitorUpload" (
-            "StudentID", "Name", "Mobile", "Course", "Hostel", "TenantID", "Type"
-          ) VALUES ($1, $2, $3, $4, $5, $6, $7)
-        `, [
-          student.studentId,
-          student.name, 
-          student.mobile,
-          student.course,
-          student.hostel,
-          student.tenantId,
-          student.type
-        ]);
+      await query(`
+        CREATE TEMP TABLE IF NOT EXISTS temp_bulk_upload (
+          student_id VARCHAR(50),
+          name VARCHAR(150),
+          mobile VARCHAR(20),
+          course VARCHAR(100),
+          hostel VARCHAR(100),
+          tenant_id INTEGER,
+          type VARCHAR(50)
+        )
+      `);
+
+      await query('DELETE FROM temp_bulk_upload');
+
+      for (let i = 0; i < students.length; i += 100) {
+        const batch = students.slice(i, i + 100);
+        const values = batch.map(student => 
+          `('${student.studentId}', '${student.name}', '${student.mobile}', '${student.course}', '${student.hostel}', ${tenantId}, '${student.type}')`
+        ).join(',');
+
+        await query(`
+          INSERT INTO temp_bulk_upload (student_id, name, mobile, course, hostel, tenant_id, type)
+          VALUES ${values}
+        `);
       }
-      
-      await client.query('COMMIT');
+
+      console.log(`Bulk inserted ${students.length} students`);
     } catch (error) {
-      await client.query('ROLLBACK');
+      console.error('Error in bulk insert:', error);
       throw error;
-    } finally {
-      client.release();
     }
   }
 
   static async insertBulkVisitors(tenantId) {
-    // Process bulk upload data and create visitor registrations
-    const sql = `
-      INSERT INTO "VisitorRegistration" (
-        "TenantID", "VistorName", "Mobile", "VisitorCatID", "VisitorCatName",
-        "VisitorSubCatID", "VisitorSubCatName", "VisitorRegNo", "SecurityCode",
-        "StatusID", "StatusName", "IsActive", "CreatedDate", "UpdatedDate", 
-        "CreatedBy", "UpdatedBy"
-      )
-      SELECT 
-        bvu."TenantID",
-        bvu."Name",
-        bvu."Mobile", 
-        CASE bvu."Type" 
-          WHEN 'student' THEN 3
-          WHEN 'staff' THEN 1
-          ELSE 2
-        END,
-        CASE bvu."Type"
-          WHEN 'student' THEN 'Student'
-          WHEN 'staff' THEN 'Staff' 
-          ELSE 'General'
-        END,
-        CASE bvu."Type"
-          WHEN 'student' THEN 6
-          WHEN 'staff' THEN 1
-          ELSE 4
-        END,
-        CASE bvu."Type"
-          WHEN 'student' THEN 'Regular Student'
-          WHEN 'staff' THEN 'Security'
-          ELSE 'Walk-in Visitor'
-        END,
-        CONCAT(
-          CASE bvu."Type" 
-            WHEN 'student' THEN 'STU'
-            WHEN 'staff' THEN 'STA'
-            ELSE 'VIS'
-          END,
-          bvu."TenantID",
-          EXTRACT(EPOCH FROM NOW())::bigint,
-          LPAD((RANDOM() * 99)::int::text, 2, '0')
-        ),
-        LPAD((RANDOM() * 999999)::int::text, 6, '0'),
-        1,
-        'ACTIVE',
-        'Y',
-        NOW(),
-        NOW(),
-        'System',
-        'System'
-      FROM "BulkVisitorUpload" bvu
-      WHERE bvu."TenantID" = $1
-        AND NOT EXISTS (
-          SELECT 1 FROM "VisitorRegistration" vr 
-          WHERE vr."Mobile" = bvu."Mobile" 
-            AND vr."TenantID" = bvu."TenantID"
-            AND vr."IsActive" = 'Y'
+    try {
+      const sql = `
+        INSERT INTO VisitorRegistration (
+          TenantID, VistorName, Mobile, VisitorCatID, VisitorCatName,
+          VisitorSubCatID, VisitorSubCatName, VisitorRegNo, SecurityCode,
+          StatusID, StatusName, IsActive, CreatedDate, UpdatedDate, 
+          CreatedBy, UpdatedBy
         )
-    `;
-    
-    await query(sql, [tenantId]);
+        SELECT 
+          $1,
+          t.name,
+          t.mobile, 
+          CASE t.type 
+            WHEN 'student' THEN 3
+            WHEN 'staff' THEN 1
+            ELSE 2
+          END,
+          CASE t.type
+            WHEN 'student' THEN 'Student'
+            WHEN 'staff' THEN 'Staff' 
+            ELSE 'General'
+          END,
+          CASE t.type
+            WHEN 'student' THEN 6
+            WHEN 'staff' THEN 1
+            ELSE 4
+          END,
+          CASE t.type
+            WHEN 'student' THEN 'Regular Student'
+            WHEN 'staff' THEN 'Security'
+            ELSE 'Walk-in Visitor'
+          END,
+          CONCAT(
+            CASE t.type 
+              WHEN 'student' THEN 'STU'
+              WHEN 'staff' THEN 'STA'
+              ELSE 'VIS'
+            END,
+            $1,
+            EXTRACT(EPOCH FROM NOW())::bigint,
+            LPAD((RANDOM() * 99)::int::text, 2, '0')
+          ),
+          LPAD((RANDOM() * 999999)::int::text, 6, '0'),
+          1,
+          'ACTIVE',
+          'Y',
+          NOW(),
+          NOW(),
+          'System',
+          'System'
+        FROM temp_bulk_upload t
+        WHERE NOT EXISTS (
+          SELECT 1 FROM VisitorRegistration vr 
+          WHERE vr.Mobile = t.mobile 
+            AND vr.TenantID = $1
+            AND vr.IsActive = 'Y'
+        )
+      `;
+      
+      await query(sql, [tenantId]);
+      console.log('Bulk visitors created from uploaded data');
+    } catch (error) {
+      console.error('Error creating bulk visitors:', error);
+      throw error;
+    }
   }
 
   static async processVisitorCSV(filePath, visitorCatId, tenantId, createdBy) {
@@ -185,11 +197,11 @@ class BulkService {
           .on('end', async () => {
             try {
               const inserted = await this.bulkInsertVisitors(visitors);
-              resolve(ResponseFormatter.success(
-                null,
-                `${inserted} visitor records inserted successfully`,
-                inserted
-              ));
+              resolve({
+                responseCode: responseUtils.RESPONSE_CODES.SUCCESS,
+                responseMessage: `${inserted} visitor records inserted successfully`,
+                count: inserted
+              });
             } catch (error) {
               reject(error);
             }
@@ -198,7 +210,10 @@ class BulkService {
       });
     } catch (error) {
       console.error('Error processing visitor CSV:', error);
-      return ResponseFormatter.error('Failed to process visitor CSV');
+      return {
+        responseCode: responseUtils.RESPONSE_CODES.ERROR,
+        responseMessage: responseUtils.RESPONSE_MESSAGES.ERROR
+      };
     }
   }
 
@@ -207,7 +222,6 @@ class BulkService {
     
     for (const visitor of visitors) {
       try {
-        // Check if visitor already exists
         const exists = await VisitorModel.checkVisitorExists(
           visitor.mobile, 
           visitor.tenantId, 
@@ -275,4 +289,4 @@ class BulkService {
   }
 }
 
-module.exports = BulkService
+module.exports = BulkService;

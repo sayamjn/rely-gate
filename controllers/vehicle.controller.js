@@ -1,4 +1,5 @@
 const VehicleService = require('../services/vehicle.service');
+const responseUtils = require('../utils/constants');
 
 class VehicleController {
   static async searchVehicles(req, res) {
@@ -7,16 +8,22 @@ class VehicleController {
       const userTenantId = req.user.tenantId;
 
       if (tenantId && parseInt(tenantId) !== userTenantId) {
-        return res.status(403).json(ResponseFormatter.error('Access denied for this tenant'));
+        return res.status(403).json({
+          responseCode: responseUtils.RESPONSE_CODES.ERROR,
+          responseMessage: 'Access denied for this tenant'
+        });
       }
 
       const result = await VehicleService.searchVehicles(userTenantId, vehicleNo, from, to);
       res.json(result);
     } catch (error) {
       console.error('Error in vehicle search:', error);
-      res.status(500).json(ResponseFormatter.error('Internal server error'));
+      res.status(500).json({
+        responseCode: responseUtils.RESPONSE_CODES.ERROR,
+        responseMessage: responseUtils.RESPONSE_MESSAGES.ERROR
+      });
     }
   }
 }
 
-module.exports = VehicleController
+module.exports = VehicleController;
