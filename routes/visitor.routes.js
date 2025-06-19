@@ -201,4 +201,15 @@ router.get('/search', [
   query('visitorSubCatId').optional().isNumeric().withMessage('VisitorSubCatId must be numeric')
 ], handleValidationErrors, VisitorController.searchVisitors);
 
+
+router.get('/history/comprehensive', [
+  query('tenantId').optional().isNumeric().withMessage('TenantId must be numeric'),
+  query('page').optional().isNumeric().withMessage('Page must be numeric'),
+  query('pageSize').optional().isNumeric().withMessage('Page size must be numeric'),
+  query('visitorCatId').optional().isNumeric().withMessage('VisitorCatId must be numeric'),
+  query('visitorSubCatId').optional().isNumeric().withMessage('VisitorSubCatId must be numeric'),
+  query('fromDate').optional().isDate().withMessage('FromDate must be valid date'),
+  query('toDate').optional().isDate().withMessage('ToDate must be valid date')
+], handleValidationErrors, VisitorController.getComprehensiveHistory);
+
 module.exports = router;

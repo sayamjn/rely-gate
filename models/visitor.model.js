@@ -533,6 +533,278 @@ class VisitorModel {
     const result = await query(sql, params);
     return result.rows;
   }
+
+    // Get comprehensive visit history with filters
+  static async getComprehensiveVisitHistory(tenantId, filters = {}) {
+    const {
+      fromDate,
+      toDate,
+      visitorCatId,
+      visitorSubCatId,
+      flatName,
+      visitorRegId,
+      status = 'all', // 'checked_in', 'checked_out', 'all'
+      page = 1,
+      pageSize = 50
+    } = filters;
+
+    let sql = `
+      SELECT 
+        vh.RegVisitorHistoryID,
+        vh.VisitorRegID,
+        vh.VistorName,
+        vh.Mobile,
+        vh.VehiclelNo,
+        vh.VisitorCatID,
+        vh.VisitorCatName,
+        vh.VisitorSubCatID,
+        vh.VisitorSubCatName,
+        vh.AssociatedFlat,
+        vh.INTime,
+        vh.INTimeTxt,
+        vh.OutTime,
+        vh.OutTimeTxt,
+        vh.CreatedDate,
+        vr.SecurityCode,
+        vr.VisitorRegNo,
+        vr.PhotoName,
+        vr.PhotoPath,
+        vr.VehiclePhotoName,
+        vr.VehiclePhotoPath,
+        COUNT(*) OVER() as total_count
+      FROM VisitorRegVisitHistory vh
+      LEFT JOIN VisitorRegistration vr ON vh.VisitorRegID = vr.VisitorRegID
+      WHERE vh.TenantID = $1 AND vh.IsActive = 'Y'
+    `;
+
+    const params = [tenantId];
+    let paramIndex = 2;
+
+    // Date filters
+    if (fromDate) {
+      sql += ` AND DATE(vh.CreatedDate) >= $${paramIndex}`;
+      params.push(fromDate);
+      paramIndex++;
+    }
+
+    if (toDate) {
+      sql += ` AND DATE(vh.CreatedDate) <= $${paramIndex}`;
+      params.push(toDate);
+      paramIndex++;
+    }
+
+    // Category filters
+    if (visitorCatId && visitorCatId > 0) {
+      sql += ` AND vh.VisitorCatID = $${paramIndex}`;
+      params.push(visitorCatId);
+      paramIndex++;
+    }
+
+    if (visitorSubCatId && visitorSubCatId > 0) {
+      sql += ` AND vh.VisitorSubCatID = $${paramIndex}`;
+      params.push(visitorSubCatId);
+      paramIndex++;
+    }
+
+    // Flat filter
+    if (flatName) {
+      sql += ` AND vh.AssociatedFlat ILIKE $${paramIndex}`;
+      params.push(`%${flatName}%`);
+      paramIndex++;
+    }
+
+    // Visitor filter
+    if (visitorRegId) {
+      sql += ` AND vh.VisitorRegID = $${paramIndex}`;
+      params.push(visitorRegId);
+      paramIndex++;
+    }
+
+    // Status filter
+    if (status === 'checked_in') {
+      sql += ` AND (vh.OutTime IS NULL OR vh.OutTimeTxt IS NULL OR vh.OutTimeTxt = '')`;
+    } else if (status === 'checked_out') {
+      sql += ` AND vh.OutTime IS NOT NULL AND vh.OutTimeTxt IS NOT NULL AND vh.OutTimeTxt != ''`;
+    }
+
+    // Pagination
+    const offset = (page - 1) * pageSize;
+    sql += ` ORDER BY vh.INTime DESC LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`;
+    params.push(pageSize, offset);
+
+    const result = await query(sql, params);
+    return result.rows;
+  }
+
+   // Get dashboard analytics
+  static async getDashboardAnalytics(tenantId, date = null) {
+    const targetDate = date || new Date().toISOString().split('T')[0];
+
+    const sql = `
+      WITH today_stats AS (
+        SELECT 
+          COUNT(*) as total_visits_today,
+          COUNT(CASE WHEN OutTime IS NULL OR OutTimeTxt IS NULL OR OutTimeTxt = '' THEN 1 END) as currently_inside,
+          COUNT(CASE WHEN OutTime IS NOT NULL AND OutTimeTxt IS NOT NULL AND OutTimeTxt != '' THEN 1 END) as completed_visits_today
+        FROM VisitorRegVisitHistory 
+        WHERE TenantID = $1 AND DATE(CreatedDate) = $2 AND IsActive = 'Y'
+      ),
+      category_stats AS (
+        SELECT 
+          VisitorCatID,
+          VisitorCatName,
+          COUNT(*) as visit_count
+        FROM VisitorRegVisitHistory 
+        WHERE TenantID = $1 AND DATE(CreatedDate) = $2 AND IsActive = 'Y'
+        GROUP BY VisitorCatID, VisitorCatName
+      ),
+      weekly_stats AS (
+        SELECT 
+          DATE(CreatedDate) as visit_date,
+          COUNT(*) as daily_count
+        FROM VisitorRegVisitHistory 
+        WHERE TenantID = $1 AND CreatedDate >= (CURRENT_DATE - INTERVAL '7 days') AND IsActive = 'Y'
+        GROUP BY DATE(CreatedDate)
+        ORDER BY visit_date
+      ),
+      unregistered_today AS (
+        SELECT COUNT(*) as unregistered_count
+        FROM VisitorMaster 
+        WHERE TenantID = $1 AND DATE(CreatedDate) = $2 AND IsActive = 'Y'
+      )
+      SELECT 
+        (SELECT json_build_object(
+          'total_visits_today', total_visits_today,
+          'currently_inside', currently_inside,
+          'completed_visits_today', completed_visits_today
+        ) FROM today_stats) as today_stats,
+        
+        (SELECT json_agg(json_build_object(
+          'category_id', VisitorCatID,
+          'category_name', VisitorCatName,
+          'visit_count', visit_count
+        )) FROM category_stats) as category_stats,
+        
+        (SELECT json_agg(json_build_object(
+          'date', visit_date,
+          'count', daily_count
+        )) FROM weekly_stats) as weekly_stats,
+        
+        (SELECT unregistered_count FROM unregistered_today) as unregistered_today
+    `;
+
+    const result = await query(sql, [tenantId, targetDate]);
+    return result.rows[0];
+  }
+
+  // Get visitor frequency analytics
+  static async getVisitorFrequencyAnalytics(tenantId, days = 30) {
+    const sql = `
+      SELECT 
+        vr.VisitorRegID,
+        vr.VistorName,
+        vr.Mobile,
+        vr.VisitorCatName,
+        vr.VisitorSubCatName,
+        vr.PhotoName,
+        COUNT(vh.RegVisitorHistoryID) as visit_count,
+        MAX(vh.CreatedDate) as last_visit,
+        MIN(vh.CreatedDate) as first_visit,
+        AVG(EXTRACT(EPOCH FROM (vh.OutTime - vh.INTime))/3600) as avg_duration_hours
+      FROM VisitorRegistration vr
+      LEFT JOIN VisitorRegVisitHistory vh ON vr.VisitorRegID = vh.VisitorRegID 
+        AND vh.TenantID = $1 
+        AND vh.CreatedDate >= (CURRENT_DATE - INTERVAL '${days} days')
+        AND vh.IsActive = 'Y'
+      WHERE vr.TenantID = $1 AND vr.IsActive = 'Y'
+      GROUP BY vr.VisitorRegID, vr.VistorName, vr.Mobile, vr.VisitorCatName, vr.VisitorSubCatName, vr.PhotoName
+      HAVING COUNT(vh.RegVisitorHistoryID) > 0
+      ORDER BY visit_count DESC, last_visit DESC
+      LIMIT 50
+    `;
+
+    const result = await query(sql, [tenantId]);
+    return result.rows;
+  }
+
+  // Get peak hours analytics
+  static async getPeakHoursAnalytics(tenantId, days = 7) {
+    const sql = `
+      SELECT 
+        EXTRACT(HOUR FROM INTime) as hour_of_day,
+        COUNT(*) as visit_count,
+        AVG(EXTRACT(EPOCH FROM (OutTime - INTime))/3600) as avg_duration_hours
+      FROM VisitorRegVisitHistory
+      WHERE TenantID = $1 
+        AND CreatedDate >= (CURRENT_DATE - INTERVAL '${days} days')
+        AND IsActive = 'Y'
+        AND INTime IS NOT NULL
+      GROUP BY EXTRACT(HOUR FROM INTime)
+      ORDER BY hour_of_day
+    `;
+
+    const result = await query(sql, [tenantId]);
+    return result.rows;
+  }
+
+  // Get flat-wise visitor analytics
+  static async getFlatWiseAnalytics(tenantId, days = 30) {
+    const sql = `
+      SELECT 
+        AssociatedFlat as flat_name,
+        COUNT(*) as total_visits,
+        COUNT(DISTINCT VisitorRegID) as unique_visitors,
+        AVG(EXTRACT(EPOCH FROM (OutTime - INTime))/3600) as avg_duration_hours,
+        MAX(CreatedDate) as last_visit
+      FROM VisitorRegVisitHistory
+      WHERE TenantID = $1 
+        AND CreatedDate >= (CURRENT_DATE - INTERVAL '${days} days')
+        AND IsActive = 'Y'
+        AND AssociatedFlat IS NOT NULL AND AssociatedFlat != ''
+      GROUP BY AssociatedFlat
+      ORDER BY total_visits DESC
+      LIMIT 20
+    `;
+
+    const result = await query(sql, [tenantId]);
+    return result.rows;
+  }
+
+  // Get recent visitor activity
+  static async getRecentActivity(tenantId, limit = 20) {
+    const sql = `
+      SELECT 
+        vh.RegVisitorHistoryID,
+        vh.VisitorRegID,
+        vh.VistorName,
+        vh.Mobile,
+        vh.VisitorCatName,
+        vh.VisitorSubCatName,
+        vh.AssociatedFlat,
+        vh.INTime,
+        vh.INTimeTxt,
+        vh.OutTime,
+        vh.OutTimeTxt,
+        vh.CreatedDate,
+        vr.PhotoName,
+        vr.SecurityCode,
+        CASE 
+          WHEN vh.OutTime IS NULL OR vh.OutTimeTxt IS NULL OR vh.OutTimeTxt = '' 
+          THEN 'CHECKED_IN' 
+          ELSE 'CHECKED_OUT' 
+        END as current_status
+      FROM VisitorRegVisitHistory vh
+      LEFT JOIN VisitorRegistration vr ON vh.VisitorRegID = vr.VisitorRegID
+      WHERE vh.TenantID = $1 AND vh.IsActive = 'Y'
+      ORDER BY 
+        CASE WHEN vh.OutTime IS NULL THEN vh.INTime ELSE vh.OutTime END DESC
+      LIMIT $2
+    `;
+
+    const result = await query(sql, [tenantId, limit]);
+    return result.rows;
+  }
+  
 }
 
 module.exports = VisitorModel;

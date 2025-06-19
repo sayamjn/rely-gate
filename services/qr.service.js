@@ -31,30 +31,12 @@ class QRService {
   }
 
   // Generate QR code data for visitor
-  static generateQRData(visitor, type = "registered") {
+  static generateQRData(visitor, rtype = '') {
     return {
       tenantid: visitor.tenantId || visitor.tenantid || visitor.TenantID,
-      mainid:
-        visitor.visitorRegNo ||
-        visitor.securityCode ||
-        visitor.VisitorRegNo ||
-        visitor.SecurityCode,
-      type: this.getTypeCode(
-        visitor.visitorCatId || visitor.visitorcatid || visitor.VisitorCatID
-      ),
-      name:
-        visitor.vistorName ||
-        visitor.fname ||
-        visitor.VistorName ||
-        visitor.Fname,
-      mobile: visitor.mobile || visitor.Mobile,
-      flat:
-        visitor.flatName ||
-        visitor.associatedFlat ||
-        visitor.FlatName ||
-        visitor.AssociatedFlat,
-      timestamp: Date.now(),
-      uuid: uuidv4(),
+      mainid: visitor.visitorRegNo || visitor.securityCode || visitor.VisitorRegNo || visitor.SecurityCode,
+      type: this.getTypeCode(visitor.visitorCatId || visitor.visitorcatid || visitor.VisitorCatID),
+      rtype: rtype 
     };
   }
 
@@ -109,17 +91,22 @@ class QRService {
       const data = JSON.parse(qrString);
 
       if (!data.tenantid || !data.mainid || !data.type) {
-        throw new Error("Invalid QR code format");
+        throw new Error('Invalid QR code format');
       }
 
       return {
         success: true,
-        data: data,
+        data: {
+          tenantid: data.tenantid,
+          mainid: data.mainid, 
+          type: data.type,
+          rtype: data.rtype || ''
+        }
       };
     } catch (error) {
       return {
         success: false,
-        error: "Invalid QR code format",
+        error: 'Invalid QR code format'
       };
     }
   }

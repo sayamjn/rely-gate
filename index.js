@@ -9,6 +9,8 @@ const { testConnection } = require('./config/database');
 const authRoutes = require('./routes/auth.routes');
 const protectedRoutes = require('./routes/protected.routes');
 const visitorRoutes = require('./routes/visitor.routes');
+const fileRoutes = require('./routes/file.routes');
+const analyticsRoutes = require('./routes/analytics.routes');
 
 const app = express();
 const PORT = config.port || 3000;
@@ -18,13 +20,47 @@ app.use(cors());
 app.use(express.json({ limit: '50mb' })); // Increased limit for base64 images
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
+
+const fs = require('fs');
+const uploadDirs = [
+  'uploads',
+  'uploads/visitors',
+  'uploads/registered_visitors', 
+  'uploads/vehicles',
+  'uploads/visitor_ids',
+  'uploads/qr_codes'
+];
+uploadDirs.forEach(dir => {
+  if (!fs.existsSync(dir)) {
+    fs.mkdirSync(dir, { recursive: true });
+    console.log(`Created directory: ${dir}`);
+  }
+});
+
+// Serve static files with proper headers
+app.use('/uploads', express.static(path.join(__dirname, 'uploads'), {
+  maxAge: '1d', // Cache for 1 day
+  setHeaders: (res, filePath) => {
+    if (filePath.endsWith('.jpeg') || filePath.endsWith('.jpg')) {
+      res.set('Content-Type', 'image/jpeg');
+    } else if (filePath.endsWith('.png')) {
+      res.set('Content-Type', 'image/png');
+    }
+    
+    res.set('X-Content-Type-Options', 'nosniff');
+    res.set('Cache-Control', 'public, max-age=86400'); // 1 day
+  }
+}));
+
 // Serve static files for uploaded images
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+// app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // Routes
 app.use('/api/auth', authRoutes);
 app.use('/api', protectedRoutes);
 app.use('/api/visitors', visitorRoutes);
+app.use('/api/files', fileRoutes);
+app.use('/api/analytics', analyticsRoutes);
 
 // Health check endpoint
 app.get('/health', (req, res) => {
@@ -35,6 +71,32 @@ app.get('/health', (req, res) => {
   });
 });
 
+// File info endpoint for testing
+app.get('/api/files/info/:category/:filename', (req, res) => {
+  const { category, filename } = req.params;
+  const filePath = path.join(__dirname, 'uploads', category, filename);
+  
+  fs.stat(filePath, (err, stats) => {
+    if (err) {
+      return res.status(404).json({
+        responseCode: 'E',
+        responseMessage: 'File not found'
+      });
+    }
+    
+    res.json({
+      responseCode: 'S',
+      data: {
+        filename,
+        category,
+        size: stats.size,
+        created: stats.birthtime,
+        modified: stats.mtime,
+        url: `${req.protocol}://${req.get('host')}/uploads/${category}/${filename}`
+      }
+    });
+  });
+});
 // Error handling middleware
 app.use((error, req, res, next) => {
   console.error('Unhandled error:', error);

@@ -560,6 +560,62 @@ class VisitorController {
       });
     }
   }
+  
+    // GET /api/visitors/history/comprehensive
+  static async getComprehensiveHistory(req, res) {
+    try {
+      const { tenantId, ...filters } = req.query;
+      const userTenantId = req.user.tenantId;
+
+      if (tenantId && parseInt(tenantId) !== userTenantId) {
+        return res.status(403).json({
+          responseCode: 'E',
+          responseMessage: 'Access denied for this tenant'
+        });
+      }
+
+      const history = await VisitorModel.getComprehensiveVisitHistory(userTenantId, filters);
+      
+      const totalCount = history.length > 0 ? parseInt(history[0].total_count) : 0;
+      const currentPage = parseInt(filters.page) || 1;
+      const pageSize = parseInt(filters.pageSize) || 50;
+      const totalPages = Math.ceil(totalCount / pageSize);
+
+      const historyWithUrls = history.map(record => {
+        const { total_count, ...historyData } = record;
+        return {
+          ...historyData,
+          photoUrl: record.photoname ? 
+            FileService.getFileUrl(FileService.categories.REGISTERED_VISITORS, record.photoname) : null,
+          vehiclePhotoUrl: record.vehiclephotoname ? 
+            FileService.getFileUrl(FileService.categories.VEHICLES, record.vehiclephotoname) : null,
+          duration: record.intime && record.outtime ? 
+            AnalyticsService.calculateDuration(record.intime, record.outtime) : null,
+          status: (!record.outtime || !record.outtimetxt || record.outtimetxt === '') ? 
+            'CHECKED_IN' : 'CHECKED_OUT'
+        };
+      });
+
+      res.json({
+        responseCode: 'S',
+        data: historyWithUrls,
+        pagination: {
+          currentPage,
+          pageSize,
+          totalCount,
+          totalPages,
+          hasNext: currentPage < totalPages,
+          hasPrev: currentPage > 1
+        }
+      });
+    } catch (error) {
+      console.error('Error in getComprehensiveHistory:', error);
+      res.status(500).json({
+        responseCode: 'E',
+        responseMessage: 'Internal server error'
+      });
+    }
+  }
 }
 
 module.exports = VisitorController;

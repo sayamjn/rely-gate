@@ -4,6 +4,7 @@ const fs = require('fs').promises;
 const path = require('path');
 const responseUtils = require("../utils/constants");
 const QRService = require('./qr.service');
+const FCMService = require('./fcm.service');
 
 class VisitorService {
 
@@ -45,10 +46,9 @@ class VisitorService {
     }
   }
 
-  // Send OTP for visitor registration
+  // OTP sending with visitor type validation
   static async sendOTP(mobile, tenantId, visitorTypeId, appuser) {
     try {
-      // Validate mobile number
       if (!mobile || mobile.length !== 10 || !/^\d+$/.test(mobile)) {
         return {
           responseCode: responseUtils.RESPONSE_CODES.ERROR,
@@ -56,7 +56,6 @@ class VisitorService {
         };
       }
 
-      // Check if visitor already exists for registered visitors
       if (visitorTypeId) {
         const exists = await VisitorModel.checkVisitorExists(mobile, tenantId, parseInt(visitorTypeId));
         if (exists) {
@@ -70,15 +69,18 @@ class VisitorService {
       // Generate and store OTP
       const otpResult = await OTPModel.generateOTP(tenantId, mobile, appuser);
 
-      // In production, you would integrate with SMS gateway here
-      // For now, we'll just return the OTP for testing
+      // Send SMS if enabled
+      if (process.env.SMS_ENABLED === 'Y') {
+        // TODO: Implement SMS service
+        console.log(`SMS would be sent to ${mobile}: ${otpResult.otpNumber}`);
+      }
+
       console.log(`OTP for ${mobile}: ${otpResult.otpNumber}`);
 
       return {
         responseCode: responseUtils.RESPONSE_CODES.SUCCESS,
         responseMessage: responseUtils.RESPONSE_MESSAGES.OTP_SENT,
         refId: otpResult.refId,
-        // Remove this in production - only for testing
         otp: process.env.NODE_ENV === 'development' ? otpResult.otpNumber : undefined
       };
     } catch (error) {
@@ -91,7 +93,7 @@ class VisitorService {
     }
   }
 
-  // Send OTP for unregistered visitors
+  // unregistered OTP with recent visitor data
   static async sendUnregisteredOTP(mobile, tenantId, appuser) {
     try {
       // Validate mobile number
@@ -108,7 +110,6 @@ class VisitorService {
       // Get recent visitor data for this mobile
       const recentVisitors = await VisitorModel.getRecentVisitorByMobile(tenantId, mobile);
 
-      // In production, integrate with SMS gateway
       console.log(`OTP for ${mobile}: ${otpResult.otpNumber}`);
 
       return {
@@ -116,7 +117,6 @@ class VisitorService {
         responseMessage: responseUtils.RESPONSE_MESSAGES.OTP_SENT,
         refId: otpResult.refId,
         data: recentVisitors,
-        // Remove this in production - only for testing
         otp: process.env.NODE_ENV === 'development' ? otpResult.otpNumber : undefined
       };
     } catch (error) {
@@ -157,7 +157,7 @@ class VisitorService {
     }
   }
 
-  // Save base64 image to file system
+  // image saving with better error handling
   static async saveImage(base64String, imageName, extension, filePath) {
     try {
       if (!base64String || extension === 'N/A') {
@@ -167,7 +167,9 @@ class VisitorService {
       await fs.mkdir(filePath, { recursive: true });
 
       const cleanBase64 = base64String.replace(/\n/g, '').replace(/ /g, '');
-      const imageBuffer = Buffer.from(cleanBase64, 'base64');
+      
+      const base64Data = cleanBase64.replace(/^data:image\/[a-z]+;base64,/, '');
+      const imageBuffer = Buffer.from(base64Data, 'base64');
 
       // Save file
       const fullPath = path.join(filePath, `${imageName}${extension}`);
@@ -180,7 +182,7 @@ class VisitorService {
     }
   }
 
-  // Create unregistered visitor
+  // unregistered visitor creation with FCM notifications
   static async createUnregisteredVisitor(visitorData) {
     try {
       const {
@@ -210,6 +212,21 @@ class VisitorService {
         vehiclePhotoData
       });
 
+      // Send FCM notification to flat residents
+      try {
+        await FCMService.notifyVisitorCheckIn({
+          tenantId,
+          flatName,
+          visitorName: fname,
+          visitorCategory: visitorSubCatName,
+          photoUrl: photoData ? `/uploads/visitors/${photoData}` : null,
+          type: 'UNREGISTERED_CHECKIN'
+        });
+      } catch (fcmError) {
+        console.error('FCM notification failed:', fcmError);
+        // Don't fail the entire operation if FCM fails
+      }
+
       return {
         responseCode: responseUtils.RESPONSE_CODES.SUCCESS,
         responseMessage: responseUtils.RESPONSE_MESSAGES.VISITOR_CREATED,
@@ -225,9 +242,16 @@ class VisitorService {
     }
   }
 
-  // Create registered visitor
+  // registered visitor creation
   static async createRegisteredVisitor(visitorData) {
     try {
+      // Generate security code and registration number
+      const securityCode = QRService.generateSecurityCode();
+      const visitorRegNo = QRService.generateVisitorRegNo(
+        visitorData.visitorCatId, 
+        visitorData.tenantId
+      );
+
       const {
         tenantId, vistorName, mobile, email, visitorCatId, visitorCatName,
         visitorSubCatId, visitorSubCatName, flatId, flatName, vehicleNo,
@@ -259,16 +283,25 @@ class VisitorService {
 
       const result = await VisitorModel.createRegisteredVisitor({
         ...visitorData,
+        securityCode,
+        visitorRegNo,
         photoData,
         vehiclePhotoData,
         idPhotoData
       });
 
+      // Send security code via SMS if enabled
+      if (process.env.SMS_ENABLED === 'Y') {
+        // TODO: Implement SMS service for security code
+        console.log(`Security code ${securityCode} would be sent to ${mobile}`);
+      }
+
       return {
         responseCode: responseUtils.RESPONSE_CODES.SUCCESS,
         responseMessage: responseUtils.RESPONSE_MESSAGES.VISITOR_CREATED,
         visitorRegId: result.visitorregid,
-        securityCode: result.securitycode
+        securityCode: result.securitycode,
+        visitorRegNo: visitorRegNo
       };
     } catch (error) {
       console.error('Error creating registered visitor:', error);
@@ -299,12 +332,28 @@ class VisitorService {
     }
   }
 
-  // Checkout visitor
+  // checkout with proper validation
   static async checkoutVisitor(visitorId, tenantId) {
     try {
       const result = await VisitorModel.updateVisitorCheckout(visitorId, tenantId);
       
       if (result) {
+        // Send FCM notification about checkout
+        try {
+          const visitorDetails = await VisitorModel.getVisitorById(visitorId, tenantId);
+          if (visitorDetails) {
+            await FCMService.notifyVisitorCheckOut({
+              tenantId,
+              flatName: visitorDetails.flatname,
+              visitorName: visitorDetails.fname,
+              visitorCategory: visitorDetails.visitorsubcatname,
+              type: 'UNREGISTERED_CHECKOUT'
+            });
+          }
+        } catch (fcmError) {
+          console.error('FCM notification failed:', fcmError);
+        }
+
         return {
           responseCode: responseUtils.RESPONSE_CODES.SUCCESS,
           responseMessage: 'Visitor checked out successfully'
@@ -325,7 +374,7 @@ class VisitorService {
     }
   }
 
-
+  // registered visitor check-in
   static async checkinRegisteredVisitor(visitorRegId, tenantId, createdBy) {
     try {
       // Get visitor details
@@ -347,7 +396,7 @@ class VisitorService {
           responseMessage: 'Visitor is already checked in',
           data: {
             historyId: activeVisit.regvisitorhistoryid,
-            checkInTime: activeVisit.intimeTxt
+            checkInTime: activeVisit.intimetxt
           }
         };
       }
@@ -365,10 +414,24 @@ class VisitorService {
         visitorCatName: visitor.visitorcatname,
         visitorSubCatId: visitor.visitorsubcatid,
         visitorSubCatName: visitor.visitorsubcatname,
-        associatedFlat: visitor.associatedflat,
+        associatedFlat: visitor.flatname || visitor.associatedflat,
         associatedBlock: visitor.associatedblock,
         createdBy
       });
+
+      // Send FCM notification
+      try {
+        await FCMService.notifyVisitorCheckIn({
+          tenantId,
+          flatName: visitor.flatname || visitor.associatedflat,
+          visitorName: visitor.vistorname,
+          visitorCategory: visitor.visitorsubcatname,
+          photoUrl: visitor.photopath ? `${visitor.photopath}/${visitor.photoname}` : null,
+          type: 'REGISTERED_CHECKIN'
+        });
+      } catch (fcmError) {
+        console.error('FCM notification failed:', fcmError);
+      }
 
       return {
         responseCode: responseUtils.RESPONSE_CODES.SUCCESS,
@@ -393,12 +456,28 @@ class VisitorService {
     }
   }
 
-  // Check-out registered visitor
+  // checkout for registered visitors
   static async checkoutRegisteredVisitor(historyId, tenantId, updatedBy) {
     try {
       const result = await VisitorModel.updateVisitHistoryCheckout(historyId, tenantId, updatedBy);
       
       if (result) {
+        // Get visit details for FCM notification
+        try {
+          const visitDetails = await VisitorModel.getVisitHistoryById(historyId, tenantId);
+          if (visitDetails) {
+            await FCMService.notifyVisitorCheckOut({
+              tenantId,
+              flatName: visitDetails.associatedflat,
+              visitorName: visitDetails.vistorname,
+              visitorCategory: visitDetails.visitorsubcatname,
+              type: 'REGISTERED_CHECKOUT'
+            });
+          }
+        } catch (fcmError) {
+          console.error('FCM notification failed:', fcmError);
+        }
+
         return {
           responseCode: responseUtils.RESPONSE_CODES.SUCCESS,
           responseMessage: 'Visitor checked out successfully',
@@ -465,167 +544,164 @@ class VisitorService {
     }
   }
 
-static async generateVisitorQR(visitorRegId, tenantId) {
-  try {
-    const visitor = await VisitorModel.getVisitorForCheckIn(visitorRegId, tenantId);
-    
-    if (!visitor) {
-      return {
-        responseCode: responseUtils.RESPONSE_CODES.ERROR,
-        responseMessage: 'Visitor not found'
-      };
-    }
-
-    // DEBUG: Log what we got from database
-    console.log('Raw visitor data from DB:', visitor);
-
-    // Ensure all required fields are present
-    const completeVisitorData = {
-      tenantId: tenantId,
-      tenantid: tenantId, // Add both variants
-      TenantID: tenantId,
+  // QR generation with proper data structure
+  static async generateVisitorQR(visitorRegId, tenantId) {
+    try {
+      const visitor = await VisitorModel.getVisitorForCheckIn(visitorRegId, tenantId);
       
-      visitorRegNo: visitor.visitorregno || visitor.VisitorRegNo,
-      VisitorRegNo: visitor.visitorregno || visitor.VisitorRegNo,
-      
-      securityCode: visitor.securitycode || visitor.SecurityCode,
-      SecurityCode: visitor.securitycode || visitor.SecurityCode,
-      
-      visitorCatId: visitor.visitorcatid || visitor.VisitorCatID,
-      VisitorCatID: visitor.visitorcatid || visitor.VisitorCatID,
-      
-      vistorName: visitor.vistorname || visitor.VistorName,
-      VistorName: visitor.vistorname || visitor.VistorName,
-      
-      mobile: visitor.mobile || visitor.Mobile,
-      Mobile: visitor.mobile || visitor.Mobile,
-      
-      flatName: visitor.flatname || visitor.FlatName || visitor.associatedflat,
-      FlatName: visitor.flatname || visitor.FlatName || visitor.associatedflat,
-      associatedFlat: visitor.associatedflat || visitor.flatname
-    };
-
-    console.log('Complete visitor data for QR:', completeVisitorData);
-
-    const qrData = QRService.generateQRData(completeVisitorData);
-    
-    console.log('Generated QR data:', qrData);
-    
-    const qrResult = await QRService.generateQRCode(qrData, {
-      width: 300,
-      margin: 2
-    });
-
-    if (!qrResult.success) {
-      return {
-        responseCode: responseUtils.RESPONSE_CODES.ERROR,
-        responseMessage: 'Failed to generate QR code'
-      };
-    }
-
-    return {
-      responseCode: responseUtils.RESPONSE_CODES.SUCCESS,
-      responseMessage: 'QR code generated successfully',
-      data: {
-        visitorRegId: visitor.visitorregid,
-        visitorName: visitor.vistorname,
-        qrData: qrResult.qrData,
-        qrImage: qrResult.qrImage,
-        qrBase64: qrResult.qrBase64
+      if (!visitor) {
+        return {
+          responseCode: responseUtils.RESPONSE_CODES.ERROR,
+          responseMessage: 'Visitor not found'
+        };
       }
-    };
-  } catch (error) {
-    console.error('Error generating visitor QR:', error);
-    return {
-      responseCode: responseUtils.RESPONSE_CODES.ERROR,
-      responseMessage: responseUtils.RESPONSE_MESSAGES.ERROR,
-      error: process.env.NODE_ENV === 'development' ? error.message : undefined
-    };
+
+      let securityCode = visitor.securitycode;
+      let visitorRegNo = visitor.visitorregno;
+
+      if (!securityCode || !visitorRegNo) {
+        securityCode = QRService.generateSecurityCode();
+        visitorRegNo = QRService.generateVisitorRegNo(visitor.visitorcatid, tenantId);
+        
+        await VisitorModel.updateVisitorSecurity(visitorRegId, securityCode, visitorRegNo, tenantId);
+      }
+
+      const completeVisitorData = {
+        tenantid: tenantId,
+        mainid: visitorRegNo || securityCode,
+        type: QRService.getTypeCode(visitor.visitorcatid),
+        name: visitor.vistorname,
+        mobile: visitor.mobile,
+        flat: visitor.flatname || visitor.associatedflat,
+        timestamp: Date.now(),
+        uuid: require('uuid').v4()
+      };
+
+      const qrResult = await QRService.generateQRCode(completeVisitorData, {
+        width: 300,
+        margin: 2
+      });
+
+      if (!qrResult.success) {
+        return {
+          responseCode: responseUtils.RESPONSE_CODES.ERROR,
+          responseMessage: 'Failed to generate QR code'
+        };
+      }
+
+      return {
+        responseCode: responseUtils.RESPONSE_CODES.SUCCESS,
+        responseMessage: 'QR code generated successfully',
+        data: {
+          visitorRegId: visitor.visitorregid,
+          visitorName: visitor.vistorname,
+          securityCode: securityCode,
+          visitorRegNo: visitorRegNo,
+          qrData: qrResult.qrData,
+          qrImage: qrResult.qrImage,
+          qrBase64: qrResult.qrBase64
+        }
+      };
+    } catch (error) {
+      console.error('Error generating visitor QR:', error);
+      return {
+        responseCode: responseUtils.RESPONSE_CODES.ERROR,
+        responseMessage: responseUtils.RESPONSE_MESSAGES.ERROR,
+        error: process.env.NODE_ENV === 'development' ? error.message : undefined
+      };
+    }
   }
-}
-static async scanQRCode(qrString, tenantId, userInfo) {
-  try {
-    const parseResult = QRService.parseQRData(qrString);
-    
-    if (!parseResult.success) {
-      return {
-        responseCode: responseUtils.RESPONSE_CODES.ERROR,
-        responseMessage: parseResult.error
-      };
-    }
 
-    const qrData = parseResult.data;
-
-    // Validate required fields
-    if (!qrData.tenantid || !qrData.mainid || !qrData.type) {
-      return {
-        responseCode: responseUtils.RESPONSE_CODES.ERROR,
-        responseMessage: 'Invalid QR code format - missing required fields'
-      };
-    }
-
-    // Verify QR code age
-    const verifyResult = QRService.verifyQRCode(qrData);
-    if (!verifyResult.valid) {
-      return {
-        responseCode: responseUtils.RESPONSE_CODES.ERROR,
-        responseMessage: verifyResult.reason
-      };
-    }
-
-    // Check tenant access
-    if (parseInt(qrData.tenantid) !== tenantId) {
-      return {
-        responseCode: responseUtils.RESPONSE_CODES.ERROR,
-        responseMessage: 'Access denied for this tenant'
-      };
-    }
-
-    // Get category ID from type
-    let visitorCatId = 0;
-    if (qrData.type === 'stu') visitorCatId = 3;
-    if (qrData.type === 'sta') visitorCatId = 1; 
-    if (qrData.type === 'bus') visitorCatId = 5;
-
-    // First try to find by registration number
-    let visitor = await VisitorModel.getVisitorByRegNo(qrData.mainid, tenantId, visitorCatId);
-    
-    // If not found, try to find by security code
-    if (!visitor) {
-      visitor = await VisitorModel.getVisitorBySecurityCode(qrData.mainid, tenantId);
+  // QR scanning with proper visitor lookup logic
+  static async scanQRCode(qrString, tenantId, userInfo) {
+    try {
+      const parseResult = QRService.parseQRData(qrString);
       
-      // Additional check for category if found by security code
-      if (visitor && visitorCatId > 0 && visitor.visitorcatid !== visitorCatId) {
-        visitor = null; // Category mismatch
+      if (!parseResult.success) {
+        return {
+          responseCode: responseUtils.RESPONSE_CODES.ERROR,
+          responseMessage: parseResult.error
+        };
       }
-    }
 
-    if (!visitor) {
+      const qrData = parseResult.data;
+
+      if (!qrData.tenantid || !qrData.mainid || !qrData.type) {
+        return {
+          responseCode: responseUtils.RESPONSE_CODES.ERROR,
+          responseMessage: 'Invalid QR code format - missing required fields'
+        };
+      }
+
+      const verifyResult = QRService.verifyQRCode(qrData, 24 * 60 * 60 * 1000);
+      if (!verifyResult.valid) {
+        return {
+          responseCode: responseUtils.RESPONSE_CODES.ERROR,
+          responseMessage: verifyResult.reason
+        };
+      }
+
+      if (parseInt(qrData.tenantid) !== tenantId) {
+        return {
+          responseCode: responseUtils.RESPONSE_CODES.ERROR,
+          responseMessage: 'Access denied for this tenant'
+        };
+      }
+
+      const visitorCatId = this.getCategoryIdFromType(qrData.type);
+
+      let visitor = null;
+
+      // Try multiple lookup strategies based on C# logic
+      // 1. First try to find by registration number
+      visitor = await VisitorModel.getVisitorByRegNo(qrData.mainid, tenantId, visitorCatId);
+      
+      // 2. If not found, try by security code
+      if (!visitor) {
+        visitor = await VisitorModel.getVisitorBySecurityCode(qrData.mainid, tenantId);
+        
+        // Validate category if found by security code
+        if (visitor && visitorCatId > 0 && visitor.visitorcatid !== visitorCatId) {
+          visitor = null; // Category mismatch
+        }
+      }
+
+      // 3. If still not found and it's a special type, try alternative lookup
+      if (!visitor && (qrData.type === 'stu' || qrData.type === 'sta')) {
+        // For students/staff, try alternative lookup logic
+        visitor = await VisitorModel.getVisitorByAlternativeId(qrData.mainid, tenantId, visitorCatId);
+      }
+
+      if (!visitor) {
+        return {
+          responseCode: responseUtils.RESPONSE_CODES.ERROR,
+          responseMessage: 'Visitor not found or QR code invalid'
+        };
+      }
+
+      const checkInOutInfo = await VisitorModel.getVisitorCheckInOutStatus(visitor.visitorregid, tenantId, visitorCatId);
+
+      return {
+        responseCode: responseUtils.RESPONSE_CODES.SUCCESS,
+        responseMessage: 'QR code scanned successfully',
+        data: {
+          visitor: visitor,
+          qrData: qrData,
+          checkInOutInfo: checkInOutInfo,
+          scanTime: new Date().toISOString(),
+          scannedBy: userInfo.username,
+          actionRequired: checkInOutInfo.code === 1 ? 'CHECK_IN' : 'CHECK_OUT'
+        }
+      };
+    } catch (error) {
+      console.error('Error scanning QR code:', error);
       return {
         responseCode: responseUtils.RESPONSE_CODES.ERROR,
-        responseMessage: 'Visitor not found or QR code invalid'
+        responseMessage: responseUtils.RESPONSE_MESSAGES.ERROR,
+        error: process.env.NODE_ENV === 'development' ? error.message : undefined
       };
     }
-
-    return {
-      responseCode: responseUtils.RESPONSE_CODES.SUCCESS,
-      responseMessage: 'QR code scanned successfully',
-      data: {
-        visitor: visitor,
-        qrData: qrData,
-        scanTime: new Date().toISOString(),
-        scannedBy: userInfo.username
-      }
-    };
-  } catch (error) {
-    console.error('Error scanning QR code:', error);
-    return {
-      responseCode: responseUtils.RESPONSE_CODES.ERROR,
-      responseMessage: responseUtils.RESPONSE_MESSAGES.ERROR,
-      error: process.env.NODE_ENV === 'development' ? error.message : undefined
-    };
   }
-}
 
   static getCategoryIdFromType(typeCode) {
     const typeMap = {
@@ -633,12 +709,12 @@ static async scanQRCode(qrString, tenantId, userInfo) {
       'unr': 2, // Unregistered
       'stu': 3, // Student
       'gue': 4, // Guest
-      'bus': 5  // Bus
+      'bus': 5  // Business
     };
     return typeMap[typeCode] || 2;
   }
 
-  // Search visitors with advanced filtering
+  // search with advanced filtering
   static async searchVisitors(tenantId, searchParams) {
     try {
       const visitors = await VisitorModel.searchVisitors(tenantId, searchParams);
@@ -673,36 +749,21 @@ static async scanQRCode(qrString, tenantId, userInfo) {
     }
   }
 
-  // Update existing createRegisteredVisitor to include security code and reg number
-  static async createRegisteredVisitor(visitorData) {
+    static async saveQRCodeImage(qrBase64, visitorRegId) {
     try {
-      const securityCode = QRService.generateSecurityCode();
-      const visitorRegNo = QRService.generateVisitorRegNo(
-        visitorData.visitorCatId, 
-        visitorData.tenantId
+      const qrResult = await FileService.saveBase64Image(
+        qrBase64,
+        FileService.categories.QR_CODES,
+        `QR_${visitorRegId}_${Date.now()}.png`
       );
 
-      visitorData.securityCode = securityCode;
-      visitorData.visitorRegNo = visitorRegNo;
-
-      const result = await VisitorModel.createRegisteredVisitor(visitorData);
-
-      return {
-        responseCode: responseUtils.RESPONSE_CODES.SUCCESS,
-        responseMessage: responseUtils.RESPONSE_MESSAGES.VISITOR_CREATED,
-        visitorRegId: result.visitorregid,
-        securityCode: result.securitycode,
-        visitorRegNo: visitorRegNo
-      };
+      return qrResult;
     } catch (error) {
-      console.error('Error creating registered visitor:', error);
-      return {
-        responseCode: responseUtils.RESPONSE_CODES.ERROR,
-        responseMessage: responseUtils.RESPONSE_MESSAGES.ERROR,
-        error: process.env.NODE_ENV === 'development' ? error.message : undefined
-      };
+      console.error('Error saving QR code:', error);
+      return { success: false, error: error.message };
     }
   }
+  
 }
 
 module.exports = VisitorService;
