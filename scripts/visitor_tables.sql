@@ -281,7 +281,7 @@ INSERT INTO VisitorCategory (VisitorCatID, TenantID, VisitorCatName, IsActive) V
 (2, 1, 'Unregistered', 'Y'),
 (3, 1, 'Student', 'Y'),
 (4, 1, 'Guest', 'Y'),
-(5, 1, 'Business', 'Y')
+(5, 1, 'Bus', 'Y')
 ON CONFLICT (VisitorCatID) DO NOTHING;
 
 INSERT INTO VisitorSubCategory (VisitorSubCatID, TenantID, VisitorCatID, VisitorCatName, VisitorSubCatName, IsActive) VALUES 
@@ -294,8 +294,8 @@ INSERT INTO VisitorSubCategory (VisitorSubCatID, TenantID, VisitorCatID, Visitor
 (7, 1, 3, 'Student', 'New Admission', 'Y'),
 (8, 1, 4, 'Guest', 'Family Member', 'Y'),
 (9, 1, 4, 'Guest', 'Friend', 'Y'),
-(10, 1, 5, 'Business', 'Delivery', 'Y'),
-(11, 1, 5, 'Business', 'Service Provider', 'Y')
+(10, 1, 5, 'Bus', 'Delivery', 'Y'),
+(11, 1, 5, 'Bus', 'Service Provider', 'Y')
 ON CONFLICT (VisitorSubCatID) DO NOTHING;
 
 INSERT INTO VisitorPuposeMaster (VisitPurposeID, TenantID, PurposeCatID, PurposeCatName, VisitPurpose, IsActive) VALUES 
@@ -304,9 +304,9 @@ INSERT INTO VisitorPuposeMaster (VisitPurposeID, TenantID, PurposeCatID, Purpose
 (3, 1, 1, 'General', 'Delivery', 'Y'),
 (4, 1, 1, 'General', 'Maintenance', 'Y'),
 (5, 1, 1, 'General', 'Emergency', 'Y'),
-(6, 1, 2, 'Business', 'Business Meeting', 'Y'),
-(7, 1, 2, 'Business', 'Service Call', 'Y'),
-(8, 1, 2, 'Business', 'Installation', 'Y'),
+(6, 1, 2, 'Bus', 'Bus Meeting', 'Y'),
+(7, 1, 2, 'Bus', 'Service Call', 'Y'),
+(8, 1, 2, 'Bus', 'Installation', 'Y'),
 (9, 1, 3, 'Personal', 'Family Visit', 'Y'),
 (10, 1, 3, 'Personal', 'Social Visit', 'Y')
 ON CONFLICT (VisitPurposeID) DO NOTHING;

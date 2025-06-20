@@ -17,7 +17,6 @@ const handleValidationErrors = (req, res, next) => {
   next();
 };
 
-// Apply authentication to all student routes
 router.use(authenticateToken);
 
 // GET /api/students - List students with pagination and search
@@ -59,13 +58,13 @@ router.get('/pending-checkin', [
 ], handleValidationErrors, StudentController.getPendingCheckin);
 
 // GET /api/students/search - Advanced search with filters
-router.get('/search', [
-  query('search').optional().isString().trim(),
-  query('course').optional().isString().trim(),
-  query('hostel').optional().isString().trim(),
-  query('page').optional().isInt({ min: 1 }),
-  query('pageSize').optional().isInt({ min: 1, max: 100 }),
-  query('tenantId').optional().isNumeric()
-], handleValidationErrors, StudentController.searchStudents);
+// router.get('/search', [
+//   query('search').optional().isString().trim(),
+//   query('course').optional().isString().trim(),
+//   query('hostel').optional().isString().trim(),
+//   query('page').optional().isInt({ min: 1 }),
+//   query('pageSize').optional().isInt({ min: 1, max: 100 }),
+//   query('tenantId').optional().isNumeric()
+// ], handleValidationErrors, StudentController.searchStudents);
 
 module.exports = router;

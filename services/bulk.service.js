@@ -261,7 +261,7 @@ class BulkService {
       2: 'Unregistered', 
       3: 'Student',
       4: 'Guest',
-      5: 'Business'
+      5: 'Bus'
     };
     return categories[catId] || 'General';
   }

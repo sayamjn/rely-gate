@@ -40,7 +40,6 @@ class StudentService {
   // Get student's current status (can check-in or check-out)
   static async getStudentStatus(studentId, tenantId) {
     try {
-      // First verify student exists
       const student = await StudentModel.getStudentById(studentId, tenantId);
       
       if (!student) {
@@ -50,7 +49,6 @@ class StudentService {
         };
       }
 
-      // Check current visit status
       const activeVisit = await StudentModel.getActiveVisit(studentId, tenantId);
       
       let status = {
@@ -272,39 +270,39 @@ class StudentService {
   }
 
   // Search students by multiple criteria
-  static async searchStudents(tenantId, searchParams = {}) {
-    try {
-      const students = await StudentModel.searchStudents(tenantId, searchParams);
+  // static async searchStudents(tenantId, searchParams = {}) {
+  //   try {
+  //     const students = await StudentModel.searchStudents(tenantId, searchParams);
       
-      const totalCount = students.length > 0 ? parseInt(students[0].total_count) : 0;
-      const currentPage = parseInt(searchParams.page) || 1;
-      const pageSize = parseInt(searchParams.pageSize) || 20;
-      const totalPages = Math.ceil(totalCount / pageSize);
+  //     const totalCount = students.length > 0 ? parseInt(students[0].total_count) : 0;
+  //     const currentPage = parseInt(searchParams.page) || 1;
+  //     const pageSize = parseInt(searchParams.pageSize) || 20;
+  //     const totalPages = Math.ceil(totalCount / pageSize);
 
-      return {
-        responseCode: responseUtils.RESPONSE_CODES.SUCCESS,
-        data: students.map(student => {
-          const { total_count, ...studentData } = student;
-          return studentData;
-        }),
-        pagination: {
-          currentPage,
-          pageSize,
-          totalCount,
-          totalPages,
-          hasNext: currentPage < totalPages,
-          hasPrev: currentPage > 1
-        }
-      };
-    } catch (error) {
-      console.error('Error searching students:', error);
-      return {
-        responseCode: responseUtils.RESPONSE_CODES.ERROR,
-        responseMessage: responseUtils.RESPONSE_MESSAGES.ERROR,
-        error: process.env.NODE_ENV === 'development' ? error.message : undefined
-      };
-    }
-  }
+  //     return {
+  //       responseCode: responseUtils.RESPONSE_CODES.SUCCESS,
+  //       data: students.map(student => {
+  //         const { total_count, ...studentData } = student;
+  //         return studentData;
+  //       }),
+  //       pagination: {
+  //         currentPage,
+  //         pageSize,
+  //         totalCount,
+  //         totalPages,
+  //         hasNext: currentPage < totalPages,
+  //         hasPrev: currentPage > 1
+  //       }
+  //     };
+  //   } catch (error) {
+  //     console.error('Error searching students:', error);
+  //     return {
+  //       responseCode: responseUtils.RESPONSE_CODES.ERROR,
+  //       responseMessage: responseUtils.RESPONSE_MESSAGES.ERROR,
+  //       error: process.env.NODE_ENV === 'development' ? error.message : undefined
+  //     };
+  //   }
+  // }
 }
 
 module.exports = StudentService;

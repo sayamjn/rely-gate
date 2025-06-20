@@ -124,7 +124,6 @@ const gracefulShutdown = (signal) => {
     process.exit(0);
   });
 
-  // Force close after 10 seconds
   setTimeout(() => {
     console.error('❌ Could not close connections in time, forcefully shutting down');
     process.exit(1);

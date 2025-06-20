@@ -279,70 +279,70 @@ class StudentModel {
   }
 
   // Search students by multiple criteria
-  static async searchStudents(tenantId, searchParams = {}) {
-    const {
-      search = "",
-      course = "",
-      hostel = "",
-      page = 1,
-      pageSize = 20,
-    } = searchParams;
+  // static async searchStudents(tenantId, searchParams = {}) {
+  //   const {
+  //     search = "",
+  //     course = "",
+  //     hostel = "",
+  //     page = 1,
+  //     pageSize = 20,
+  //   } = searchParams;
 
-    let sql = `
-      SELECT 
-        vr.VisitorRegID,
-        vr.VisitorRegNo,
-        vr.VistorName,
-        vr.Mobile,
-        vr.Email,
-        vr.VisitorSubCatName,
-        vr.FlatName,
-        vr.PhotoPath,
-        vr.PhotoName,
-        COALESCE(bvu.Course, 'N/A') as Course,
-        COALESCE(bvu.Hostel, 'N/A') as Hostel,
-        vr.CreatedDate,
-        COUNT(*) OVER() as total_count
-      FROM VisitorRegistration vr
-      LEFT JOIN BulkVisitorUpload bvu ON vr.Mobile = bvu.Mobile AND bvu.Type = 'Student'
-      WHERE vr.TenantID = $1 
-        AND vr.IsActive = 'Y' 
-        AND vr.VisitorCatID = 3
-    `;
+  //   let sql = `
+  //     SELECT 
+  //       vr.VisitorRegID,
+  //       vr.VisitorRegNo,
+  //       vr.VistorName,
+  //       vr.Mobile,
+  //       vr.Email,
+  //       vr.VisitorSubCatName,
+  //       vr.FlatName,
+  //       vr.PhotoPath,
+  //       vr.PhotoName,
+  //       COALESCE(bvu.Course, 'N/A') as Course,
+  //       COALESCE(bvu.Hostel, 'N/A') as Hostel,
+  //       vr.CreatedDate,
+  //       COUNT(*) OVER() as total_count
+  //     FROM VisitorRegistration vr
+  //     LEFT JOIN BulkVisitorUpload bvu ON vr.Mobile = bvu.Mobile AND bvu.Type = 'Student'
+  //     WHERE vr.TenantID = $1 
+  //       AND vr.IsActive = 'Y' 
+  //       AND vr.VisitorCatID = 3
+  //   `;
 
-    const params = [tenantId];
-    let paramIndex = 2;
+  //   const params = [tenantId];
+  //   let paramIndex = 2;
 
-    if (search) {
-      sql += ` AND (
-        vr.VistorName ILIKE $${paramIndex} OR 
-        vr.Mobile ILIKE $${paramIndex} OR 
-        vr.VisitorRegNo ILIKE $${paramIndex} OR
-        bvu.StudentID ILIKE $${paramIndex}
-      )`;
-      params.push(`%${search}%`);
-      paramIndex++;
-    }
+  //   if (search) {
+  //     sql += ` AND (
+  //       vr.VistorName ILIKE $${paramIndex} OR 
+  //       vr.Mobile ILIKE $${paramIndex} OR 
+  //       vr.VisitorRegNo ILIKE $${paramIndex} OR
+  //       bvu.StudentID ILIKE $${paramIndex}
+  //     )`;
+  //     params.push(`%${search}%`);
+  //     paramIndex++;
+  //   }
 
-    if (course) {
-      sql += ` AND bvu.Course ILIKE $${paramIndex}`;
-      params.push(`%${course}%`);
-      paramIndex++;
-    }
+  //   if (course) {
+  //     sql += ` AND bvu.Course ILIKE $${paramIndex}`;
+  //     params.push(`%${course}%`);
+  //     paramIndex++;
+  //   }
 
-    if (hostel) {
-      sql += ` AND bvu.Hostel ILIKE $${paramIndex}`;
-      params.push(`%${hostel}%`);
-      paramIndex++;
-    }
+  //   if (hostel) {
+  //     sql += ` AND bvu.Hostel ILIKE $${paramIndex}`;
+  //     params.push(`%${hostel}%`);
+  //     paramIndex++;
+  //   }
 
-    const offset = (page - 1) * pageSize;
-    sql += ` ORDER BY vr.CreatedDate DESC LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`;
-    params.push(pageSize, offset);
+  //   const offset = (page - 1) * pageSize;
+  //   sql += ` ORDER BY vr.CreatedDate DESC LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`;
+  //   params.push(pageSize, offset);
 
-    const result = await query(sql, params);
-    return result.rows;
-  }
+  //   const result = await query(sql, params);
+  //   return result.rows;
+  // }
 }
 
 module.exports = StudentModel;
