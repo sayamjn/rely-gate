@@ -1,3 +1,4 @@
+const VisitorModel = require('../models/visitor.model');
 const VisitorService = require('../services/visitor.service');
 
 class VisitorController {

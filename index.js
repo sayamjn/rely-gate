@@ -22,6 +22,7 @@ const dashboardRoutes = require('./routes/dashboard.routes');
 const bulkRoutes = require('./routes/bulk.routes');
 const fcmRoutes = require('./routes/fcm.routes');
 const vehicleRoutes = require('./routes/vehicle.routes');
+const studentRoutes = require('./routes/student.routes');
 
 const app = express();
 const PORT = config.port || 3000;
@@ -94,6 +95,7 @@ app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/bulk', bulkRoutes);
 app.use('/api/fcm', fcmRoutes);
 app.use('/api/vehicles', vehicleRoutes);
+app.use('/api/students', studentRoutes)
 
 // Error handling middleware (must be last)
 app.use(handleError);
