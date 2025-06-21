@@ -2,7 +2,58 @@ const StudentService = require('../services/student.service');
 const responseUtils = require("../utils/constants");
 
 class StudentController {
-  // GET /api/students - List students with pagination and search
+  // POST /api/students/list - List students with filters 
+  static async listStudents(req, res) {
+    try {
+      const {
+        page = 1,
+        pageSize = 20,
+        search = '',
+        purposeId = null,
+        studentId = '',
+        firstName = '',
+        course = '',
+        hostel = '',
+        fromDate = null,
+        toDate = null,
+        tenantId
+      } = req.body;
+      
+      const userTenantId = req.user.tenantId;
+
+      if (tenantId && parseInt(tenantId) !== userTenantId) {
+        return res.status(403).json({
+          responseCode: responseUtils.RESPONSE_CODES.ERROR,
+          responseMessage: 'Access denied for this tenant'
+        });
+      }
+
+      const filters = {
+        page: parseInt(page),
+        pageSize: parseInt(pageSize),
+        search,
+        purposeId: purposeId ? parseInt(purposeId) : null,
+        studentId,
+        firstName,
+        course,
+        hostel,
+        fromDate,
+        toDate
+      };
+
+      const result = await StudentService.getStudentsWithFilters(userTenantId, filters);
+      res.json(result);
+    } catch (error) {
+      console.error('Error in listStudents:', error);
+      res.status(500).json({
+        responseCode: responseUtils.RESPONSE_CODES.ERROR,
+        responseMessage: 'Internal server error',
+        error: process.env.NODE_ENV === 'development' ? error.message : undefined
+      });
+    }
+  }
+
+  // GET /api/students - List students with pagination and search 
   static async getStudents(req, res) {
     try {
       const { 
@@ -35,6 +86,57 @@ class StudentController {
         responseCode: responseUtils.RESPONSE_CODES.ERROR,
         responseMessage: 'Internal server error',
         error: process.env.NODE_ENV === 'development' ? error.message : undefined
+      });
+    }
+  }
+
+  // GET /api/students/purposes - Get available purposes for students
+  static async getStudentPurposes(req, res) {
+    try {
+      const { tenantId, purposeCatId = 3 } = req.query;
+      const userTenantId = req.user.tenantId;
+
+      if (tenantId && parseInt(tenantId) !== userTenantId) {
+        return res.status(403).json({
+          responseCode: responseUtils.RESPONSE_CODES.ERROR,
+          responseMessage: 'Access denied for this tenant'
+        });
+      }
+
+      const result = await StudentService.getStudentPurposes(
+        userTenantId, 
+        parseInt(purposeCatId)
+      );
+      res.json(result);
+    } catch (error) {
+      console.error('Error in getStudentPurposes:', error);
+      res.status(500).json({
+        responseCode: responseUtils.RESPONSE_CODES.ERROR,
+        responseMessage: 'Internal server error'
+      });
+    }
+  }
+
+  // GET /api/students/purpose-categories - Get purpose categories
+  static async getPurposeCategories(req, res) {
+    try {
+      const { tenantId } = req.query;
+      const userTenantId = req.user.tenantId;
+
+      if (tenantId && parseInt(tenantId) !== userTenantId) {
+        return res.status(403).json({
+          responseCode: responseUtils.RESPONSE_CODES.ERROR,
+          responseMessage: 'Access denied for this tenant'
+        });
+      }
+
+      const result = await StudentService.getPurposeCategories(userTenantId);
+      res.json(result);
+    } catch (error) {
+      console.error('Error in getPurposeCategories:', error);
+      res.status(500).json({
+        responseCode: responseUtils.RESPONSE_CODES.ERROR,
+        responseMessage: 'Internal server error'
       });
     }
   }
@@ -75,11 +177,11 @@ class StudentController {
     }
   }
 
-  // POST /api/students/:studentId/checkout - Checkout student (first visit or subsequent)
+  // POST /api/students/:studentId/checkout - Checkout student with purpose support
   static async checkoutStudent(req, res) {
     try {
       const { studentId } = req.params;
-      const { tenantId } = req.body;
+      const { tenantId, purposeId, purposeName } = req.body;
       const userTenantId = req.user.tenantId;
       const createdBy = req.user.username;
 
@@ -97,9 +199,18 @@ class StudentController {
         });
       }
 
+      if (purposeId === -1 && (!purposeName || purposeName.trim() === '')) {
+        return res.status(400).json({
+          responseCode: responseUtils.RESPONSE_CODES.ERROR,
+          responseMessage: 'Purpose name is required when using custom purpose'
+        });
+      }
+
       const result = await StudentService.checkoutStudent(
         parseInt(studentId),
         userTenantId,
+        purposeId ? parseInt(purposeId) : null,
+        purposeName,
         createdBy
       );
 
@@ -206,30 +317,6 @@ class StudentController {
     }
   }
 
-  // // GET /api/students/search - Advanced search with filters
-  // static async searchStudents(req, res) {
-  //   try {
-  //     const { tenantId, ...searchParams } = req.query;
-  //     const userTenantId = req.user.tenantId;
-
-  //     if (tenantId && parseInt(tenantId) !== userTenantId) {
-  //       return res.status(403).json({
-  //         responseCode: responseUtils.RESPONSE_CODES.ERROR,
-  //         responseMessage: 'Access denied for this tenant'
-  //       });
-  //     }
-
-  //     const result = await StudentService.searchStudents(userTenantId, searchParams);
-
-  //     res.json(result);
-  //   } catch (error) {
-  //     console.error('Error in searchStudents:', error);
-  //     res.status(500).json({
-  //       responseCode: responseUtils.RESPONSE_CODES.ERROR,
-  //       responseMessage: 'Internal server error'
-  //     });
-  //   }
-  // }
 }
 
 module.exports = StudentController;

@@ -402,3 +402,38 @@ SELECT
     'Security', 'Security'
 FROM VisitorRegistration vr
 WHERE vr.TenantID = 1 AND vr.VisitorCatID = 3 AND vr.VistorName = 'Meera Joshi';
+
+
+-- Insert purpose categories for students
+INSERT INTO VisitorPuposeMaster (VisitPurposeID, TenantID, PurposeCatID, PurposeCatName, VisitPurpose, IsActive) VALUES 
+-- Student specific purposes
+(11, 1, 3, 'Student', 'Library Visit', 'Y'),
+(12, 1, 3, 'Student', 'Canteen/Mess', 'Y'),
+(13, 1, 3, 'Student', 'Sports Activity', 'Y'),
+(14, 1, 3, 'Student', 'Medical Visit', 'Y'),
+(15, 1, 3, 'Student', 'Shopping', 'Y'),
+(16, 1, 3, 'Student', 'Home Visit', 'Y'),
+(17, 1, 3, 'Student', 'Class/Study', 'Y'),
+(18, 1, 3, 'Student', 'Administrative Work', 'Y'),
+(19, 1, 3, 'Student', 'Recreation', 'Y'),
+(20, 1, 3, 'Student', 'Other', 'Y')
+ON CONFLICT (VisitPurposeID) DO NOTHING;
+
+-- Update existing visit history with default purpose
+UPDATE VisitorRegVisitHistory 
+SET VisitPurposeID = 17, 
+    VisitPurpose = 'Class/Study',
+    PurposeCatID = 3,
+    PurposeCatName = 'Student'
+WHERE VisitorCatID = 3 
+  AND (VisitPurposeID IS NULL OR VisitPurpose IS NULL);
+
+
+-- Insert additional dummy purposes for testing
+INSERT INTO VisitorPuposeMaster (TenantID, PurposeCatID, PurposeCatName, VisitPurpose, IsActive) VALUES 
+(1, 3, 'Student', 'Exam Preparation', 'Y'),
+(1, 3, 'Student', 'Project Work', 'Y'),
+(1, 3, 'Student', 'Cultural Event', 'Y'),
+(1, 3, 'Student', 'Guest Visit', 'Y'),
+(1, 3, 'Student', 'Emergency', 'Y')
+ON CONFLICT DO NOTHING;
