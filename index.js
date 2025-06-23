@@ -9,7 +9,6 @@ const config = require('./config/default');
 const { testConnection } = require('./config/database');
 
 // Import middleware
-const { authenticateToken } = require('./middleware/auth');
 const { handleError, notFound } = require('./middleware/error');
 
 // Import routes
@@ -24,6 +23,7 @@ const fcmRoutes = require('./routes/fcm.routes');
 const vehicleRoutes = require('./routes/vehicle.routes');
 const studentRoutes = require('./routes/student.routes');
 const busRoutes = require('./routes/bus.routes');
+const staffRoutes = require('./routes/staff.routes');
 
 const app = express();
 const PORT = config.port || 3000;
@@ -98,7 +98,7 @@ app.use('/api/fcm', fcmRoutes);
 app.use('/api/vehicles', vehicleRoutes);
 app.use('/api/students', studentRoutes);
 app.use('/api/buses', busRoutes);
-
+app.use('/api/staff', staffRoutes); 
 
 // Error handling middleware (must be last)
 app.use(handleError);

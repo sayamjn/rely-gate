@@ -54,7 +54,8 @@ const notFound = (req, res) => {
   });
 };
 
+
 module.exports = {
   handleError,
-  notFound
+  notFound,
 };

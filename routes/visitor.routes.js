@@ -2,20 +2,11 @@ const express = require('express');
 const { body, query, param, validationResult } = require('express-validator');
 const VisitorController = require('../controllers/visitor.controller');
 const { authenticateToken, validateTenantAccess } = require('../middleware/auth');
+const { handleValidationErrors } = require('../middleware/validation');
 
 const router = express.Router();
 
-const handleValidationErrors = (req, res, next) => {
-  const errors = validationResult(req);
-  if (!errors.isEmpty()) {
-    return res.status(400).json({
-      responseCode: 'E',
-      responseMessage: 'Validation failed',
-      errors: errors.array()
-    });
-  }
-  next();
-};
+
 
 router.use(authenticateToken);
 
