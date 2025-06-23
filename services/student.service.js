@@ -518,7 +518,6 @@ static async getStudentsWithFilters(tenantId, filters = {}) {
     }
   }
 
-  // thank you again, everything is working as expected. Now i need your help with one thing, i want to add date of checkout/checkin and duration in the response, please add that
 }
 
 module.exports = StudentService;
