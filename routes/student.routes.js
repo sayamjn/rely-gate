@@ -91,4 +91,20 @@ router.get('/:studentId/history', [
   query('limit').optional().isInt({ min: 1, max: 50 }).withMessage('Limit must be between 1 and 50')
 ], handleValidationErrors, StudentController.getStudentHistory);
 
+// GET /api/students/export - Export students data
+
+router.get('/export', [
+  query('course').optional().isString().trim().withMessage('Course must be a string'),
+  query('hostel').optional().isString().trim().withMessage('Hostel must be a string'),
+  query('status').optional().isIn(['CHECKED_OUT', 'AVAILABLE']).withMessage('Invalid status'),
+  query('fromDate').optional().isISO8601().withMessage('FromDate must be a valid date'),
+  query('toDate').optional().isISO8601().withMessage('ToDate must be a valid date'),
+  query('format').optional().isIn(['csv']).withMessage('Invalid format'),
+  query('tenantId').optional().isNumeric().withMessage('TenantId must be numeric')
+], handleValidationErrors, StudentController.exportStudents);
+
+// GET /api/students/template - Download CSV template
+router.get('/template', handleValidationErrors, StudentController.downloadTemplate);
+
+
 module.exports = router;

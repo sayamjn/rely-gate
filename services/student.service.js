@@ -518,6 +518,117 @@ static async getStudentsWithFilters(tenantId, filters = {}) {
     }
   }
 
+
+   static async exportStudents(tenantId, filters = {}) {
+    try {
+      let whereConditions = ['vr.TenantID = $1', "vr.IsActive = 'Y'", "vr.VisitorCatName = 'Student'"];
+      let params = [tenantId];
+      let paramIndex = 2;
+
+      // Apply filters
+      if (filters.course && filters.course.trim()) {
+        whereConditions.push(`bvu.Course ILIKE $${paramIndex}`);
+        params.push(`%${filters.course.trim()}%`);
+        paramIndex++;
+      }
+
+      if (filters.hostel && filters.hostel.trim()) {
+        whereConditions.push(`bvu.Hostel ILIKE $${paramIndex}`);
+        params.push(`%${filters.hostel.trim()}%`);
+        paramIndex++;
+      }
+
+      if (filters.status) {
+        if (filters.status === 'CHECKED_OUT') {
+          whereConditions.push('EXISTS (SELECT 1 FROM RegVisitorHistory rvh WHERE rvh.VisitorRegID = vr.VisitorRegID AND rvh.TenantID = vr.TenantID AND (rvh.OutTime IS NULL OR rvh.OutTimeTxt IS NULL OR rvh.OutTimeTxt = \'\'))');
+        } else if (filters.status === 'AVAILABLE') {
+          whereConditions.push('NOT EXISTS (SELECT 1 FROM RegVisitorHistory rvh WHERE rvh.VisitorRegID = vr.VisitorRegID AND rvh.TenantID = vr.TenantID AND (rvh.OutTime IS NULL OR rvh.OutTimeTxt IS NULL OR rvh.OutTimeTxt = \'\'))');
+        }
+      }
+
+      if (filters.fromDate) {
+        whereConditions.push(`vr.CreatedDate >= $${paramIndex}`);
+        params.push(filters.fromDate);
+        paramIndex++;
+      }
+
+      if (filters.toDate) {
+        whereConditions.push(`vr.CreatedDate <= $${paramIndex}`);
+        params.push(filters.toDate);
+        paramIndex++;
+      }
+
+      const whereClause = whereConditions.join(' AND ');
+
+      const sql = `
+        SELECT 
+          COALESCE(bvu.StudentID, vr.VisitorRegNo) as "Student ID",
+          vr.VistorName as "Student Name",
+          vr.Mobile as "Mobile",
+          vr.Email as "Email",
+          COALESCE(bvu.Course, vr.AssociatedBlock) as "Course",
+          COALESCE(bvu.Hostel, vr.AssociatedFlat) as "Hostel",
+          vr.VehicleNo as "Vehicle Number",
+          vr.VisitorSubCatName as "Category",
+          vr.StatusName as "Status",
+          TO_CHAR(vr.CreatedDate, 'YYYY-MM-DD') as "Registration Date",
+          COUNT(vh.RegVisitorHistoryID) as "Total Visits",
+          MAX(TO_CHAR(vh.InTime, 'YYYY-MM-DD HH24:MI')) as "Last Visit",
+          CASE 
+            WHEN COUNT(CASE WHEN vh.OutTime IS NULL OR vh.OutTimeTxt IS NULL OR vh.OutTimeTxt = '' THEN 1 END) > 0 
+            THEN 'CHECKED_OUT'
+            ELSE 'AVAILABLE'
+          END as "Current Status"
+        FROM VisitorRegistration vr
+        LEFT JOIN BulkVisitorUpload bvu ON vr.Mobile = bvu.Mobile AND bvu.Type = 'student'
+        LEFT JOIN RegVisitorHistory vh ON vr.VisitorRegID = vh.VisitorRegID AND vh.TenantID = vr.TenantID
+        WHERE ${whereClause}
+        GROUP BY vr.VisitorRegID, vr.VistorName, vr.Mobile, vr.Email, 
+                 bvu.Course, bvu.Hostel, vr.VehicleNo, vr.VisitorSubCatName, 
+                 vr.StatusName, vr.CreatedDate, bvu.StudentID, vr.VisitorRegNo,
+                 vr.AssociatedBlock, vr.AssociatedFlat
+        ORDER BY vr.CreatedDate DESC
+      `;
+
+      const result = await query(sql, params);
+
+      if (result.rows.length === 0) {
+        return {
+          responseCode: responseUtils.RESPONSE_CODES.ERROR,
+          responseMessage: 'No student data found for export'
+        };
+      }
+
+      // Convert to CSV
+      const headers = Object.keys(result.rows[0]);
+      const csvRows = [headers.join(',')];
+      
+      result.rows.forEach(row => {
+        const values = headers.map(header => {
+          const value = row[header] || '';
+          const stringValue = value.toString();
+          if (stringValue.includes(',') || stringValue.includes('"') || stringValue.includes('\n')) {
+            return `"${stringValue.replace(/"/g, '""')}"`;
+          }
+          return stringValue;
+        });
+        csvRows.push(values.join(','));
+      });
+
+      return {
+        responseCode: responseUtils.RESPONSE_CODES.SUCCESS,
+        csvData: csvRows.join('\n'),
+        count: result.rows.length
+      };
+    } catch (error) {
+      console.error('Error exporting students:', error);
+      return {
+        responseCode: responseUtils.RESPONSE_CODES.ERROR,
+        responseMessage: responseUtils.RESPONSE_MESSAGES.ERROR,
+        error: process.env.NODE_ENV === 'development' ? error.message : undefined
+      };
+    }
+  }
 }
 
 module.exports = StudentService;

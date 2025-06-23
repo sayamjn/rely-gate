@@ -1,172 +1,15 @@
-const fs = require('fs');
+
 const csv = require('csv-parser');
+const fs = require('fs');
 const { query } = require('../config/database');
-const VisitorModel = require('../models/visitor.model');
-const QRService = require('./qr.service');
 const responseUtils = require('../utils/constants');
+const QRService = require('./qr.service');
 
 class BulkService {
-  static async processStudentCSV(filePath, type, tenantId, createdBy) {
+  // Process bus CSV file
+  static async processBusCSV(filePath, tenantId, createdBy) {
     try {
-      const students = [];
-      
-      return new Promise((resolve, reject) => {
-        let isFirstRow = true;
-        
-        fs.createReadStream(filePath)
-          .pipe(csv({ headers: false }))
-          .on('data', (row) => {
-            if (isFirstRow) {
-              isFirstRow = false;
-              return;
-            }
-
-            const values = Object.values(row);
-            
-            if (values.length >= 5) {
-              students.push({
-                studentId: values[0]?.trim() || '',
-                name: values[1]?.trim() || '',
-                mobile: values[2]?.trim() || '',
-                course: values[3]?.trim() || '', 
-                hostel: values[4]?.trim() || '',
-                tenantId: tenantId.toString(),
-                type: type?.trim() || ''
-              });
-            }
-          })
-          .on('end', async () => {
-            try {
-              await this.bulkInsertStudents(students, tenantId);
-              
-              await this.insertBulkVisitors(tenantId);
-              
-              resolve({
-                responseCode: responseUtils.RESPONSE_CODES.SUCCESS,
-                responseMessage: `${students.length} student records inserted successfully`,
-                count: students.length
-              });
-            } catch (error) {
-              reject(error);
-            }
-          })
-          .on('error', reject);
-      });
-    } catch (error) {
-      console.error('Error processing student CSV:', error);
-      return {
-        responseCode: responseUtils.RESPONSE_CODES.ERROR,
-        responseMessage: responseUtils.RESPONSE_MESSAGES.ERROR
-      };
-    }
-  }
-
-  static async bulkInsertStudents(students, tenantId) {
-    try {
-      await query(`
-        CREATE TEMP TABLE IF NOT EXISTS temp_bulk_upload (
-          student_id VARCHAR(50),
-          name VARCHAR(150),
-          mobile VARCHAR(20),
-          course VARCHAR(100),
-          hostel VARCHAR(100),
-          tenant_id INTEGER,
-          type VARCHAR(50)
-        )
-      `);
-
-      await query('DELETE FROM temp_bulk_upload');
-
-      for (let i = 0; i < students.length; i += 100) {
-        const batch = students.slice(i, i + 100);
-        const values = batch.map(student => 
-          `('${student.studentId}', '${student.name}', '${student.mobile}', '${student.course}', '${student.hostel}', ${tenantId}, '${student.type}')`
-        ).join(',');
-
-        await query(`
-          INSERT INTO temp_bulk_upload (student_id, name, mobile, course, hostel, tenant_id, type)
-          VALUES ${values}
-        `);
-      }
-
-      console.log(`Bulk inserted ${students.length} students`);
-    } catch (error) {
-      console.error('Error in bulk insert:', error);
-      throw error;
-    }
-  }
-
-  static async insertBulkVisitors(tenantId) {
-    try {
-      const sql = `
-        INSERT INTO VisitorRegistration (
-          TenantID, VistorName, Mobile, VisitorCatID, VisitorCatName,
-          VisitorSubCatID, VisitorSubCatName, VisitorRegNo, SecurityCode,
-          StatusID, StatusName, IsActive, CreatedDate, UpdatedDate, 
-          CreatedBy, UpdatedBy
-        )
-        SELECT 
-          $1,
-          t.name,
-          t.mobile, 
-          CASE t.type 
-            WHEN 'student' THEN 3
-            WHEN 'staff' THEN 1
-            ELSE 2
-          END,
-          CASE t.type
-            WHEN 'student' THEN 'Student'
-            WHEN 'staff' THEN 'Staff' 
-            ELSE 'General'
-          END,
-          CASE t.type
-            WHEN 'student' THEN 6
-            WHEN 'staff' THEN 1
-            ELSE 4
-          END,
-          CASE t.type
-            WHEN 'student' THEN 'Regular Student'
-            WHEN 'staff' THEN 'Security'
-            ELSE 'Walk-in Visitor'
-          END,
-          CONCAT(
-            CASE t.type 
-              WHEN 'student' THEN 'STU'
-              WHEN 'staff' THEN 'STA'
-              ELSE 'VIS'
-            END,
-            $1,
-            EXTRACT(EPOCH FROM NOW())::bigint,
-            LPAD((RANDOM() * 99)::int::text, 2, '0')
-          ),
-          LPAD((RANDOM() * 999999)::int::text, 6, '0'),
-          1,
-          'ACTIVE',
-          'Y',
-          NOW(),
-          NOW(),
-          'System',
-          'System'
-        FROM temp_bulk_upload t
-        WHERE NOT EXISTS (
-          SELECT 1 FROM VisitorRegistration vr 
-          WHERE vr.Mobile = t.mobile 
-            AND vr.TenantID = $1
-            AND vr.IsActive = 'Y'
-        )
-      `;
-      
-      await query(sql, [tenantId]);
-      console.log('Bulk visitors created from uploaded data');
-    } catch (error) {
-      console.error('Error creating bulk visitors:', error);
-      throw error;
-    }
-  }
-
-  static async processVisitorCSV(filePath, visitorCatId, tenantId, createdBy) {
-    try {
-      const visitors = [];
+      const buses = [];
       
       return new Promise((resolve, reject) => {
         let isFirstRow = true;
@@ -182,15 +25,163 @@ class BulkService {
             const values = Object.values(row);
             
             if (values.length >= 4) {
+              buses.push({
+                busNumber: values[0]?.trim() || '',
+                registrationNumber: values[1]?.trim() || '',
+                driverName: values[2]?.trim() || '',
+                driverMobile: values[3]?.trim() || '',
+                route: values[4]?.trim() || '',
+                vehicleType: values[5]?.trim() || 'Bus',
+                capacity: values[6]?.trim() || '',
+                purpose: values[7]?.trim() || 'Bus Meeting',
+                tenantId,
+                createdBy
+              });
+            }
+          })
+          .on('end', async () => {
+            try {
+              const inserted = await this.bulkInsertBuses(buses);
+              resolve({
+                responseCode: responseUtils.RESPONSE_CODES.SUCCESS,
+                responseMessage: `Successfully processed ${buses.length} buses. Inserted: ${inserted.successful}, Failed: ${inserted.failed}`,
+                data: {
+                  totalProcessed: buses.length,
+                  successful: inserted.successful,
+                  failed: inserted.failed,
+                  details: inserted.details
+                }
+              });
+            } catch (error) {
+              reject(error);
+            }
+          })
+          .on('error', (error) => {
+            reject(error);
+          });
+      });
+    } catch (error) {
+      console.error('Error processing bus CSV:', error);
+      return {
+        responseCode: responseUtils.RESPONSE_CODES.ERROR,
+        responseMessage: responseUtils.RESPONSE_MESSAGES.ERROR,
+        error: process.env.NODE_ENV === 'development' ? error.message : undefined
+      };
+    }
+  }
+
+  // Bulk insert buses - FIXED method name and implementation
+  static async bulkInsertBuses(buses) {
+    const results = {
+      successful: 0,
+      failed: 0,
+      details: []
+    };
+
+    for (const bus of buses) {
+      try {
+        // Check if bus already exists
+        const existingBus = await query(`
+          SELECT VisitorRegID FROM VisitorRegistration 
+          WHERE (Mobile = $1 OR VisitorRegNo LIKE $2) 
+            AND TenantID = $3 
+            AND VisitorCatName = 'Bus'
+            AND IsActive = 'Y'
+        `, [bus.driverMobile, `%${bus.registrationNumber}%`, bus.tenantId]);
+
+        if (existingBus.rows.length > 0) {
+          results.failed++;
+          results.details.push({
+            item: `${bus.busNumber} - ${bus.driverName}`,
+            status: 'Failed',
+            reason: 'Bus already exists with same mobile or registration'
+          });
+          continue;
+        }
+
+        // Generate registration number and security code
+        const visitorRegNo = `BUS${bus.tenantId}${Date.now().toString().slice(-6)}${Math.floor(Math.random() * 99).toString().padStart(2, '0')}`;
+        const securityCode = Math.floor(100000 + Math.random() * 900000).toString();
+
+        // Insert bus registration
+        const insertSql = `
+          INSERT INTO VisitorRegistration (
+            TenantID, VistorName, Mobile, VisitorCatID, VisitorCatName,
+            VisitorSubCatID, VisitorSubCatName, VisitorRegNo, SecurityCode,
+            StatusID, StatusName, IsActive, CreatedDate, UpdatedDate, 
+            CreatedBy, UpdatedBy, Email, AssociatedFlat, AssociatedBlock
+          ) VALUES (
+            $1, $2, $3, 5, 'Bus',
+            10, $4, $5, $6,
+            1, 'ACTIVE', 'Y', NOW(), NOW(), 
+            $7, $7, '', $8, $9
+          ) RETURNING VisitorRegID
+        `;
+
+        await query(insertSql, [
+          bus.tenantId,
+          bus.driverName,
+          bus.driverMobile,
+          bus.vehicleType || 'Delivery',
+          visitorRegNo,
+          securityCode,
+          bus.createdBy,
+          bus.route,
+          bus.busNumber
+        ]);
+
+        results.successful++;
+        results.details.push({
+          item: `${bus.busNumber} - ${bus.driverName}`,
+          status: 'Success',
+          visitorRegNo,
+          securityCode
+        });
+
+      } catch (error) {
+        results.failed++;
+        results.details.push({
+          item: `${bus.busNumber} - ${bus.driverName}`,
+          status: 'Failed',
+          reason: error.message
+        });
+      }
+    }
+
+    return results;
+  }
+
+  // Process visitor CSV file - FIXED
+  static async processVisitorCSV(filePath, visitorCatId, tenantId, createdBy) {
+    try {
+      const visitors = [];
+      
+      return new Promise((resolve, reject) => {
+        let isFirstRow = true;
+        let rowNumber = 0;
+        
+        fs.createReadStream(filePath)
+          .pipe(csv({ headers: false }))
+          .on('data', (row) => {
+            rowNumber++;
+            if (isFirstRow) {
+              isFirstRow = false;
+              return;
+            }
+
+            const values = Object.values(row);
+            
+            if (values.length >= 4) {
               visitors.push({
                 name: values[0]?.trim() || '',
                 mobile: values[1]?.trim() || '',
                 email: values[2]?.trim() || '',
                 flatName: values[3]?.trim() || '',
-                vehicleNo: values[4]?.trim() || '',
+                vehicleNumber: values[4]?.trim() || '',
                 visitorCatId,
                 tenantId,
-                createdBy
+                createdBy,
+                rowNumber
               });
             }
           })
@@ -199,290 +190,303 @@ class BulkService {
               const inserted = await this.bulkInsertVisitors(visitors);
               resolve({
                 responseCode: responseUtils.RESPONSE_CODES.SUCCESS,
-                responseMessage: `${inserted} visitor records inserted successfully`,
-                count: inserted
+                responseMessage: `Successfully processed ${visitors.length} visitors. Inserted: ${inserted.successful}, Failed: ${inserted.failed}`,
+                data: {
+                  totalProcessed: visitors.length,
+                  successful: inserted.successful,
+                  failed: inserted.failed,
+                  details: inserted.details
+                }
               });
             } catch (error) {
               reject(error);
             }
           })
-          .on('error', reject);
+          .on('error', (error) => {
+            reject(error);
+          });
       });
     } catch (error) {
       console.error('Error processing visitor CSV:', error);
       return {
         responseCode: responseUtils.RESPONSE_CODES.ERROR,
-        responseMessage: responseUtils.RESPONSE_MESSAGES.ERROR
+        responseMessage: responseUtils.RESPONSE_MESSAGES.ERROR,
+        error: process.env.NODE_ENV === 'development' ? error.message : undefined
       };
     }
   }
 
+  // Bulk insert visitors - FIXED
   static async bulkInsertVisitors(visitors) {
-    let insertedCount = 0;
-    
+    const results = {
+      successful: 0,
+      failed: 0,
+      details: []
+    };
+
     for (const visitor of visitors) {
       try {
-        const exists = await VisitorModel.checkVisitorExists(
-          visitor.mobile, 
-          visitor.tenantId, 
-          visitor.visitorCatId
-        );
-        
-        if (!exists) {
-          const securityCode = QRService.generateSecurityCode();
-          const visitorRegNo = QRService.generateVisitorRegNo(
-            visitor.visitorCatId, 
-            visitor.tenantId
-          );
-
-          await VisitorModel.createRegisteredVisitor({
-            ...visitor,
-            securityCode,
-            visitorRegNo,
-            vistorName: visitor.name,
-            visitorCatName: this.getCategoryName(visitor.visitorCatId),
-            visitorSubCatId: this.getDefaultSubCatId(visitor.visitorCatId),
-            visitorSubCatName: this.getSubCategoryName(visitor.visitorCatId)
+        // Validate mobile number
+        if (!visitor.mobile || !/^\d{10}$/.test(visitor.mobile)) {
+          results.failed++;
+          results.details.push({
+            row: visitor.rowNumber,
+            item: visitor.name || 'Unknown',
+            status: 'Failed',
+            reason: 'Invalid mobile number (must be 10 digits)'
           });
-          
-          insertedCount++;
-        }
-      } catch (error) {
-        console.error(`Error inserting visitor ${visitor.name}:`, error);
-      }
-    }
-    
-    return insertedCount;
-  }
-
-  static getCategoryName(catId) {
-    const categories = {
-      1: 'Staff',
-      2: 'Unregistered', 
-      3: 'Student',
-      4: 'Guest',
-      5: 'Bus'
-    };
-    return categories[catId] || 'General';
-  }
-
-  static getDefaultSubCatId(catId) {
-    const defaultSubCats = {
-      1: 1, // Security
-      2: 4, // Walk-in Visitor
-      3: 6, // Regular Student
-      4: 8, // Family Member
-      5: 10 // Delivery
-    };
-    return defaultSubCats[catId] || 4;
-  }
-
-  static getSubCategoryName(catId) {
-    const subCategories = {
-      1: 'Security',
-      2: 'Walk-in Visitor',
-      3: 'Regular Student', 
-      4: 'Family Member',
-      5: 'Delivery'
-    };
-    return subCategories[catId] || 'General';
-  }
-
-  static async processStaffCSV(filePath, tenantId, createdBy) {
-  try {
-    const staff = [];
-    
-    return new Promise((resolve, reject) => {
-      let isFirstRow = true;
-      
-      fs.createReadStream(filePath)
-        .pipe(csv({ headers: false }))
-        .on('data', (row) => {
-          if (isFirstRow) {
-            isFirstRow = false;
-            return; // Skip header row
-          }
-
-          const values = Object.values(row);
-          
-          // Expected CSV format: StaffID, Name, Mobile, Designation, Email, Address
-          if (values.length >= 4) {
-            staff.push({
-              staffId: values[0]?.trim() || '',
-              name: values[1]?.trim() || '',
-              mobile: values[2]?.trim() || '',
-              designation: values[3]?.trim() || '',
-              email: values[5]?.trim() || '',
-              address: values[6]?.trim() || '',
-              type: 'staff',
-              tenantId,
-              createdBy
-            });
-          }
-        })
-        .on('end', async () => {
-          try {
-            const inserted = await this.bulkInsertStaff(staff, tenantId, createdBy);
-            resolve({
-              responseCode: responseUtils.RESPONSE_CODES.SUCCESS,
-              responseMessage: `${inserted} staff records inserted successfully`,
-              count: inserted
-            });
-          } catch (error) {
-            reject(error);
-          }
-        })
-        .on('error', (error) => {
-          reject(error);
-        });
-    });
-  } catch (error) {
-    console.error('Error processing staff CSV:', error);
-    return {
-      responseCode: responseUtils.RESPONSE_CODES.ERROR,
-      responseMessage: responseUtils.RESPONSE_MESSAGES.ERROR,
-      error: process.env.NODE_ENV === 'development' ? error.message : undefined
-    };
-  }
-}
-
-// Bulk insert staff records
-
-static async bulkInsertStaff(staffList, tenantId, createdBy) {
-  try {
-    if (!staffList || staffList.length === 0) {
-      return 0;
-    }
-
-    let insertedCount = 0;
-    let skippedCount = 0;
-
-    console.log(`Processing ${staffList.length} staff records...`);
-
-    for (const staff of staffList) {
-      try {
-        if (!staff.name || !staff.mobile) {
-          console.log(`Skipping record: Missing name or mobile - ${staff.name || 'Unknown'}`);
-          skippedCount++;
           continue;
         }
 
-        const cleanMobile = staff.mobile.toString().trim();
-        if (cleanMobile.length < 10) {
-          console.log(`Skipping record: Invalid mobile number - ${staff.name}: ${cleanMobile}`);
-          skippedCount++;
+        // Check if visitor already exists
+        const existingVisitor = await query(`
+          SELECT VisitorRegID FROM VisitorRegistration 
+          WHERE Mobile = $1 AND TenantID = $2 AND IsActive = 'Y'
+        `, [visitor.mobile, visitor.tenantId]);
+
+        if (existingVisitor.rows.length > 0) {
+          results.failed++;
+          results.details.push({
+            row: visitor.rowNumber,
+            item: visitor.name || 'Unknown',
+            status: 'Failed',
+            reason: 'Mobile number already registered'
+          });
           continue;
         }
 
-        const checkSql = `
-          SELECT COUNT(*) as count
-          FROM VisitorRegistration
-          WHERE TenantID = $1 AND Mobile = $2 AND VisitorCatName = 'Staff' AND IsActive = 'Y'
-        `;
-        const checkResult = await query(checkSql, [tenantId, cleanMobile]);
-        
-        if (checkResult.rows[0].count > 0) {
-          console.log(`Staff with mobile ${cleanMobile} already exists, skipping...`);
-          skippedCount++;
-          continue;
-        }
-
-        let visitorSubCatId = 1; // Default
-        const designation = staff.designation && staff.designation.trim() ? staff.designation.trim() : 'Staff';
-        
-        const designationSql = `
-          SELECT VisitorSubCatID
-          FROM VisitorSubCategory
-          WHERE TenantID = $1 AND VisitorSubCatName ILIKE $2 AND VisitorCatID = 1 AND IsActive = 'Y'
-          LIMIT 1
-        `;
-        const designationResult = await query(designationSql, [tenantId, designation]);
-        
-        if (designationResult.rows.length > 0) {
-          visitorSubCatId = designationResult.rows[0].visitorsubcatid;
-        } else {
-          const newDesignationSql = `
-            INSERT INTO VisitorSubCategory (
-              TenantID, VisitorCatID, VisitorCatName, VisitorSubCatName,
-              IsActive, CreatedDate, UpdatedDate, CreatedBy, UpdatedBy
-            ) VALUES (
-              $1, 1, 'Staff', $2, 'Y', NOW(), NOW(), $3, $3
-            ) RETURNING VisitorSubCatID
-          `;
-          const newDesignationResult = await query(newDesignationSql, [
-            tenantId, 
-            designation, 
-            createdBy
-          ]);
-          visitorSubCatId = newDesignationResult.rows[0].visitorsubcatid;
-          console.log(`Created new designation: ${designation}`);
-        }
-
-        const staffRegNo = staff.staffId && staff.staffId.trim() ? 
-          staff.staffId.trim() : 
-          `STA${tenantId}${Date.now().toString().slice(-6)}${Math.floor(Math.random() * 99).toString().padStart(2, '0')}`;
+        // Generate registration number and security code
+        const categoryPrefix = visitor.visitorCatId === 1 ? 'STA' : visitor.visitorCatId === 3 ? 'STU' : 'VIS';
+        const visitorRegNo = `${categoryPrefix}${visitor.tenantId}${Date.now().toString().slice(-6)}${Math.floor(Math.random() * 99).toString().padStart(2, '0')}`;
         const securityCode = Math.floor(100000 + Math.random() * 900000).toString();
 
-        const staffName = staff.name.trim();
-        const staffEmail = staff.email && staff.email.trim() ? staff.email.trim() : '';
-        const staffAddress = staff.address && staff.address.trim() ? staff.address.trim() : '';
-        const staffDepartment = staff.department && staff.department.trim() ? staff.department.trim() : '';
+        // Get category info
+        const categoryInfo = await this.getCategoryInfo(visitor.visitorCatId);
 
+        // Insert visitor registration
         const insertSql = `
           INSERT INTO VisitorRegistration (
             TenantID, VistorName, Mobile, VisitorCatID, VisitorCatName,
             VisitorSubCatID, VisitorSubCatName, VisitorRegNo, SecurityCode,
-            StatusID, StatusName, IsActive, Email, AssociatedFlat, AssociatedBlock,
-            CreatedDate, UpdatedDate, CreatedBy, UpdatedBy
+            StatusID, StatusName, IsActive, CreatedDate, UpdatedDate, 
+            CreatedBy, UpdatedBy, Email, AssociatedFlat, AssociatedBlock
           ) VALUES (
-            $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, NOW(), NOW(), $16, $16
-          )
+            $1, $2, $3, $4, $5, $6, $7, $8, $9, 
+            1, 'ACTIVE', 'Y', NOW(), NOW(), $10, $10, $11, $12, $13
+          ) RETURNING VisitorRegID
         `;
 
-        const values = [
-          tenantId,                    // $1 - TenantID
-          staffName,                   // $2 - VistorName
-          cleanMobile,                 // $3 - Mobile
-          1,                          // $4 - VisitorCatID (Staff = 1)
-          'Staff',                    // $5 - VisitorCatName
-          visitorSubCatId,            // $6 - VisitorSubCatID
-          designation,                // $7 - VisitorSubCatName
-          staffRegNo,                 // $8 - VisitorRegNo
-          securityCode,               // $9 - SecurityCode
-          1,                          // $10 - StatusID (Active = 1)
-          'ACTIVE',                   // $11 - StatusName
-          'Y',                        // $12 - IsActive
-          staffEmail,                 // $13 - Email
-          staffAddress,               // $14 - AssociatedFlat (Address)
-          staffDepartment,            // $15 - AssociatedBlock (Department)
-          createdBy                   // $16 - CreatedBy & UpdatedBy
-        ];
+        await query(insertSql, [
+          visitor.tenantId,
+          visitor.name,
+          visitor.mobile,
+          visitor.visitorCatId,
+          categoryInfo.visitorcatname,
+          categoryInfo.visitorsubcatid,
+          categoryInfo.visitorsubcatname,
+          visitorRegNo,
+          securityCode,
+          visitor.createdBy,
+          visitor.email,
+          visitor.flatName,
+          ''
+        ]);
 
-        console.log(`Inserting staff: ${staffName} with ${values.length} parameters`);
-        
-        await query(insertSql, values);
-        insertedCount++;
-        
-        console.log(`✅ Inserted staff: ${staffName} (${cleanMobile})`);
-        
+        results.successful++;
+        results.details.push({
+          row: visitor.rowNumber,
+          item: visitor.name || 'Unknown',
+          status: 'Success',
+          visitorRegNo,
+          securityCode
+        });
+
       } catch (error) {
-        console.error(`❌ Error inserting staff ${staff.name}:`, error.message);
-        skippedCount++;
+        results.failed++;
+        results.details.push({
+          row: visitor.rowNumber,
+          item: visitor.name || 'Unknown',
+          status: 'Failed',
+          reason: error.message
+        });
       }
     }
 
-    console.log(`📊 Staff bulk insert completed:`);
-    console.log(`   - Total processed: ${staffList.length}`);
-    console.log(`   - Successfully inserted: ${insertedCount}`);
-    console.log(`   - Skipped/Failed: ${skippedCount}`);
-
-    return insertedCount;
-
-  } catch (error) {
-    console.error('Error in bulk insert staff:', error);
-    throw error;
+    return results;
   }
-}
+
+  // Helper method to get category information
+  static async getCategoryInfo(visitorCatId) {
+    try {
+      const sql = `
+        SELECT vc.VisitorCatName, vsc.VisitorSubCatID, vsc.VisitorSubCatName
+        FROM VisitorCategory vc
+        LEFT JOIN VisitorSubCategory vsc ON vc.VisitorCatID = vsc.VisitorCatID
+        WHERE vc.VisitorCatID = $1 AND vc.IsActive = 'Y'
+        ORDER BY vsc.VisitorSubCatID
+        LIMIT 1
+      `;
+      
+      const result = await query(sql, [visitorCatId]);
+      
+      if (result.rows.length > 0) {
+        return result.rows[0];
+      }
+      
+      // Fallback defaults
+      const defaults = {
+        1: { visitorcatname: 'Staff', visitorsubcatid: 1, visitorsubcatname: 'Security' },
+        2: { visitorcatname: 'Unregistered', visitorsubcatid: 4, visitorsubcatname: 'Walk-in Visitor' },
+        3: { visitorcatname: 'Student', visitorsubcatid: 6, visitorsubcatname: 'Regular Student' },
+        4: { visitorcatname: 'Guest', visitorsubcatid: 8, visitorsubcatname: 'Family Member' },
+        5: { visitorcatname: 'Bus', visitorsubcatid: 10, visitorsubcatname: 'Delivery' }
+      };
+      
+      return defaults[visitorCatId] || defaults[2];
+    } catch (error) {
+      console.error('Error getting category info:', error);
+      return { visitorcatname: 'Unregistered', visitorsubcatid: 4, visitorsubcatname: 'Walk-in Visitor' };
+    }
+  }
+
+  // Process staff CSV - SIMPLIFIED
+  static async processStaffCSV(filePath, tenantId, createdBy) {
+    try {
+      const staff = [];
+      
+      return new Promise((resolve, reject) => {
+        let isFirstRow = true;
+        
+        fs.createReadStream(filePath)
+          .pipe(csv({ headers: false }))
+          .on('data', (row) => {
+            if (isFirstRow) {
+              isFirstRow = false;
+              return;
+            }
+
+            const values = Object.values(row);
+            
+            if (values.length >= 3) {
+              staff.push({
+                name: values[0]?.trim() || '',
+                mobile: values[1]?.trim() || '',
+                email: values[2]?.trim() || '',
+                designation: values[3]?.trim() || 'Security',
+                department: values[4]?.trim() || '',
+                tenantId,
+                createdBy
+              });
+            }
+          })
+          .on('end', async () => {
+            try {
+              const inserted = await this.bulkInsertStaff(staff);
+              resolve({
+                responseCode: responseUtils.RESPONSE_CODES.SUCCESS,
+                responseMessage: `Successfully processed ${staff.length} staff. Inserted: ${inserted.successful}, Failed: ${inserted.failed}`,
+                data: {
+                  totalProcessed: staff.length,
+                  successful: inserted.successful,
+                  failed: inserted.failed,
+                  details: inserted.details
+                }
+              });
+            } catch (error) {
+              reject(error);
+            }
+          })
+          .on('error', (error) => {
+            reject(error);
+          });
+      });
+    } catch (error) {
+      console.error('Error processing staff CSV:', error);
+      return {
+        responseCode: responseUtils.RESPONSE_CODES.ERROR,
+        responseMessage: responseUtils.RESPONSE_MESSAGES.ERROR,
+        error: process.env.NODE_ENV === 'development' ? error.message : undefined
+      };
+    }
+  }
+
+  // Bulk insert staff
+  static async bulkInsertStaff(staffList) {
+    const results = {
+      successful: 0,
+      failed: 0,
+      details: []
+    };
+
+    for (const staff of staffList) {
+      try {
+        // Check if staff already exists
+        const existingStaff = await query(`
+          SELECT VisitorRegID FROM VisitorRegistration 
+          WHERE Mobile = $1 AND TenantID = $2 AND VisitorCatName = 'Staff' AND IsActive = 'Y'
+        `, [staff.mobile, staff.tenantId]);
+
+        if (existingStaff.rows.length > 0) {
+          results.failed++;
+          results.details.push({
+            item: staff.name,
+            status: 'Failed',
+            reason: 'Staff already exists with same mobile'
+          });
+          continue;
+        }
+
+        // Generate registration number and security code
+        const visitorRegNo = `STA${staff.tenantId}${Date.now().toString().slice(-6)}${Math.floor(Math.random() * 99).toString().padStart(2, '0')}`;
+        const securityCode = Math.floor(100000 + Math.random() * 900000).toString();
+
+        // Insert staff registration
+        const insertSql = `
+          INSERT INTO VisitorRegistration (
+            TenantID, VistorName, Mobile, VisitorCatID, VisitorCatName,
+            VisitorSubCatID, VisitorSubCatName, VisitorRegNo, SecurityCode,
+            StatusID, StatusName, IsActive, CreatedDate, UpdatedDate, 
+            CreatedBy, UpdatedBy, Email, AssociatedFlat, AssociatedBlock
+          ) VALUES (
+            $1, $2, $3, 1, 'Staff',
+            1, $4, $5, $6,
+            1, 'ACTIVE', 'Y', NOW(), NOW(), 
+            $7, $7, $8, '', $9
+          ) RETURNING VisitorRegID
+        `;
+
+        await query(insertSql, [
+          staff.tenantId,
+          staff.name,
+          staff.mobile,
+          staff.designation,
+          visitorRegNo,
+          securityCode,
+          staff.createdBy,
+          staff.email,
+          staff.department
+        ]);
+
+        results.successful++;
+        results.details.push({
+          item: staff.name,
+          status: 'Success',
+          visitorRegNo,
+          securityCode
+        });
+
+      } catch (error) {
+        results.failed++;
+        results.details.push({
+          item: staff.name,
+          status: 'Failed',
+          reason: error.message
+        });
+      }
+    }
+
+    return results;
+  }
 }
 
 module.exports = BulkService;

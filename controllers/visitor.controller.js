@@ -1,6 +1,9 @@
 const VisitorModel = require('../models/visitor.model');
 const VisitorService = require('../services/visitor.service');
 
+const responseUtils = require("../utils/constants")
+
+
 class VisitorController {
   // GET /api/visitors/purposes
   static async getVisitorPurposes(req, res) {
@@ -158,64 +161,64 @@ class VisitorController {
   }
 
   // POST /api/visitors/create-unregistered
-static async createUnregisteredVisitor(req, res) {
-  try {
-    const {
-      tenantId, fname, mobile, vehicleNo, flatName, visitorCatId,
-      visitorCatName, visitorSubCatId, visitorSubCatName, visitPurposeId,
-      visitPurpose, totalVisitor, photoPath, vehiclePhotoPath
-    } = req.body;
+  static async createUnregisteredVisitor(req, res) {
+    try {
+      const {
+        tenantId, fname, mobile, vehicleNo, flatName, visitorCatId,
+        visitorCatName, visitorSubCatId, visitorSubCatName, visitPurposeId,
+        visitPurpose, totalVisitor, photoPath, vehiclePhotoPath
+      } = req.body;
 
-    // ✅ FIX: Get just the tenantId number, not the entire user object
-    const userTenantId = req.user.tenantId;  // Changed from req.user
-    console.log("userTenantId: ", userTenantId);  // Now will show just the number
-    const createdBy = req.user.username;
+      // ✅ FIX: Get just the tenantId number, not the entire user object
+      const userTenantId = req.user.tenantId;  // Changed from req.user
+      console.log("userTenantId: ", userTenantId);  // Now will show just the number
+      const createdBy = req.user.username;
 
-    // ✅ Now this validation will work correctly
-    if (tenantId && parseInt(tenantId) !== userTenantId) {
-      return res.status(403).json({
+      // ✅ Now this validation will work correctly
+      if (tenantId && parseInt(tenantId) !== userTenantId) {
+        return res.status(403).json({
+          responseCode: 'E',
+          responseMessage: 'Access denied for this tenant'
+        });
+      }
+
+      // Validate required fields
+      if (!fname || !mobile || !flatName || !visitorCatId || !visitorSubCatId) {
+        return res.status(400).json({
+          responseCode: 'E',
+          responseMessage: 'Required fields: fname, mobile, flatName, visitorCatId, visitorSubCatId'
+        });
+      }
+
+      const visitorData = {
+        tenantId: userTenantId,  // Use the correct tenantId
+        fname,
+        mobile,
+        vehicleNo,
+        flatName,
+        visitorCatId: parseInt(visitorCatId),
+        visitorCatName,
+        visitorSubCatId: parseInt(visitorSubCatId),
+        visitorSubCatName,
+        visitPurposeId: visitPurposeId ? parseInt(visitPurposeId) : null,
+        visitPurpose,
+        totalVisitor: totalVisitor ? parseInt(totalVisitor) : 1,
+        photoData: photoPath,
+        vehiclePhotoData: vehiclePhotoPath,
+        createdBy
+      };
+
+      const result = await VisitorService.createUnregisteredVisitor(visitorData);
+
+      res.json(result);
+    } catch (error) {
+      console.error('Error in createUnregisteredVisitor:', error);
+      res.status(500).json({
         responseCode: 'E',
-        responseMessage: 'Access denied for this tenant'
+        responseMessage: 'Internal server error'
       });
     }
-
-    // Validate required fields
-    if (!fname || !mobile || !flatName || !visitorCatId || !visitorSubCatId) {
-      return res.status(400).json({
-        responseCode: 'E',
-        responseMessage: 'Required fields: fname, mobile, flatName, visitorCatId, visitorSubCatId'
-      });
-    }
-
-    const visitorData = {
-      tenantId: userTenantId,  // Use the correct tenantId
-      fname,
-      mobile,
-      vehicleNo,
-      flatName,
-      visitorCatId: parseInt(visitorCatId),
-      visitorCatName,
-      visitorSubCatId: parseInt(visitorSubCatId),
-      visitorSubCatName,
-      visitPurposeId: visitPurposeId ? parseInt(visitPurposeId) : null,
-      visitPurpose,
-      totalVisitor: totalVisitor ? parseInt(totalVisitor) : 1,
-      photoData: photoPath,
-      vehiclePhotoData: vehiclePhotoPath,
-      createdBy
-    };
-
-    const result = await VisitorService.createUnregisteredVisitor(visitorData);
-
-    res.json(result);
-  } catch (error) {
-    console.error('Error in createUnregisteredVisitor:', error);
-    res.status(500).json({
-      responseCode: 'E',
-      responseMessage: 'Internal server error'
-    });
   }
-}
 
 
   // POST /api/visitors/create-registered
@@ -342,7 +345,7 @@ static async createUnregisteredVisitor(req, res) {
     }
   }
 
-    static async checkinVisitor(req, res) {
+  static async checkinVisitor(req, res) {
     try {
       const { visitorRegId, tenantId } = req.body;
       const userTenantId = req.user.tenantId;
@@ -617,6 +620,159 @@ static async createUnregisteredVisitor(req, res) {
       });
     }
   }
+  static async listVisitors(req, res) {
+    try {
+      const {
+        page = 1,
+        pageSize = 20,
+        search = '',
+        visitorCatId = null,
+        visitorSubCatId = null,
+        purposeId = null,
+        flatName = '',
+        mobile = '',
+        fromDate = null,
+        toDate = null,
+        status = null, // ACTIVE, INACTIVE, CHECKED_IN, CHECKED_OUT
+        tenantId
+      } = req.body;
+      
+      const userTenantId = req.user.tenantId;
+
+      if (tenantId && parseInt(tenantId) !== userTenantId) {
+        return res.status(403).json({
+          responseCode: responseUtils.RESPONSE_CODES.ERROR,
+          responseMessage: 'Access denied for this tenant'
+        });
+      }
+
+      const filters = {
+        page: parseInt(page),
+        pageSize: parseInt(pageSize),
+        search,
+        visitorCatId: visitorCatId ? parseInt(visitorCatId) : null,
+        visitorSubCatId: visitorSubCatId ? parseInt(visitorSubCatId) : null,
+        purposeId: purposeId ? parseInt(purposeId) : null,
+        flatName,
+        mobile,
+        fromDate,
+        toDate,
+        status
+      };
+
+      const result = await VisitorService.getVisitorsWithFilters(userTenantId, filters);
+      res.json(result);
+    } catch (error) {
+      console.error('Error in listVisitors:', error);
+      res.status(500).json({
+        responseCode: responseUtils.RESPONSE_CODES.ERROR,
+        responseMessage: 'Internal server error'
+      });
+    }
+  }
+
+  // GET /api/visitors/export - Export visitors data
+  static async exportVisitors(req, res) {
+    try {
+      const {
+        visitorCatId,
+        visitorSubCatId,
+        status,
+        fromDate,
+        toDate,
+        format = 'csv',
+        tenantId
+      } = req.query;
+      
+      const userTenantId = req.user.tenantId;
+
+      if (tenantId && parseInt(tenantId) !== userTenantId) {
+        return res.status(403).json({
+          responseCode: responseUtils.RESPONSE_CODES.ERROR,
+          responseMessage: 'Access denied for this tenant'
+        });
+      }
+
+      const filters = {
+        visitorCatId: visitorCatId ? parseInt(visitorCatId) : null,
+        visitorSubCatId: visitorSubCatId ? parseInt(visitorSubCatId) : null,
+        status,
+        fromDate,
+        toDate
+      };
+
+      const result = await VisitorService.exportVisitors(userTenantId, filters);
+      
+      if (result.responseCode === responseUtils.RESPONSE_CODES.SUCCESS) {
+        res.setHeader('Content-Type', 'text/csv');
+        res.setHeader('Content-Disposition', `attachment; filename="visitors_${new Date().toISOString().split('T')[0]}.csv"`);
+        res.send(result.csvData);
+      } else {
+        res.status(400).json(result);
+      }
+    } catch (error) {
+      console.error('Error in exportVisitors:', error);
+      res.status(500).json({
+        responseCode: responseUtils.RESPONSE_CODES.ERROR,
+        responseMessage: 'Internal server error'
+      });
+    }
+  }
+
+  // GET /api/visitors/pending-checkout - Get visitors currently checked in
+  static async getPendingCheckout(req, res) {
+    try {
+      const { tenantId, visitorCatId } = req.query;
+      const userTenantId = req.user.tenantId;
+
+      if (tenantId && parseInt(tenantId) !== userTenantId) {
+        return res.status(403).json({
+          responseCode: responseUtils.RESPONSE_CODES.ERROR,
+          responseMessage: 'Access denied for this tenant'
+        });
+      }
+
+      const result = await VisitorService.getPendingCheckout(
+        userTenantId, 
+        visitorCatId ? parseInt(visitorCatId) : null
+      );
+      res.json(result);
+    } catch (error) {
+      console.error('Error in getPendingCheckout:', error);
+      res.status(500).json({
+        responseCode: responseUtils.RESPONSE_CODES.ERROR,
+        responseMessage: 'Internal server error'
+      });
+    }
+  }
+
+  // GET /api/visitors/template - Download CSV template
+  static async downloadTemplate(req, res) {
+    try {
+      const { visitorCatId = 2 } = req.query; // Default to Unregistered category
+      
+      const templates = {
+        1: 'Staff_ID,Name,Mobile,Email,Designation,Department,Address,Vehicle_Number',
+        2: 'Name,Mobile,Email,Flat_Name,Vehicle_Number,ID_Type,ID_Number,Purpose',
+        3: 'Student_ID,Name,Mobile,Email,Course,Hostel,Vehicle_Number',
+        4: 'Name,Mobile,Email,Flat_Name,Vehicle_Number,Relationship,Purpose',
+        5: 'Bus_Number,Registration_Number,Driver_Name,Driver_Mobile,Route,Purpose'
+      };
+
+      const template = templates[visitorCatId] || templates[2];
+      
+      res.setHeader('Content-Type', 'text/csv');
+      res.setHeader('Content-Disposition', `attachment; filename="visitor_template_cat${visitorCatId}.csv"`);
+      res.send(template);
+    } catch (error) {
+      console.error('Error in downloadTemplate:', error);
+      res.status(500).json({
+        responseCode: responseUtils.RESPONSE_CODES.ERROR,
+        responseMessage: 'Internal server error'
+      });
+    }
+  }
+
 }
 
 module.exports = VisitorController;

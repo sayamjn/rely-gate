@@ -253,6 +253,71 @@ class BusController {
       });
     }
   }
+
+  // GET /api/buses/export - Export buses data
+  static async exportBuses(req, res) {
+    try {
+      const {
+        purposeId,
+        registrationNumber,
+        driverName,
+        fromDate,
+        toDate,
+        format = 'csv',
+        tenantId
+      } = req.query;
+      
+      const userTenantId = req.user.tenantId;
+
+      if (tenantId && parseInt(tenantId) !== userTenantId) {
+        return res.status(403).json({
+          responseCode: responseUtils.RESPONSE_CODES.ERROR,
+          responseMessage: 'Access denied for this tenant'
+        });
+      }
+
+      const filters = {
+        purposeId: purposeId ? parseInt(purposeId) : null,
+        registrationNumber,
+        driverName,
+        fromDate,
+        toDate
+      };
+
+      const result = await BusService.exportBuses(userTenantId, filters);
+      
+      if (result.responseCode === responseUtils.RESPONSE_CODES.SUCCESS) {
+        res.setHeader('Content-Type', 'text/csv');
+        res.setHeader('Content-Disposition', `attachment; filename="buses_${new Date().toISOString().split('T')[0]}.csv"`);
+        res.send(result.csvData);
+      } else {
+        res.status(400).json(result);
+      }
+    } catch (error) {
+      console.error('Error in exportBuses:', error);
+      res.status(500).json({
+        responseCode: responseUtils.RESPONSE_CODES.ERROR,
+        responseMessage: 'Internal server error'
+      });
+    }
+  }
+
+  // GET /api/buses/template - Download CSV template for bulk upload
+  static async downloadTemplate(req, res) {
+    try {
+      const template = 'Bus_Number,Registration_Number,Driver_Name,Driver_Mobile,Route,Vehicle_Type,Capacity,Purpose';
+      
+      res.setHeader('Content-Type', 'text/csv');
+      res.setHeader('Content-Disposition', 'attachment; filename="bus_template.csv"');
+      res.send(template);
+    } catch (error) {
+      console.error('Error in downloadTemplate:', error);
+      res.status(500).json({
+        responseCode: responseUtils.RESPONSE_CODES.ERROR,
+        responseMessage: 'Internal server error'
+      });
+    }
+  }
 }
 
 module.exports = BusController;

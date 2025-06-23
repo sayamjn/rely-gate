@@ -3,6 +3,7 @@ const responseUtils = require('../utils/constants');
 const fs = require('fs');
 
 class BulkController {
+// POST /api/bulk/students - Enhanced student bulk upload
   static async uploadStudentData(req, res) {
     try {
       if (!req.file) {
@@ -12,7 +13,7 @@ class BulkController {
         });
       }
 
-      const { type, tenantId } = req.body;
+      const { tenantId } = req.body;
       const userTenantId = req.user.tenantId;
 
       if (tenantId && parseInt(tenantId) !== userTenantId) {
@@ -24,7 +25,6 @@ class BulkController {
 
       const result = await BulkService.processStudentCSV(
         req.file.path,
-        type,
         userTenantId,
         req.user.username
       );
@@ -35,7 +35,7 @@ class BulkController {
 
       res.json(result);
     } catch (error) {
-      console.error('Error in bulk upload:', error);
+      console.error('Error in student bulk upload:', error);
       res.status(500).json({
         responseCode: responseUtils.RESPONSE_CODES.ERROR,
         responseMessage: responseUtils.RESPONSE_MESSAGES.ERROR
@@ -115,6 +115,45 @@ class BulkController {
       res.json(result);
     } catch (error) {
       console.error('Error in staff bulk upload:', error);
+      res.status(500).json({
+        responseCode: responseUtils.RESPONSE_CODES.ERROR,
+        responseMessage: responseUtils.RESPONSE_MESSAGES.ERROR
+      });
+    }
+  }
+
+    static async uploadBusData(req, res) {
+    try {
+      if (!req.file) {
+        return res.status(400).json({
+          responseCode: responseUtils.RESPONSE_CODES.ERROR,
+          responseMessage: 'No file uploaded'
+        });
+      }
+
+      const { tenantId } = req.body;
+      const userTenantId = req.user.tenantId;
+
+      if (tenantId && parseInt(tenantId) !== userTenantId) {
+        return res.status(403).json({
+          responseCode: responseUtils.RESPONSE_CODES.ERROR,
+          responseMessage: 'Access denied for this tenant'
+        });
+      }
+
+      const result = await BulkService.processBusCSV(
+        req.file.path,
+        userTenantId,
+        req.user.username
+      );
+
+      if (fs.existsSync(req.file.path)) {
+        fs.unlinkSync(req.file.path);
+      }
+
+      res.json(result);
+    } catch (error) {
+      console.error('Error in bus bulk upload:', error);
       res.status(500).json({
         responseCode: responseUtils.RESPONSE_CODES.ERROR,
         responseMessage: responseUtils.RESPONSE_MESSAGES.ERROR

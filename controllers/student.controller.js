@@ -316,6 +316,70 @@ class StudentController {
       });
     }
   }
+// GET /api/students/export - Export students data
+    static async exportStudents(req, res) {
+    try {
+      const {
+        course,
+        hostel,
+        status,
+        fromDate,
+        toDate,
+        format = 'csv',
+        tenantId
+      } = req.query;
+      
+      const userTenantId = req.user.tenantId;
+
+      if (tenantId && parseInt(tenantId) !== userTenantId) {
+        return res.status(403).json({
+          responseCode: responseUtils.RESPONSE_CODES.ERROR,
+          responseMessage: 'Access denied for this tenant'
+        });
+      }
+
+      const filters = {
+        course,
+        hostel,
+        status,
+        fromDate,
+        toDate
+      };
+
+      const result = await StudentService.exportStudents(userTenantId, filters);
+      
+      if (result.responseCode === responseUtils.RESPONSE_CODES.SUCCESS) {
+        res.setHeader('Content-Type', 'text/csv');
+        res.setHeader('Content-Disposition', `attachment; filename="students_${new Date().toISOString().split('T')[0]}.csv"`);
+        res.send(result.csvData);
+      } else {
+        res.status(400).json(result);
+      }
+    } catch (error) {
+      console.error('Error in exportStudents:', error);
+      res.status(500).json({
+        responseCode: responseUtils.RESPONSE_CODES.ERROR,
+        responseMessage: 'Internal server error'
+      });
+    }
+  }
+
+    // GET /api/students/template - Download CSV template for bulk upload
+  static async downloadTemplate(req, res) {
+    try {
+      const template = 'Student_ID,Name,Mobile,Email,Course,Hostel,Vehicle_Number,Year,Semester';
+      
+      res.setHeader('Content-Type', 'text/csv');
+      res.setHeader('Content-Disposition', 'attachment; filename="student_template.csv"');
+      res.send(template);
+    } catch (error) {
+      console.error('Error in downloadTemplate:', error);
+      res.status(500).json({
+        responseCode: responseUtils.RESPONSE_CODES.ERROR,
+        responseMessage: 'Internal server error'
+      });
+    }
+  }
 
 }
 

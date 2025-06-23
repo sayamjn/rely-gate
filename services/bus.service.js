@@ -1,4 +1,5 @@
 
+const { query } = require('../config/database');
 const BusModel = require('../models/bus.model');
 const responseUtils = require("../utils/constants");
 
@@ -449,6 +450,97 @@ class BusService {
       };
     }
   }
+
+  static async exportBuses(tenantId, filters = {}) {
+    try {
+      let whereConditions = ['vr.TenantID = $1', "vr.IsActive = 'Y'", "vr.VisitorCatName = 'Bus'"];
+      let params = [tenantId];
+      let paramIndex = 2;
+
+      // Apply filters
+      if (filters.registrationNumber && filters.registrationNumber.trim()) {
+        whereConditions.push(`vr.VisitorRegNo ILIKE $${paramIndex}`);
+        params.push(`%${filters.registrationNumber.trim()}%`);
+        paramIndex++;
+      }
+
+      if (filters.driverName && filters.driverName.trim()) {
+        whereConditions.push(`vr.VistorName ILIKE $${paramIndex}`);
+        params.push(`%${filters.driverName.trim()}%`);
+        paramIndex++;
+      }
+
+      if (filters.fromDate) {
+        whereConditions.push(`vr.CreatedDate >= $${paramIndex}`);
+        params.push(filters.fromDate);
+        paramIndex++;
+      }
+
+      if (filters.toDate) {
+        whereConditions.push(`vr.CreatedDate <= $${paramIndex}`);
+        params.push(filters.toDate);
+        paramIndex++;
+      }
+
+      const whereClause = whereConditions.join(' AND ');
+
+      // Fixed SQL without DISTINCT conflict
+      const sql = `
+        SELECT 
+          vr.VisitorRegNo as "Bus Registration",
+          vr.VistorName as "Driver Name",
+          vr.Mobile as "Driver Mobile",
+          vr.VisitorSubCatName as "Bus Type",
+          vr.AssociatedFlat as "Route",
+          vr.AssociatedBlock as "Area",
+          vr.StatusName as "Status",
+          TO_CHAR(vr.CreatedDate, 'YYYY-MM-DD') as "Registration Date"
+        FROM VisitorRegistration vr
+        WHERE ${whereClause}
+        ORDER BY vr.CreatedDate DESC
+      `;
+
+      const { query } = require('../config/database');
+      const result = await query(sql, params);
+
+      if (result.rows.length === 0) {
+        return {
+          responseCode: 'E',
+          responseMessage: 'No bus data found for export'
+        };
+      }
+
+      // Convert to CSV
+      const headers = Object.keys(result.rows[0]);
+      const csvRows = [headers.join(',')];
+      
+      result.rows.forEach(row => {
+        const values = headers.map(header => {
+          const value = row[header] || '';
+          const stringValue = value.toString();
+          if (stringValue.includes(',') || stringValue.includes('"') || stringValue.includes('\n')) {
+            return `"${stringValue.replace(/"/g, '""')}"`;
+          }
+          return stringValue;
+        });
+        csvRows.push(values.join(','));
+      });
+
+      return {
+        responseCode: 'S',
+        csvData: csvRows.join('\n'),
+        count: result.rows.length
+      };
+    } catch (error) {
+      console.error('Error exporting buses:', error);
+      return {
+        responseCode: 'E',
+        responseMessage: 'Record(s) failed to save',
+        error: process.env.NODE_ENV === 'development' ? error.message : undefined
+      };
+    }
+  }
+
 }
 
 module.exports = BusService

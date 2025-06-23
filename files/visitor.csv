@@ -1,0 +1,107 @@
+Visitor ID,Name,Mobile,Email,Category,Sub Category,Flat/Unit,Block,Status,Registration Date,Current Status
+,Jane Smith,9876543211,,,,,,ACTIVE,2025-06-23 14:41,AVAILABLE
+STA1001007,Vijay Singh,8876540007,vijay.singh@maintenance.com,Staff,Maintenance,Block B,,ACTIVE,2025-06-23 14:33,CHECKED_IN
+STA1001030,Sanjay Mishra,8876540030,sanjay.driver@support.com,Staff,Maintenance,Transport Pool,,ACTIVE,2025-06-23 14:33,AVAILABLE
+STA1001008,Sanjay Mishra,8876540008,sanjay.mishra@maintenance.com,Staff,Maintenance,Block C,,ACTIVE,2025-06-23 14:33,AVAILABLE
+STA1001009,Prakash Joshi,8876540009,prakash.joshi@maintenance.com,Staff,Maintenance,Central Plant,,ACTIVE,2025-06-23 14:33,AVAILABLE
+STA1001018,Dr. Samir Khan,8876540018,samir.khan@facility.com,Staff,Maintenance,Admin Block,,ACTIVE,2025-06-23 14:33,AVAILABLE
+STA1001010,Ashok Kumar,8876540010,ashok.kumar@maintenance.com,Staff,Maintenance,Workshop,,ACTIVE,2025-06-23 14:33,AVAILABLE
+STA1001006,Anil Verma,8876540006,anil.verma@maintenance.com,Staff,Maintenance,Block A,,ACTIVE,2025-06-23 14:33,AVAILABLE
+STA1001020,Amar Singh,8876540020,amar.singh@accounts.com,Staff,Maintenance,Accounts Department,,ACTIVE,2025-06-23 14:33,AVAILABLE
+STA1858189,John Doe,9876543210,,Staff,Sales Executive,123 Main St,Apt 4B,ACTIVE,2025-06-23 14:07,AVAILABLE
+STA1001005,Dinesh Patel,9876540005,dinesh.patel@security.com,Staff,Security,Main Gate,Security-E,ACTIVE,2025-06-23 11:18,AVAILABLE
+STA1001015,Manoj Tiwari,9876540015,manoj.tiwari@cleaning.com,Staff,Cleaning,Common Areas,Cleaning-E,ACTIVE,2025-06-23 11:18,AVAILABLE
+STA1001014,Kiran Pal,9876540014,kiran.pal@cleaning.com,Staff,Cleaning,Block C,Cleaning-D,ACTIVE,2025-06-23 11:18,AVAILABLE
+STA1001013,Ravi Shankar,9876540013,ravi.shankar@cleaning.com,Staff,Cleaning,Block B,Cleaning-C,ACTIVE,2025-06-23 11:18,AVAILABLE
+STA1001012,Gopal Das,9876540012,gopal.das@cleaning.com,Staff,Cleaning,Block A,Cleaning-B,ACTIVE,2025-06-23 11:18,AVAILABLE
+STA1001010,Ashok Kumar,9876540010,ashok.kumar@maintenance.com,Staff,Maintenance,Workshop,Maintenance-E,ACTIVE,2025-06-23 11:18,AVAILABLE
+STA1001009,Prakash Joshi,9876540009,prakash.joshi@maintenance.com,Staff,Maintenance,Central Plant,Maintenance-D,ACTIVE,2025-06-23 11:18,AVAILABLE
+STA1001008,Sanjay Mishra,9876540008,sanjay.mishra@maintenance.com,Staff,Maintenance,Block C,Maintenance-C,ACTIVE,2025-06-23 11:18,AVAILABLE
+STA1001004,Ramesh Yadav,9876540004,ramesh.yadav@security.com,Staff,Security,South Gate,Security-D,ACTIVE,2025-06-23 11:18,AVAILABLE
+STA1001005,Dinesh Patel,9876540005,dinesh.patel@security.com,Staff,Security,Main Gate,Security-E,ACTIVE,2025-06-23 10:33,AVAILABLE
+STA1001015,Manoj Tiwari,9876540015,manoj.tiwari@cleaning.com,Staff,Cleaning,Common Areas,Cleaning-E,ACTIVE,2025-06-23 10:33,AVAILABLE
+STA1001014,Kiran Pal,9876540014,kiran.pal@cleaning.com,Staff,Cleaning,Block C,Cleaning-D,ACTIVE,2025-06-23 10:33,AVAILABLE
+STA1001013,Ravi Shankar,9876540013,ravi.shankar@cleaning.com,Staff,Cleaning,Block B,Cleaning-C,ACTIVE,2025-06-23 10:33,AVAILABLE
+STA1001012,Gopal Das,9876540012,gopal.das@cleaning.com,Staff,Cleaning,Block A,Cleaning-B,ACTIVE,2025-06-23 10:33,AVAILABLE
+STA1001010,Ashok Kumar,9876540010,ashok.kumar@maintenance.com,Staff,Maintenance,Workshop,Maintenance-E,ACTIVE,2025-06-23 10:33,AVAILABLE
+STA1001009,Prakash Joshi,9876540009,prakash.joshi@maintenance.com,Staff,Maintenance,Central Plant,Maintenance-D,ACTIVE,2025-06-23 10:33,AVAILABLE
+STA1001008,Sanjay Mishra,9876540008,sanjay.mishra@maintenance.com,Staff,Maintenance,Block C,Maintenance-C,ACTIVE,2025-06-23 10:33,AVAILABLE
+STA1001004,Ramesh Yadav,9876540004,ramesh.yadav@security.com,Staff,Security,South Gate,Security-D,ACTIVE,2025-06-23 10:33,AVAILABLE
+BUS1001005,School Bus 05,9876540005,transport@school.edu,Bus,Delivery,West Gate,Entry-N,ACTIVE,2025-06-21 15:00,AVAILABLE
+BUS1001004,School Bus 04,9876540004,transport@school.edu,Bus,Delivery,South Gate,Entry-M,ACTIVE,2025-06-21 15:00,AVAILABLE
+BUS1001008,College Express 03,9876540008,transport@college.edu,Bus,Service Provider,Highway Gate,Entry-O,ACTIVE,2025-06-21 15:00,AVAILABLE
+BUS1001009,College Express 04,9876540009,transport@college.edu,Bus,Service Provider,Ring Road,Entry-P,ACTIVE,2025-06-21 15:00,AVAILABLE
+BUS1001010,College Express 05,9876540010,transport@college.edu,Bus,Service Provider,Central Station,Entry-Q,ACTIVE,2025-06-21 15:00,AVAILABLE
+STA1001023,Mukesh Agarwal,9876540023,mukesh.agarwal@kitchen.com,Staff,Security,Main Canteen,Kitchen-C,ACTIVE,2025-06-21 11:18,AVAILABLE
+STA1001023,Mukesh Agarwal,9876540023,mukesh.agarwal@kitchen.com,Staff,Security,Main Canteen,Kitchen-C,ACTIVE,2025-06-21 10:33,AVAILABLE
+BUS1001023,Delivery Van,9876540023,delivery@campus.edu,Bus,Delivery,Loading Dock,Service-C,ACTIVE,2025-06-20 15:00,AVAILABLE
+STA1001022,Jagdish Yadav,9876540022,jagdish.yadav@kitchen.com,Staff,Cleaning,Main Canteen,Kitchen-B,ACTIVE,2025-06-20 11:18,AVAILABLE
+STU1001019,Varun Khanna,9876543228,varun.khanna@college.edu,Student,Regular Student,Room-701,Block-G,ACTIVE,2025-06-20 11:13,AVAILABLE
+STU1001016,Aadhya Iyer,9876543225,aadhya.iyer@college.edu,Student,Regular Student,Room-601,Block-F,ACTIVE,2025-06-20 11:13,AVAILABLE
+STU1001017,Nikhil Chopra,9876543226,nikhil.chopra@college.edu,Student,Regular Student,Room-602,Block-F,ACTIVE,2025-06-20 11:13,AVAILABLE
+STU1001018,Shruti Bansal,9876543227,shruti.bansal@college.edu,Student,Regular Student,Room-603,Block-F,ACTIVE,2025-06-20 11:13,AVAILABLE
+STU1001020,Riya Saxena,9876543229,riya.saxena@college.edu,Student,Regular Student,Room-702,Block-G,ACTIVE,2025-06-20 11:13,AVAILABLE
+STA1001022,Jagdish Yadav,9876540022,jagdish.yadav@kitchen.com,Staff,Cleaning,Main Canteen,Kitchen-B,ACTIVE,2025-06-20 10:33,AVAILABLE
+,Jane Smith,9876543211,,,,,,ACTIVE,2025-06-19 15:30,AVAILABLE
+BUS1001022,Security Patrol,9876540022,security@campus.edu,Bus,Service Provider,Security HQ,Service-B,ACTIVE,2025-06-19 15:00,AVAILABLE
+STA1001021,Raman Lal,9876540021,raman.lal@kitchen.com,Staff,Cleaning,Main Canteen,Kitchen-A,ACTIVE,2025-06-19 11:18,AVAILABLE
+STU1001015,Karan Malhotra,9876543224,karan.malhotra@college.edu,Student,Regular Student,Room-503,Block-E,ACTIVE,2025-06-19 11:13,AVAILABLE
+STA1001021,Raman Lal,9876540021,raman.lal@kitchen.com,Staff,Cleaning,Main Canteen,Kitchen-A,ACTIVE,2025-06-19 10:33,AVAILABLE
+BUS1001021,Maintenance Van,9876540021,maintenance@campus.edu,Bus,Service Provider,Maintenance Yard,Service-A,ACTIVE,2025-06-18 15:00,AVAILABLE
+STA1001020,Amar Singh,9876540020,amar.singh@accounts.com,Staff,Maintenance,Accounts Department,Admin-E,ACTIVE,2025-06-18 11:18,AVAILABLE
+STU1001014,Deepika Roy,9876543223,deepika.roy@college.edu,Student,Regular Student,Room-502,Block-E,ACTIVE,2025-06-18 11:13,AVAILABLE
+STA1001020,Amar Singh,9876540020,amar.singh@accounts.com,Staff,Maintenance,Accounts Department,Admin-E,ACTIVE,2025-06-18 10:33,AVAILABLE
+BUS1001020,Event Bus 02,9876540020,events@transport.edu,Bus,Delivery,Auditorium,Entry-L,ACTIVE,2025-06-17 15:00,AVAILABLE
+STA1001019,Sunil Rana,9876540019,sunil.rana@hr.com,Staff,Security,HR Department,Admin-D,ACTIVE,2025-06-17 11:18,AVAILABLE
+STU1001013,Rohit Agarwal,9876543222,rohit.agarwal@college.edu,Student,Regular Student,Room-501,Block-E,ACTIVE,2025-06-17 11:13,AVAILABLE
+STA1001019,Sunil Rana,9876540019,sunil.rana@hr.com,Staff,Security,HR Department,Admin-D,ACTIVE,2025-06-17 10:33,AVAILABLE
+BUS1001019,Event Bus 01,9876540019,events@transport.edu,Bus,Delivery,Event Hall,Entry-K,ACTIVE,2025-06-16 15:00,AVAILABLE
+STA1001018,Dr. Samir Khan,9876540018,samir.khan@facility.com,Staff,Maintenance,Admin Block,Admin-C,ACTIVE,2025-06-16 11:18,AVAILABLE
+STU1001012,Pooja Mehta,9876543221,pooja.mehta@college.edu,Student,Regular Student,Room-403,Block-D,ACTIVE,2025-06-16 11:13,AVAILABLE
+STA1001018,Dr. Samir Khan,9876540018,samir.khan@facility.com,Staff,Maintenance,Admin Block,Admin-C,ACTIVE,2025-06-16 10:33,AVAILABLE
+BUS1001018,Medical Bus,9876540018,medical@transport.edu,Bus,Service Provider,Medical Center,Entry-J,ACTIVE,2025-06-15 15:00,CHECKED_IN
+STA1001017,Rajendra Prasad,9876540017,rajendra.prasad@admin.com,Staff,Security,Front Desk,Admin-B,ACTIVE,2025-06-15 11:18,AVAILABLE
+STU1001011,Arjun Das,9876543220,arjun.das@college.edu,Student,Regular Student,Room-402,Block-D,ACTIVE,2025-06-15 11:13,AVAILABLE
+STA1001017,Rajendra Prasad,9876540017,rajendra.prasad@admin.com,Staff,Security,Front Desk,Admin-B,ACTIVE,2025-06-15 10:33,AVAILABLE
+BUS1001017,Emergency Bus 01,9876540017,emergency@transport.edu,Bus,Service Provider,Emergency Bay,Entry-I,ACTIVE,2025-06-14 15:00,AVAILABLE
+STU1001010,Meera Joshi,9876543219,meera.joshi@college.edu,Student,Regular Student,Room-401,Block-D,ACTIVE,2025-06-14 11:13,AVAILABLE
+BUS1001015,Campus Shuttle 02,9876540015,shuttle@campus.edu,Bus,Delivery,Hostel Area,Entry-H,ACTIVE,2025-06-13 15:00,AVAILABLE
+STA1001016,Deepak Rai,9876540016,deepak.rai@admin.com,Staff,Security,Admin Block,Admin-A,ACTIVE,2025-06-13 11:18,AVAILABLE
+STU1001009,Suresh Reddy,9876543218,suresh.reddy@college.edu,Student,Regular Student,Room-303,Block-C,ACTIVE,2025-06-13 11:13,AVAILABLE
+STA1001016,Deepak Rai,9876540016,deepak.rai@admin.com,Staff,Security,Admin Block,Admin-A,ACTIVE,2025-06-13 10:33,AVAILABLE
+STU1001008,Kavya Nair,9876543217,kavya.nair@college.edu,Student,Regular Student,Room-302,Block-C,ACTIVE,2025-06-12 11:13,AVAILABLE
+BUS1001014,Campus Shuttle 01,9876540014,shuttle@campus.edu,Bus,Delivery,Campus Center,Entry-G,ACTIVE,2025-06-11 15:00,AVAILABLE
+STA1001011,Mohan Lal,9876540011,mohan.lal@cleaning.com,Staff,Cleaning,All Blocks,Cleaning-A,ACTIVE,2025-06-11 11:18,CHECKED_IN
+STA1001011,Mohan Lal,9876540011,mohan.lal@cleaning.com,Staff,Cleaning,All Blocks,Cleaning-A,ACTIVE,2025-06-11 10:33,CHECKED_IN
+STU1001007,Rajesh Yadav,9876543216,rajesh.yadav@college.edu,Student,Regular Student,Room-301,Block-C,ACTIVE,2025-06-10 11:13,AVAILABLE
+BUS1001011,Staff Transport 01,9876540011,staff@transport.edu,Bus,Service Provider,Staff Gate,Entry-F,ACTIVE,2025-06-09 15:00,CHECKED_IN
+STA1001006,Anil Verma,9876540006,anil.verma@maintenance.com,Staff,Maintenance,Block A,Maintenance-A,ACTIVE,2025-06-08 11:18,CHECKED_IN
+STU1001006,Anita Verma,9876543215,anita.verma@college.edu,Student,Regular Student,Room-203,Block-B,ACTIVE,2025-06-08 11:13,CHECKED_IN
+STA1001006,Anil Verma,9876540006,anil.verma@maintenance.com,Staff,Maintenance,Block A,Maintenance-A,ACTIVE,2025-06-08 10:33,CHECKED_IN
+BUS1001006,College Express 01,9876540006,transport@college.edu,Bus,Service Provider,City Gate,Entry-D,ACTIVE,2025-06-06 15:00,CHECKED_IN
+STA1001007,Vijay Singh,9876540007,vijay.singh@maintenance.com,Staff,Maintenance,Block B,Maintenance-B,ACTIVE,2025-06-05 11:18,CHECKED_IN
+STU1001004,Sneha Singh,9876543213,sneha.singh@college.edu,Student,Regular Student,Room-201,Block-B,ACTIVE,2025-06-05 11:13,CHECKED_IN
+STA1001007,Vijay Singh,9876540007,vijay.singh@maintenance.com,Staff,Maintenance,Block B,Maintenance-B,ACTIVE,2025-06-05 10:33,CHECKED_IN
+BUS1001007,College Express 02,9876540007,transport@college.edu,Bus,Service Provider,Metro Gate,Entry-E,ACTIVE,2025-06-03 15:00,CHECKED_IN
+STA1001003,Mahesh Gupta,9876540003,mahesh.gupta@security.com,Staff,Security,East Gate,Security-C,ACTIVE,2025-06-03 11:18,AVAILABLE
+STA1001003,Mahesh Gupta,9876540003,mahesh.gupta@security.com,Staff,Security,East Gate,Security-C,ACTIVE,2025-06-03 10:33,AVAILABLE
+STU1001005,Vikash Gupta,9876543214,vikash.gupta@college.edu,Student,Regular Student,Room-202,Block-B,ACTIVE,2025-06-02 11:13,CHECKED_IN
+BUS1001003,School Bus 03,9876540003,transport@school.edu,Bus,Delivery,East Gate,Entry-C,ACTIVE,2025-06-01 15:00,AVAILABLE
+STU1001003,Amit Kumar,9876543212,amit.kumar@college.edu,Student,Regular Student,Room-103,Block-A,ACTIVE,2025-05-31 11:13,AVAILABLE
+STA1001002,Suresh Sharma,9876540002,suresh.sharma@security.com,Staff,Security,North Gate,Security-B,ACTIVE,2025-05-29 11:18,AVAILABLE
+STA1001002,Suresh Sharma,9876540002,suresh.sharma@security.com,Staff,Security,North Gate,Security-B,ACTIVE,2025-05-29 10:33,AVAILABLE
+BUS1001002,School Bus 02,9876540002,transport@school.edu,Bus,Delivery,North Gate,Entry-B,ACTIVE,2025-05-27 15:00,AVAILABLE
+STU1001002,Priya Patel,9876543211,priya.patel@college.edu,Student,Regular Student,Room-102,Block-A,ACTIVE,2025-05-26 11:13,AVAILABLE
+STA1001001,Rajesh Kumar,9876540001,rajesh.kumar@security.com,Staff,Security,Main Gate,Security-A,ACTIVE,2025-05-24 11:18,AVAILABLE
+STA1001032,Arun Krishnan,9876540032,arun.gardener@landscape.com,Staff,Cleaning,Landscaping,Grounds-A,ACTIVE,2025-05-24 11:18,AVAILABLE
+STA1001032,Arun Krishnan,9876540032,arun.gardener@landscape.com,Staff,Cleaning,Landscaping,Grounds-A,ACTIVE,2025-05-24 10:33,AVAILABLE
+STA1001001,Rajesh Kumar,9876540001,rajesh.kumar@security.com,Staff,Security,Main Gate,Security-A,ACTIVE,2025-05-24 10:33,CHECKED_IN
+BUS1001001,School Bus 01,9876540001,transport@school.edu,Bus,Delivery,Main Gate,Entry-A,ACTIVE,2025-05-22 15:00,AVAILABLE
+STU1001023,Dr. Arun Krishnan,9876543232,arun.krishnan@college.edu,Student,New Admission,Research-103,Research-Block,ACTIVE,2025-05-21 11:13,AVAILABLE
+STU1001001,Rahul Sharma,9876543210,rahul.sharma@college.edu,Student,Regular Student,Room-101,Block-A,ACTIVE,2025-05-21 11:13,AVAILABLE
+STA1001031,Lakshmi Menon,9876540031,lakshmi.nurse@medical.com,Staff,Security,Medical Center,Medical-A,ACTIVE,2025-05-09 11:18,AVAILABLE
+STA1001031,Lakshmi Menon,9876540031,lakshmi.nurse@medical.com,Staff,Security,Medical Center,Medical-A,ACTIVE,2025-05-09 10:33,AVAILABLE
+STU1001022,Dr. Lakshmi Menon,9876543231,lakshmi.menon@college.edu,Student,New Admission,Research-102,Research-Block,ACTIVE,2025-05-06 11:13,AVAILABLE
+STA1001030,Sanjay Mishra,9876540030,sanjay.driver@support.com,Staff,Maintenance,Transport Pool,Support-A,ACTIVE,2025-04-24 11:18,AVAILABLE
+STA1001030,Sanjay Mishra,9876540030,sanjay.driver@support.com,Staff,Maintenance,Transport Pool,Support-A,ACTIVE,2025-04-24 10:33,AVAILABLE
+STU1001021,Dr. Sanjay Mishra,9876543230,sanjay.mishra@college.edu,Student,New Admission,Research-101,Research-Block,ACTIVE,2025-04-21 11:13,AVAILABLE

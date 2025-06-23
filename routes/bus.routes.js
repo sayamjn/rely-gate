@@ -77,4 +77,18 @@ router.get('/:busId/history', [
   query('limit').optional().isInt({ min: 1, max: 50 }).withMessage('Limit must be between 1 and 50')
 ], handleValidationErrors, BusController.getBusHistory);
 
+// GET /api/buses/export - Export buses
+router.get('/export', [
+  query('purposeId').optional().isInt().withMessage('PurposeId must be an integer'),
+  query('registrationNumber').optional().isString().trim().withMessage('RegistrationNumber must be a string'),
+  query('driverName').optional().isString().trim().withMessage('DriverName must be a string'),
+  query('fromDate').optional().isISO8601().withMessage('FromDate must be a valid date'),
+  query('toDate').optional().isISO8601().withMessage('ToDate must be a valid date'),
+  query('format').optional().isIn(['csv']).withMessage('Invalid format'),
+  query('tenantId').optional().isNumeric().withMessage('TenantId must be numeric')
+], handleValidationErrors, BusController.exportBuses);
+
+// GET /api/buses/template - Download CSV template
+router.get('/template', handleValidationErrors, BusController.downloadTemplate);
+
 module.exports = router;

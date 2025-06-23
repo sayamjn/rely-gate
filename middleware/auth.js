@@ -56,6 +56,36 @@ const validateTenantAccess = (req, res, next) => {
   next();
 };
 
+  const  rateLimit = (maxRequests = 100, windowMs = 15 * 60 * 1000) => {
+    const requests = new Map();
+    
+    return (req, res, next) => {
+      const key = `${req.ip}-${req.user?.tenantId || 'anonymous'}`;
+      const now = Date.now();
+      const windowStart = now - windowMs;
+      
+      if (requests.has(key)) {
+        const userRequests = requests.get(key).filter(time => time > windowStart);
+        requests.set(key, userRequests);
+      }
+      
+      const userRequests = requests.get(key) || [];
+      
+      if (userRequests.length >= maxRequests) {
+        return res.status(429).json({
+          responseCode: responseUtils.RESPONSE_CODES.ERROR,
+          responseMessage: 'Too many requests. Please try again later.',
+          retryAfter: Math.ceil(windowMs / 1000)
+        });
+      }
+      
+      userRequests.push(now);
+      requests.set(key, userRequests);
+      
+      next();
+    };
+  }
+
 module.exports = {
   authenticateToken,
   authorizeRole,
