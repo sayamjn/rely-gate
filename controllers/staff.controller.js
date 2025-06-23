@@ -2,6 +2,54 @@ const StaffService = require('../services/staff.service');
 const responseUtils = require('../utils/constants');
 
 class StaffController {
+  // POST /api/staff/list - List staff with filters
+  static async listStaff(req, res) {
+    try {
+      const {
+        page = 1,
+        pageSize = 20,
+        search = '',
+        designation = '',
+        staffId = '',
+        name = '',
+        fromDate = null,
+        toDate = null,
+        tenantId
+      } = req.body;
+      
+      const userTenantId = req.user.tenantId;
+
+      if (tenantId && parseInt(tenantId) !== userTenantId) {
+        return res.status(403).json({
+          responseCode: responseUtils.RESPONSE_CODES.ERROR,
+          responseMessage: 'Access denied for this tenant'
+        });
+      }
+
+      const filters = {
+        page: parseInt(page),
+        pageSize: parseInt(pageSize),
+        search,
+        designation,
+        staffId,
+        name,
+        fromDate,
+        toDate
+      };
+
+      const result = await StaffService.getStaffWithFilters(userTenantId, filters);
+      res.json(result);
+    } catch (error) {
+      console.error('Error in listStaff:', error);
+      res.status(500).json({
+        responseCode: responseUtils.RESPONSE_CODES.ERROR,
+        responseMessage: 'Internal server error',
+        error: process.env.NODE_ENV === 'development' ? error.message : undefined
+      });
+    }
+  }
+
+
   // GET /api/staff - List staff with pagination and search
   static async getStaff(req, res) {
     try {
@@ -195,6 +243,162 @@ class StaffController {
       });
     }
   }
+
+    // GET /api/staff/designations - Get available designations
+  static async getDesignations(req, res) {
+    try {
+      const { tenantId } = req.query;
+      const userTenantId = req.user.tenantId;
+
+      if (tenantId && parseInt(tenantId) !== userTenantId) {
+        return res.status(403).json({
+          responseCode: responseUtils.RESPONSE_CODES.ERROR,
+          responseMessage: 'Access denied for this tenant'
+        });
+      }
+
+      const result = await StaffService.getDesignations(userTenantId);
+      res.json(result);
+    } catch (error) {
+      console.error('Error in getDesignations:', error);
+      res.status(500).json({
+        responseCode: responseUtils.RESPONSE_CODES.ERROR,
+        responseMessage: 'Internal server error'
+      });
+    }
+  }
+
+    // POST /api/staff/register - Staff registration (OTP-based)
+  static async registerStaff(req, res) {
+    try {
+      const { mobile, designation, tenantId } = req.body;
+      const userTenantId = req.user.tenantId;
+
+      if (tenantId && parseInt(tenantId) !== userTenantId) {
+        return res.status(403).json({
+          responseCode: responseUtils.RESPONSE_CODES.ERROR,
+          responseMessage: 'Access denied for this tenant'
+        });
+      }
+
+      const result = await StaffService.registerStaff(
+        userTenantId,
+        mobile,
+        designation
+      );
+      res.json(result);
+    } catch (error) {
+      console.error('Error in registerStaff:', error);
+      res.status(500).json({
+        responseCode: responseUtils.RESPONSE_CODES.ERROR,
+        responseMessage: 'Internal server error'
+      });
+    }
+  }
+
+
+   // POST /api/staff/verify-registration - Verify OTP and complete registration
+  static async verifyRegistration(req, res) {
+    try {
+      const {
+        mobile,
+        otpNumber,
+        name,
+        designation,
+        address1,
+        address2,
+        remarks,
+        vehicleNumber,
+        tenantId
+      } = req.body;
+      
+      const userTenantId = req.user.tenantId;
+      const createdBy = req.user.username;
+
+      if (tenantId && parseInt(tenantId) !== userTenantId) {
+        return res.status(403).json({
+          responseCode: responseUtils.RESPONSE_CODES.ERROR,
+          responseMessage: 'Access denied for this tenant'
+        });
+      }
+
+      const result = await StaffService.verifyRegistration(
+        userTenantId,
+        mobile,
+        otpNumber,
+        {
+          name,
+          designation,
+          address1,
+          address2,
+          remarks,
+          vehicleNumber
+        },
+        createdBy
+      );
+      
+      res.json(result);
+    } catch (error) {
+      console.error('Error in verifyRegistration:', error);
+      res.status(500).json({
+        responseCode: responseUtils.RESPONSE_CODES.ERROR,
+        responseMessage: 'Internal server error'
+      });
+    }
+  }
+
+  static async exportStaff(req, res) {
+  try {
+    const { tenantId, designation } = req.query;
+    const userTenantId = req.user.tenantId;
+
+    if (tenantId && parseInt(tenantId) !== userTenantId) {
+      return res.status(403).json({
+        responseCode: responseUtils.RESPONSE_CODES.ERROR,
+        responseMessage: 'Access denied for this tenant'
+      });
+    }
+
+    const result = await StaffService.exportStaff(userTenantId, { designation });
+    
+    if (result.responseCode === responseUtils.RESPONSE_CODES.SUCCESS) {
+      res.setHeader('Content-Type', 'text/csv');
+      res.setHeader('Content-Disposition', 'attachment; filename=staff_export.csv');
+      res.send(result.csvData);
+    } else {
+      res.status(500).json(result);
+    }
+  } catch (error) {
+    console.error('Error in exportStaff:', error);
+    res.status(500).json({
+      responseCode: responseUtils.RESPONSE_CODES.ERROR,
+      responseMessage: 'Internal server error'
+    });
+  }
+}
+
+// Download CSV template
+static async downloadTemplate(req, res) {
+  try {
+    const csvTemplate = [
+      'StaffID,Name,Mobile,Designation,Email,Address',
+      'STF001,John Doe,9876543210,Sales Executive,john.doe@company.com,123 Main St',
+      'STF002,Jane Smith,9876543211,Manager,jane.smith@company.com,456 Oak Ave',
+      'STF003,Mike Johnson,9876543212,Security,mike.johnson@company.com,789 Pine Rd'
+    ].join('\n');
+
+    res.setHeader('Content-Type', 'text/csv');
+    res.setHeader('Content-Disposition', 'attachment; filename=staff_upload_template.csv');
+    res.send(csvTemplate);
+  } catch (error) {
+    console.error('Error in downloadTemplate:', error);
+    res.status(500).json({
+      responseCode: responseUtils.RESPONSE_CODES.ERROR,
+      responseMessage: 'Internal server error'
+    });
+  }
+}
+
 }
 
 module.exports = StaffController;

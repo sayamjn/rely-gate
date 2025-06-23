@@ -1,0 +1,9 @@
+Staff ID,Name,Mobile,Designation,Department,Email,Address,Status,Registration Date
+STA1001020,Amar Singh,8876540020,Maintenance,Admin-E,amar.singh@accounts.com,Accounts Department,ACTIVE,2025-06-18
+STA1001006,Anil Verma,8876540006,Maintenance,Maintenance-A,anil.verma@maintenance.com,Block A,ACTIVE,2025-06-08
+STA1001010,Ashok Kumar,8876540010,Maintenance,Maintenance-E,ashok.kumar@maintenance.com,Workshop,ACTIVE,2025-06-23
+STA1001018,Dr. Samir Khan,8876540018,Maintenance,Admin-C,samir.khan@facility.com,Admin Block,ACTIVE,2025-06-16
+STA1001009,Prakash Joshi,8876540009,Maintenance,Maintenance-D,prakash.joshi@maintenance.com,Central Plant,ACTIVE,2025-06-23
+STA1001008,Sanjay Mishra,8876540008,Maintenance,Maintenance-C,sanjay.mishra@maintenance.com,Block C,ACTIVE,2025-06-23
+STA1001030,Sanjay Mishra,8876540030,Maintenance,Support-A,sanjay.driver@support.com,Transport Pool,ACTIVE,2025-04-24
+STA1001007,Vijay Singh,8876540007,Maintenance,Maintenance-B,vijay.singh@maintenance.com,Block B,ACTIVE,2025-06-05

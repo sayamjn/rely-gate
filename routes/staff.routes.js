@@ -57,4 +57,56 @@ router.get('/:staffId/history', [
   query('limit').optional().isNumeric().withMessage('Limit must be numeric')
 ], handleValidationErrors, StaffController.getStaffHistory);
 
+
+// POST /api/staff/list - List staff with filters 
+router.post('/list', [
+  body('page').optional().isInt({ min: 1 }).withMessage('Page must be a positive integer'),
+  body('pageSize').optional().isInt({ min: 1, max: 100 }).withMessage('PageSize must be between 1 and 100'),
+  body('search').optional().isString().trim().withMessage('Search must be a string'),
+  body('designation').optional().isString().trim().withMessage('Designation must be a string'),
+  body('staffId').optional().isString().trim().withMessage('StaffId must be a string'),
+  body('name').optional().isString().trim().withMessage('Name must be a string'),
+  body('fromDate').optional().isISO8601().withMessage('FromDate must be a valid date'),
+  body('toDate').optional().isISO8601().withMessage('ToDate must be a valid date'),
+  body('tenantId').optional().isNumeric().withMessage('TenantId must be numeric')
+], handleValidationErrors, StaffController.listStaff);
+
+
+// GET /api/staff/designations - Get available designations
+router.get('/designations', [
+  query('tenantId').optional().isNumeric().withMessage('TenantId must be numeric')
+], handleValidationErrors, StaffController.getDesignations);
+
+// POST /api/staff/register - Staff registration (OTP-based)
+router.post('/register', [
+  body('mobile').notEmpty().matches(/^\d{10}$/).withMessage('Mobile must be 10 digits'),
+  body('designation').notEmpty().withMessage('Designation is required'),
+  body('tenantId').optional().isNumeric().withMessage('TenantId must be numeric')
+], handleValidationErrors, StaffController.registerStaff);
+
+
+// POST /api/staff/verify-registration - Verify OTP and complete registration
+router.post('/verify-registration', [
+  body('mobile').notEmpty().matches(/^\d{10}$/).withMessage('Mobile must be 10 digits'),
+  body('otpNumber').notEmpty().matches(/^\d{6}$/).withMessage('OTP must be 6 digits'),
+  body('name').notEmpty().withMessage('Name is required'),
+  body('designation').notEmpty().withMessage('Designation is required'),
+  body('address1').optional().isString().trim(),
+  body('address2').optional().isString().trim(),
+  body('remarks').optional().isString().trim(),
+  body('vehicleNumber').optional().isString().trim(),
+  body('tenantId').optional().isNumeric().withMessage('TenantId must be numeric')
+], handleValidationErrors, StaffController.verifyRegistration);
+
+
+// GET /api/staff/export - Export staff data to CSV
+router.get('/export', [
+  query('tenantId').optional().isNumeric().withMessage('TenantId must be numeric'),
+  query('designation').optional().isString().trim(),
+], handleValidationErrors, StaffController.exportStaff);
+
+// GET /api/staff/template - Download CSV template for bulk upload
+router.get('/template', handleValidationErrors, StaffController.downloadTemplate);
+
+
 module.exports = router;

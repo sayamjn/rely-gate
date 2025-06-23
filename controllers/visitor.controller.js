@@ -158,62 +158,65 @@ class VisitorController {
   }
 
   // POST /api/visitors/create-unregistered
-  static async createUnregisteredVisitor(req, res) {
-    try {
-      const {
-        tenantId, fname, mobile, vehicleNo, flatName, visitorCatId,
-        visitorCatName, visitorSubCatId, visitorSubCatName, visitPurposeId,
-        visitPurpose, totalVisitor, photoPath, vehiclePhotoPath
-      } = req.body;
+static async createUnregisteredVisitor(req, res) {
+  try {
+    const {
+      tenantId, fname, mobile, vehicleNo, flatName, visitorCatId,
+      visitorCatName, visitorSubCatId, visitorSubCatName, visitPurposeId,
+      visitPurpose, totalVisitor, photoPath, vehiclePhotoPath
+    } = req.body;
 
-      const userTenantId = req.user;
-      console.log("userTenantId: ", userTenantId)
-      const createdBy = req.user.username;
+    // ✅ FIX: Get just the tenantId number, not the entire user object
+    const userTenantId = req.user.tenantId;  // Changed from req.user
+    console.log("userTenantId: ", userTenantId);  // Now will show just the number
+    const createdBy = req.user.username;
 
-      if (tenantId && parseInt(tenantId) !== userTenantId) {
-        return res.status(403).json({
-          responseCode: 'E',
-          responseMessage: 'Access denied for this tenant'
-        });
-      }
-
-      // Validate required fields
-      if (!fname || !mobile || !flatName || !visitorCatId || !visitorSubCatId) {
-        return res.status(400).json({
-          responseCode: 'E',
-          responseMessage: 'Required fields: fname, mobile, flatName, visitorCatId, visitorSubCatId'
-        });
-      }
-
-      const visitorData = {
-        tenantId: userTenantId,
-        fname,
-        mobile,
-        vehicleNo,
-        flatName,
-        visitorCatId: parseInt(visitorCatId),
-        visitorCatName,
-        visitorSubCatId: parseInt(visitorSubCatId),
-        visitorSubCatName,
-        visitPurposeId: visitPurposeId ? parseInt(visitPurposeId) : null,
-        visitPurpose,
-        totalVisitor: totalVisitor ? parseInt(totalVisitor) : 1,
-        photoPath,
-        vehiclePhotoPath,
-        createdBy
-      };
-
-      const result = await VisitorService.createUnregisteredVisitor(visitorData);
-
-      res.json(result);
-    } catch (error) {
-      console.error('Error in createUnregisteredVisitor:', error);
-      res.status(500).json({
+    // ✅ Now this validation will work correctly
+    if (tenantId && parseInt(tenantId) !== userTenantId) {
+      return res.status(403).json({
         responseCode: 'E',
-        responseMessage: 'Internal server error'
+        responseMessage: 'Access denied for this tenant'
       });
     }
+
+    // Validate required fields
+    if (!fname || !mobile || !flatName || !visitorCatId || !visitorSubCatId) {
+      return res.status(400).json({
+        responseCode: 'E',
+        responseMessage: 'Required fields: fname, mobile, flatName, visitorCatId, visitorSubCatId'
+      });
+    }
+
+    const visitorData = {
+      tenantId: userTenantId,  // Use the correct tenantId
+      fname,
+      mobile,
+      vehicleNo,
+      flatName,
+      visitorCatId: parseInt(visitorCatId),
+      visitorCatName,
+      visitorSubCatId: parseInt(visitorSubCatId),
+      visitorSubCatName,
+      visitPurposeId: visitPurposeId ? parseInt(visitPurposeId) : null,
+      visitPurpose,
+      totalVisitor: totalVisitor ? parseInt(totalVisitor) : 1,
+      photoData: photoPath,
+      vehiclePhotoData: vehiclePhotoPath,
+      createdBy
+    };
+
+    const result = await VisitorService.createUnregisteredVisitor(visitorData);
+
+    res.json(result);
+  } catch (error) {
+    console.error('Error in createUnregisteredVisitor:', error);
+    res.status(500).json({
+      responseCode: 'E',
+      responseMessage: 'Internal server error'
+    });
   }
+}
+
 
   // POST /api/visitors/create-registered
   static async createRegisteredVisitor(req, res) {

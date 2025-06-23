@@ -287,6 +287,202 @@ class BulkService {
     };
     return subCategories[catId] || 'General';
   }
+
+  static async processStaffCSV(filePath, tenantId, createdBy) {
+  try {
+    const staff = [];
+    
+    return new Promise((resolve, reject) => {
+      let isFirstRow = true;
+      
+      fs.createReadStream(filePath)
+        .pipe(csv({ headers: false }))
+        .on('data', (row) => {
+          if (isFirstRow) {
+            isFirstRow = false;
+            return; // Skip header row
+          }
+
+          const values = Object.values(row);
+          
+          // Expected CSV format: StaffID, Name, Mobile, Designation, Email, Address
+          if (values.length >= 4) {
+            staff.push({
+              staffId: values[0]?.trim() || '',
+              name: values[1]?.trim() || '',
+              mobile: values[2]?.trim() || '',
+              designation: values[3]?.trim() || '',
+              email: values[5]?.trim() || '',
+              address: values[6]?.trim() || '',
+              type: 'staff',
+              tenantId,
+              createdBy
+            });
+          }
+        })
+        .on('end', async () => {
+          try {
+            const inserted = await this.bulkInsertStaff(staff, tenantId, createdBy);
+            resolve({
+              responseCode: responseUtils.RESPONSE_CODES.SUCCESS,
+              responseMessage: `${inserted} staff records inserted successfully`,
+              count: inserted
+            });
+          } catch (error) {
+            reject(error);
+          }
+        })
+        .on('error', (error) => {
+          reject(error);
+        });
+    });
+  } catch (error) {
+    console.error('Error processing staff CSV:', error);
+    return {
+      responseCode: responseUtils.RESPONSE_CODES.ERROR,
+      responseMessage: responseUtils.RESPONSE_MESSAGES.ERROR,
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    };
+  }
+}
+
+// Bulk insert staff records
+
+static async bulkInsertStaff(staffList, tenantId, createdBy) {
+  try {
+    if (!staffList || staffList.length === 0) {
+      return 0;
+    }
+
+    let insertedCount = 0;
+    let skippedCount = 0;
+
+    console.log(`Processing ${staffList.length} staff records...`);
+
+    for (const staff of staffList) {
+      try {
+        if (!staff.name || !staff.mobile) {
+          console.log(`Skipping record: Missing name or mobile - ${staff.name || 'Unknown'}`);
+          skippedCount++;
+          continue;
+        }
+
+        const cleanMobile = staff.mobile.toString().trim();
+        if (cleanMobile.length < 10) {
+          console.log(`Skipping record: Invalid mobile number - ${staff.name}: ${cleanMobile}`);
+          skippedCount++;
+          continue;
+        }
+
+        const checkSql = `
+          SELECT COUNT(*) as count
+          FROM VisitorRegistration
+          WHERE TenantID = $1 AND Mobile = $2 AND VisitorCatName = 'Staff' AND IsActive = 'Y'
+        `;
+        const checkResult = await query(checkSql, [tenantId, cleanMobile]);
+        
+        if (checkResult.rows[0].count > 0) {
+          console.log(`Staff with mobile ${cleanMobile} already exists, skipping...`);
+          skippedCount++;
+          continue;
+        }
+
+        let visitorSubCatId = 1; // Default
+        const designation = staff.designation && staff.designation.trim() ? staff.designation.trim() : 'Staff';
+        
+        const designationSql = `
+          SELECT VisitorSubCatID
+          FROM VisitorSubCategory
+          WHERE TenantID = $1 AND VisitorSubCatName ILIKE $2 AND VisitorCatID = 1 AND IsActive = 'Y'
+          LIMIT 1
+        `;
+        const designationResult = await query(designationSql, [tenantId, designation]);
+        
+        if (designationResult.rows.length > 0) {
+          visitorSubCatId = designationResult.rows[0].visitorsubcatid;
+        } else {
+          const newDesignationSql = `
+            INSERT INTO VisitorSubCategory (
+              TenantID, VisitorCatID, VisitorCatName, VisitorSubCatName,
+              IsActive, CreatedDate, UpdatedDate, CreatedBy, UpdatedBy
+            ) VALUES (
+              $1, 1, 'Staff', $2, 'Y', NOW(), NOW(), $3, $3
+            ) RETURNING VisitorSubCatID
+          `;
+          const newDesignationResult = await query(newDesignationSql, [
+            tenantId, 
+            designation, 
+            createdBy
+          ]);
+          visitorSubCatId = newDesignationResult.rows[0].visitorsubcatid;
+          console.log(`Created new designation: ${designation}`);
+        }
+
+        const staffRegNo = staff.staffId && staff.staffId.trim() ? 
+          staff.staffId.trim() : 
+          `STA${tenantId}${Date.now().toString().slice(-6)}${Math.floor(Math.random() * 99).toString().padStart(2, '0')}`;
+        const securityCode = Math.floor(100000 + Math.random() * 900000).toString();
+
+        const staffName = staff.name.trim();
+        const staffEmail = staff.email && staff.email.trim() ? staff.email.trim() : '';
+        const staffAddress = staff.address && staff.address.trim() ? staff.address.trim() : '';
+        const staffDepartment = staff.department && staff.department.trim() ? staff.department.trim() : '';
+
+        const insertSql = `
+          INSERT INTO VisitorRegistration (
+            TenantID, VistorName, Mobile, VisitorCatID, VisitorCatName,
+            VisitorSubCatID, VisitorSubCatName, VisitorRegNo, SecurityCode,
+            StatusID, StatusName, IsActive, Email, AssociatedFlat, AssociatedBlock,
+            CreatedDate, UpdatedDate, CreatedBy, UpdatedBy
+          ) VALUES (
+            $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, NOW(), NOW(), $16, $16
+          )
+        `;
+
+        const values = [
+          tenantId,                    // $1 - TenantID
+          staffName,                   // $2 - VistorName
+          cleanMobile,                 // $3 - Mobile
+          1,                          // $4 - VisitorCatID (Staff = 1)
+          'Staff',                    // $5 - VisitorCatName
+          visitorSubCatId,            // $6 - VisitorSubCatID
+          designation,                // $7 - VisitorSubCatName
+          staffRegNo,                 // $8 - VisitorRegNo
+          securityCode,               // $9 - SecurityCode
+          1,                          // $10 - StatusID (Active = 1)
+          'ACTIVE',                   // $11 - StatusName
+          'Y',                        // $12 - IsActive
+          staffEmail,                 // $13 - Email
+          staffAddress,               // $14 - AssociatedFlat (Address)
+          staffDepartment,            // $15 - AssociatedBlock (Department)
+          createdBy                   // $16 - CreatedBy & UpdatedBy
+        ];
+
+        console.log(`Inserting staff: ${staffName} with ${values.length} parameters`);
+        
+        await query(insertSql, values);
+        insertedCount++;
+        
+        console.log(`✅ Inserted staff: ${staffName} (${cleanMobile})`);
+        
+      } catch (error) {
+        console.error(`❌ Error inserting staff ${staff.name}:`, error.message);
+        skippedCount++;
+      }
+    }
+
+    console.log(`📊 Staff bulk insert completed:`);
+    console.log(`   - Total processed: ${staffList.length}`);
+    console.log(`   - Successfully inserted: ${insertedCount}`);
+    console.log(`   - Skipped/Failed: ${skippedCount}`);
+
+    return insertedCount;
+
+  } catch (error) {
+    console.error('Error in bulk insert staff:', error);
+    throw error;
+  }
+}
 }
 
 module.exports = BulkService;

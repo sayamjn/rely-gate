@@ -26,4 +26,6 @@ router.post('/students', upload.single('file'), BulkController.uploadStudentData
 // POST /api/bulk/visitors
 router.post('/visitors', upload.single('file'), BulkController.uploadVisitorData);
 
+router.post('/staff', upload.single('file'), BulkController.uploadStaffData);
+
 module.exports = router;
