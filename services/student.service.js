@@ -1,109 +1,117 @@
+const { query } = require("../config/database");
 const StudentModel = require("../models/student.model");
 const responseUtils = require("../utils/constants");
 
 class StudentService {
   // Get students with filters
-static async getStudentsWithFilters(tenantId, filters = {}) {
-  try {
-    const students = await StudentModel.getStudentsWithFilters(tenantId, filters);
-    
-    const totalCount = students.length > 0 ? parseInt(students[0].total_count) : 0;
-    const currentPage = parseInt(filters.page) || 1;
-    const pageSize = parseInt(filters.pageSize) || 20;
-    const totalPages = Math.ceil(totalCount / pageSize);
+  static async getStudentsWithFilters(tenantId, filters = {}) {
+    try {
+      const students = await StudentModel.getStudentsWithFilters(
+        tenantId,
+        filters
+      );
 
-    return {
-      responseCode: responseUtils.RESPONSE_CODES.SUCCESS,
-      data: students.map(student => {
-        const { total_count, ...studentData } = student;
-        
-        // Calculate formatted duration
-        const formatDuration = (hours) => {
-          if (!hours || hours <= 0) return null;
-          const h = Math.floor(hours);
-          const m = Math.round((hours % 1) * 60);
-          return {
-            hours: h,
-            minutes: m,
-            formatted: `${h}h ${m}m`,
-            totalMinutes: Math.round(hours * 60)
+      const totalCount =
+        students.length > 0 ? parseInt(students[0].total_count) : 0;
+      const currentPage = parseInt(filters.page) || 1;
+      const pageSize = parseInt(filters.pageSize) || 20;
+      const totalPages = Math.ceil(totalCount / pageSize);
+
+      return {
+        responseCode: responseUtils.RESPONSE_CODES.SUCCESS,
+        data: students.map((student) => {
+          const { total_count, ...studentData } = student;
+
+          // Calculate formatted duration
+          const formatDuration = (hours) => {
+            if (!hours || hours <= 0) return null;
+            const h = Math.floor(hours);
+            const m = Math.round((hours % 1) * 60);
+            return {
+              hours: h,
+              minutes: m,
+              formatted: `${h}h ${m}m`,
+              totalMinutes: Math.round(hours * 60),
+            };
           };
-        };
 
-        // Format dates
-        const formatDateTime = (dateTime) => {
-          if (!dateTime) return null;
-          const date = new Date(dateTime);
-          return {
-            date: date.toISOString().split('T')[0], // YYYY-MM-DD
-            time: date.toLocaleTimeString('en-US', { 
-              hour: '2-digit', 
-              minute: '2-digit', 
-              hour12: true 
-            }),
-            dateTime: date.toISOString(),
-            timestamp: date.getTime()
+          // Format dates
+          const formatDateTime = (dateTime) => {
+            if (!dateTime) return null;
+            const date = new Date(dateTime);
+            return {
+              date: date.toISOString().split("T")[0], // YYYY-MM-DD
+              time: date.toLocaleTimeString("en-US", {
+                hour: "2-digit",
+                minute: "2-digit",
+                hour12: true,
+              }),
+              dateTime: date.toISOString(),
+              timestamp: date.getTime(),
+            };
           };
-        };
 
-        return {
-          ...studentData,
-          lastPurpose: {
-            purposeId: studentData.lastvisitpurposeid,
-            purposeName: studentData.lastvisitpurpose,
-            purposeCatId: studentData.lastpurposecatid,
-            purposeCatName: studentData.lastpurposecatname
-          },
-          lastActivity: {
-            // Checkout information
-            checkOut: {
-              dateTime: formatDateTime(studentData.lastcheckoutdatetime),
-              timeText: studentData.lastcheckouttime
+          return {
+            ...studentData,
+            lastPurpose: {
+              purposeId: studentData.lastvisitpurposeid,
+              purposeName: studentData.lastvisitpurpose,
+              purposeCatId: studentData.lastpurposecatid,
+              purposeCatName: studentData.lastpurposecatname,
             },
-            // Checkin information  
-            checkIn: {
-              dateTime: formatDateTime(studentData.lastcheckindatetime),
-              timeText: studentData.lastcheckintime
+            lastActivity: {
+              // Checkout information
+              checkOut: {
+                dateTime: formatDateTime(studentData.lastcheckoutdatetime),
+                timeText: studentData.lastcheckouttime,
+              },
+              // Checkin information
+              checkIn: {
+                dateTime: formatDateTime(studentData.lastcheckindatetime),
+                timeText: studentData.lastcheckintime,
+              },
+              // Visit date
+              visitDate: formatDateTime(studentData.lastvisitdate),
+              historyId: studentData.lasthistoryid,
             },
-            // Visit date
-            visitDate: formatDateTime(studentData.lastvisitdate),
-            historyId: studentData.lasthistoryid
-          },
-          duration: {
-            // Completed visit duration (if student has checked back in)
-            lastVisit: studentData.lastvisitdurationhours ? 
-              formatDuration(studentData.lastvisitdurationhours) : null,
-            // Current checkout duration (if student is still checked out)
-            currentCheckout: studentData.currentcheckoutdurationhours ? 
-              formatDuration(studentData.currentcheckoutdurationhours) : null
-          },
-          // Status information
-          status: {
-            current: studentData.currentstatus,
-            isCheckedOut: studentData.currentstatus === 'CHECKED_OUT',
-            isCheckedIn: studentData.currentstatus === 'CHECKED_IN'
-          }
-        };
-      }),
-      pagination: {
-        currentPage,
-        pageSize,
-        totalCount,
-        totalPages,
-        hasNext: currentPage < totalPages,
-        hasPrev: currentPage > 1
-      },
-      filters: filters
-    };
-  } catch (error) {
-    console.error('Error fetching students with filters:', error);
-    return {
-      responseCode: responseUtils.RESPONSE_CODES.ERROR,
-      responseMessage: responseUtils.RESPONSE_MESSAGES.ERROR,
-      error: process.env.NODE_ENV === 'development' ? error.message : undefined
-    };
+            duration: {
+              // Completed visit duration (if student has checked back in)
+              lastVisit: studentData.lastvisitdurationhours
+                ? formatDuration(studentData.lastvisitdurationhours)
+                : null,
+              // Current checkout duration (if student is still checked out)
+              currentCheckout: studentData.currentcheckoutdurationhours
+                ? formatDuration(studentData.currentcheckoutdurationhours)
+                : null,
+            },
+            // Status information
+            status: {
+              current: studentData.currentstatus,
+              isCheckedOut: studentData.currentstatus === "CHECKED_OUT",
+              isCheckedIn: studentData.currentstatus === "CHECKED_IN",
+            },
+          };
+        }),
+        pagination: {
+          currentPage,
+          pageSize,
+          totalCount,
+          totalPages,
+          hasNext: currentPage < totalPages,
+          hasPrev: currentPage > 1,
+        },
+        filters: filters,
+      };
+    } catch (error) {
+      console.error("Error fetching students with filters:", error);
+      return {
+        responseCode: responseUtils.RESPONSE_CODES.ERROR,
+        responseMessage: responseUtils.RESPONSE_MESSAGES.ERROR,
+        error:
+          process.env.NODE_ENV === "development" ? error.message : undefined,
+      };
+    }
   }
-}
 
   // Get student
   static async getStudents(tenantId, page = 1, pageSize = 20, search = "") {
@@ -288,7 +296,7 @@ static async getStudentsWithFilters(tenantId, filters = {}) {
 
       if (purposeId === -1) {
         // Custom purpose
-        finalPurposeId = -1; 
+        finalPurposeId = -1;
         finalPurposeName = purposeName || "Other";
       } else if (purposeId && purposeId > 0) {
         const purpose = await StudentModel.getPurposeById(purposeId, tenantId);
@@ -518,10 +526,13 @@ static async getStudentsWithFilters(tenantId, filters = {}) {
     }
   }
 
-
-   static async exportStudents(tenantId, filters = {}) {
+  static async exportStudents(tenantId, filters = {}) {
     try {
-      let whereConditions = ['vr.TenantID = $1', "vr.IsActive = 'Y'", "vr.VisitorCatName = 'Student'"];
+      let whereConditions = [
+        "vr.TenantID = $1",
+        "vr.IsActive = 'Y'",
+        "vr.VisitorCatName = 'Student'",
+      ];
       let params = [tenantId];
       let paramIndex = 2;
 
@@ -538,11 +549,16 @@ static async getStudentsWithFilters(tenantId, filters = {}) {
         paramIndex++;
       }
 
+      // Fix: Use correct table name "VisitorRegVisitHistory"
       if (filters.status) {
-        if (filters.status === 'CHECKED_OUT') {
-          whereConditions.push('EXISTS (SELECT 1 FROM RegVisitorHistory rvh WHERE rvh.VisitorRegID = vr.VisitorRegID AND rvh.TenantID = vr.TenantID AND (rvh.OutTime IS NULL OR rvh.OutTimeTxt IS NULL OR rvh.OutTimeTxt = \'\'))');
-        } else if (filters.status === 'AVAILABLE') {
-          whereConditions.push('NOT EXISTS (SELECT 1 FROM RegVisitorHistory rvh WHERE rvh.VisitorRegID = vr.VisitorRegID AND rvh.TenantID = vr.TenantID AND (rvh.OutTime IS NULL OR rvh.OutTimeTxt IS NULL OR rvh.OutTimeTxt = \'\'))');
+        if (filters.status === "CHECKED_OUT") {
+          whereConditions.push(
+            "EXISTS (SELECT 1 FROM VisitorRegVisitHistory rvh WHERE rvh.VisitorRegID = vr.VisitorRegID AND rvh.TenantID = vr.TenantID AND (rvh.OutTime IS NULL OR rvh.OutTimeTxt IS NULL OR rvh.OutTimeTxt = ''))"
+          );
+        } else if (filters.status === "AVAILABLE") {
+          whereConditions.push(
+            "NOT EXISTS (SELECT 1 FROM VisitorRegVisitHistory rvh WHERE rvh.VisitorRegID = vr.VisitorRegID AND rvh.TenantID = vr.TenantID AND (rvh.OutTime IS NULL OR rvh.OutTimeTxt IS NULL OR rvh.OutTimeTxt = ''))"
+          );
         }
       }
 
@@ -558,77 +574,169 @@ static async getStudentsWithFilters(tenantId, filters = {}) {
         paramIndex++;
       }
 
-      const whereClause = whereConditions.join(' AND ');
+      const whereClause = whereConditions.join(" AND ");
 
+      // Enhanced SQL with visit history data
       const sql = `
+      SELECT 
+        COALESCE(bvu.StudentID, vr.VisitorRegNo) as "Student ID",
+        vr.VistorName as "Student Name",
+        vr.Mobile as "Mobile",
+        COALESCE(vr.Email, '') as "Email",
+        COALESCE(bvu.Course, vr.AssociatedBlock) as "Course",
+        COALESCE(bvu.Hostel, vr.AssociatedFlat) as "Hostel",
+        COALESCE(vr.VehiclelNo, '') as "Vehicle Number",
+        vr.VisitorSubCatName as "Category",
+        vr.StatusName as "Status",
+        TO_CHAR(vr.CreatedDate, 'YYYY-MM-DD') as "Registration Date",
+        COALESCE(visit_stats.total_visits, 0) as "Total Visits",
+        COALESCE(visit_stats.last_visit, '') as "Last Visit",
+        CASE 
+          WHEN visit_stats.is_checked_out > 0 THEN 'CHECKED_OUT'
+          ELSE 'AVAILABLE'
+        END as "Current Status"
+      FROM VisitorRegistration vr
+      LEFT JOIN BulkVisitorUpload bvu ON vr.Mobile = bvu.Mobile AND bvu.Type = 'student'
+      LEFT JOIN (
         SELECT 
-          COALESCE(bvu.StudentID, vr.VisitorRegNo) as "Student ID",
-          vr.VistorName as "Student Name",
-          vr.Mobile as "Mobile",
-          vr.Email as "Email",
-          COALESCE(bvu.Course, vr.AssociatedBlock) as "Course",
-          COALESCE(bvu.Hostel, vr.AssociatedFlat) as "Hostel",
-          vr.VehicleNo as "Vehicle Number",
-          vr.VisitorSubCatName as "Category",
-          vr.StatusName as "Status",
-          TO_CHAR(vr.CreatedDate, 'YYYY-MM-DD') as "Registration Date",
-          COUNT(vh.RegVisitorHistoryID) as "Total Visits",
-          MAX(TO_CHAR(vh.InTime, 'YYYY-MM-DD HH24:MI')) as "Last Visit",
-          CASE 
-            WHEN COUNT(CASE WHEN vh.OutTime IS NULL OR vh.OutTimeTxt IS NULL OR vh.OutTimeTxt = '' THEN 1 END) > 0 
-            THEN 'CHECKED_OUT'
-            ELSE 'AVAILABLE'
-          END as "Current Status"
-        FROM VisitorRegistration vr
-        LEFT JOIN BulkVisitorUpload bvu ON vr.Mobile = bvu.Mobile AND bvu.Type = 'student'
-        LEFT JOIN RegVisitorHistory vh ON vr.VisitorRegID = vh.VisitorRegID AND vh.TenantID = vr.TenantID
-        WHERE ${whereClause}
-        GROUP BY vr.VisitorRegID, vr.VistorName, vr.Mobile, vr.Email, 
-                 bvu.Course, bvu.Hostel, vr.VehicleNo, vr.VisitorSubCatName, 
-                 vr.StatusName, vr.CreatedDate, bvu.StudentID, vr.VisitorRegNo,
-                 vr.AssociatedBlock, vr.AssociatedFlat
-        ORDER BY vr.CreatedDate DESC
-      `;
+          vh.VisitorRegID,
+          vh.TenantID,
+          COUNT(vh.RegVisitorHistoryID) as total_visits,
+          MAX(TO_CHAR(vh.INTime, 'YYYY-MM-DD HH24:MI')) as last_visit,
+          COUNT(CASE WHEN vh.OutTime IS NULL OR vh.OutTimeTxt IS NULL OR vh.OutTimeTxt = '' THEN 1 END) as is_checked_out
+        FROM VisitorRegVisitHistory vh
+        WHERE vh.IsActive = 'Y'
+        GROUP BY vh.VisitorRegID, vh.TenantID
+      ) visit_stats ON vr.VisitorRegID = visit_stats.VisitorRegID AND vr.TenantID = visit_stats.TenantID
+      WHERE ${whereClause}
+      ORDER BY vr.CreatedDate DESC
+    `;
 
+      const { query } = require("../config/database");
       const result = await query(sql, params);
 
       if (result.rows.length === 0) {
         return {
           responseCode: responseUtils.RESPONSE_CODES.ERROR,
-          responseMessage: 'No student data found for export'
+          responseMessage: "No student data found for export",
         };
       }
 
       // Convert to CSV
       const headers = Object.keys(result.rows[0]);
-      const csvRows = [headers.join(',')];
-      
-      result.rows.forEach(row => {
-        const values = headers.map(header => {
-          const value = row[header] || '';
+      const csvRows = [headers.join(",")];
+
+      result.rows.forEach((row) => {
+        const values = headers.map((header) => {
+          const value = row[header] || "";
           const stringValue = value.toString();
-          if (stringValue.includes(',') || stringValue.includes('"') || stringValue.includes('\n')) {
+          if (
+            stringValue.includes(",") ||
+            stringValue.includes('"') ||
+            stringValue.includes("\n")
+          ) {
             return `"${stringValue.replace(/"/g, '""')}"`;
           }
           return stringValue;
         });
-        csvRows.push(values.join(','));
+        csvRows.push(values.join(","));
       });
 
       return {
         responseCode: responseUtils.RESPONSE_CODES.SUCCESS,
-        csvData: csvRows.join('\n'),
-        count: result.rows.length
+        csvData: csvRows.join("\n"),
+        count: result.rows.length,
       };
     } catch (error) {
-      console.error('Error exporting students:', error);
+      console.error("Error exporting students:", error);
       return {
         responseCode: responseUtils.RESPONSE_CODES.ERROR,
         responseMessage: responseUtils.RESPONSE_MESSAGES.ERROR,
-        error: process.env.NODE_ENV === 'development' ? error.message : undefined
+        error:
+          process.env.NODE_ENV === "development" ? error.message : undefined,
       };
     }
   }
+
+  // 1. GET STUDENTS PENDING CHECKOUT (Students currently checked in)
+static async getPendingCheckout(tenantId) {
+  try {
+    const sql = `
+      SELECT DISTINCT
+        vr.VisitorRegID as studentId,
+        vr.VisitorRegNo as studentRegNo,
+        vr.VistorName as studentName,
+        vr.Mobile as mobile,
+        COALESCE(bvu.Course, vr.AssociatedBlock) as course,
+        COALESCE(bvu.Hostel, vr.AssociatedFlat) as hostel,
+        COALESCE(bvu.StudentID, vr.VisitorRegNo) as studentNumber,
+        vh.RegVisitorHistoryID as historyId,
+        vh.INTime as checkInTime,
+        vh.INTimeTxt as checkInTimeText,
+        vh.VisitPurposeID as visitPurposeId,
+        vh.VisitPurpose as visitPurpose,
+        EXTRACT(EPOCH FROM (NOW() - vh.INTime))/3600 as hoursCheckedIn
+      FROM VisitorRegistration vr
+      INNER JOIN VisitorRegVisitHistory vh ON vr.VisitorRegID = vh.VisitorRegID
+      LEFT JOIN BulkVisitorUpload bvu ON vr.Mobile = bvu.Mobile AND bvu.Type = 'student'
+      WHERE vr.TenantID = $1 
+        AND vr.IsActive = 'Y'
+        AND vr.VisitorCatName = 'Student'
+        AND vh.TenantID = $1
+        AND vh.IsActive = 'Y'
+        AND (vh.OutTime IS NULL OR vh.OutTimeTxt IS NULL OR vh.OutTimeTxt = '')
+      ORDER BY vh.INTime DESC
+    `;
+
+    const result = await query(sql, [tenantId]);
+
+    const students = result.rows.map(row => {
+      const hoursCheckedIn = parseFloat(row.hourscheckedin) || 0;
+      const hours = Math.floor(hoursCheckedIn);
+      const minutes = Math.round((hoursCheckedIn % 1) * 60);
+
+      return {
+        studentId: row.studentid,
+        studentRegNo: row.studentregno,
+        studentName: row.studentname,
+        mobile: row.mobile,
+        course: row.course || '',
+        hostel: row.hostel || '',
+        studentNumber: row.studentnumber,
+        historyId: row.historyid,
+        checkInTime: row.checkintime,
+        checkInTimeText: row.checkintimetext,
+        visitPurpose: {
+          purposeId: row.visitpurposeid,
+          purposeName: row.visitpurpose
+        },
+        timeElapsed: {
+          hours,
+          minutes,
+          totalHours: hoursCheckedIn,
+          formatted: `${hours}h ${minutes}m`,
+          display: `Checked in ${hours}h ${minutes}m ago`
+        }
+      };
+    });
+
+    return {
+      responseCode: responseUtils.RESPONSE_CODES.SUCCESS,
+      responseMessage: responseUtils.RESPONSE_MESSAGES.SUCCESS,
+      data: {
+        pendingCheckout: students,
+        count: students.length
+      }
+    };
+  } catch (error) {
+    console.error('Error fetching pending checkout students:', error);
+    return {
+      responseCode: responseUtils.RESPONSE_CODES.ERROR,
+      responseMessage: responseUtils.RESPONSE_MESSAGES.ERROR,
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    };
+  }
+}
 }
 
 module.exports = StudentService;

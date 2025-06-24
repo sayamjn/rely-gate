@@ -106,5 +106,8 @@ router.get('/export', [
 // GET /api/students/template - Download CSV template
 router.get('/template', handleValidationErrors, StudentController.downloadTemplate);
 
+router.get('/pending-checkout', [
+  query('tenantId').optional().isNumeric().withMessage('TenantId must be numeric')
+], handleValidationErrors, StudentController.getPendingCheckout);
 
 module.exports = router;

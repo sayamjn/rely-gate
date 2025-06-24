@@ -31,7 +31,6 @@ router.post('/students', upload.single('file'), [
 
 // POST /api/bulk/visitors - Upload visitor data
 router.post('/visitors', upload.single('file'), [
-  body('visitorCatId').isInt({ min: 1, max: 5 }).withMessage('VisitorCatId must be between 1 and 5'),
   body('tenantId').optional().isNumeric().withMessage('TenantId must be numeric')
 ], handleValidationErrors, BulkController.uploadVisitorData);
 

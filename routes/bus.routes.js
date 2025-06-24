@@ -9,6 +9,14 @@ const router = express.Router();
 
 router.use(authenticateToken);
 
+// GET /api/buses - List buses with pagination and search (legacy)
+router.get('/', [
+  query('page').optional().isInt({ min: 1 }).withMessage('Page must be a positive integer'),
+  query('pageSize').optional().isInt({ min: 1, max: 100 }).withMessage('PageSize must be between 1 and 100'),
+  query('search').optional().isString().trim().withMessage('Search must be a string'),
+  query('tenantId').optional().isNumeric().withMessage('TenantId must be numeric')
+], handleValidationErrors, BusController.getBuses);
+
 // POST /api/buses/list - List buses with filters
 router.post('/list', [
   body('page').optional().isInt({ min: 1 }).withMessage('Page must be a positive integer'),
@@ -90,5 +98,10 @@ router.get('/export', [
 
 // GET /api/buses/template - Download CSV template
 router.get('/template', handleValidationErrors, BusController.downloadTemplate);
+
+// GET /api/buses/pending-checkout - Get buses currently checked in (pending checkout)
+router.get('/pending-checkout', [
+  query('tenantId').optional().isNumeric().withMessage('TenantId must be numeric')
+], handleValidationErrors, BusController.getPendingCheckout);
 
 module.exports = router;

@@ -127,6 +127,16 @@ router.put('/:visitorId/checkout', [
   body('tenantId').optional().isNumeric().withMessage('TenantId must be numeric')
 ], handleValidationErrors, VisitorController.checkoutVisitor);
 
+// GET /api/visitors/:visitorId/status - Get visitor's current status
+router.get('/:visitorId/status', [
+  param('visitorId')
+    .notEmpty()
+    .withMessage('Visitor ID is required')
+    .isNumeric()
+    .withMessage('Visitor ID must be numeric'),
+  query('tenantId').optional().isNumeric().withMessage('TenantId must be numeric')
+], handleValidationErrors, VisitorController.getVisitorStatus);
+
 // POST /api/visitors/checkin - Check in registered visitor
 router.post('/checkin', [
   body('visitorRegId')
@@ -218,6 +228,14 @@ router.post('/list', [
   body('status').optional().isIn(['ACTIVE', 'INACTIVE', 'CHECKED_IN', 'AVAILABLE']).withMessage('Invalid status'),
   body('tenantId').optional().isNumeric().withMessage('TenantId must be numeric')
 ], handleValidationErrors, VisitorController.listVisitors);
+
+// GET /api/visitors - List visitors with pagination and search (legacy)
+router.get('/', [
+  query('page').optional().isInt({ min: 1 }).withMessage('Page must be a positive integer'),
+  query('pageSize').optional().isInt({ min: 1, max: 100 }).withMessage('PageSize must be between 1 and 100'),
+  query('search').optional().isString().trim().withMessage('Search must be a string'),
+  query('tenantId').optional().isNumeric().withMessage('TenantId must be numeric')
+], handleValidationErrors, VisitorController.getVisitors);
 
 // GET /api/visitors/export - Export visitors
 router.get('/export', [

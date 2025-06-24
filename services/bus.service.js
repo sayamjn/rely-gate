@@ -541,6 +541,129 @@ class BusService {
     }
   }
 
+  // Get buses with pagination and search (legacy)
+static async getBuses(tenantId, page = 1, pageSize = 20, search = '') {
+  try {
+    const offset = (page - 1) * pageSize;
+    let whereConditions = ['TenantID = $1', "IsActive = 'Y'", "VisitorCatName = 'Bus'"];
+    let params = [tenantId];
+    let paramIndex = 2;
+
+    if (search && search.trim()) {
+      whereConditions.push(`(VistorName ILIKE $${paramIndex} OR VisitorRegNo ILIKE $${paramIndex} OR Mobile ILIKE $${paramIndex})`);
+      params.push(`%${search.trim()}%`);
+      paramIndex++;
+    }
+
+    const whereClause = whereConditions.join(' AND ');
+
+    // Get total count
+    const countSql = `
+      SELECT COUNT(*) as total
+      FROM VisitorRegistration
+      WHERE ${whereClause}
+    `;
+
+    const { query } = require('../config/database');
+    const countResult = await query(countSql, params);
+    const totalCount = parseInt(countResult.rows[0].total);
+
+    // Get paginated data
+    const dataSql = `
+      SELECT 
+        VisitorRegID as busId,
+        VisitorRegNo as busRegNo,
+        VistorName as driverName,
+        Mobile as driverMobile,
+        VisitorSubCatName as busType,
+        AssociatedFlat as route,
+        AssociatedBlock as area,
+        StatusName as status,
+        CreatedDate as registrationDate
+      FROM VisitorRegistration
+      WHERE ${whereClause}
+      ORDER BY CreatedDate DESC
+      LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
+    `;
+
+    params.push(pageSize, offset);
+    const dataResult = await query(dataSql, params);
+
+    const totalPages = Math.ceil(totalCount / pageSize);
+
+    return {
+      responseCode: responseUtils.RESPONSE_CODES.SUCCESS,
+      data: dataResult.rows,
+      pagination: {
+        currentPage: page,
+        pageSize,
+        totalCount,
+        totalPages,
+        hasNext: page < totalPages,
+        hasPrev: page > 1
+      }
+    };
+  } catch (error) {
+    console.error('Error fetching buses:', error);
+    return {
+      responseCode: responseUtils.RESPONSE_CODES.ERROR,
+      responseMessage: responseUtils.RESPONSE_MESSAGES.ERROR,
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    };
+  }
+}
+
+// Get buses currently checked in (pending checkout)
+static async getPendingCheckout(tenantId) {
+  try {
+    const sql = `
+      SELECT DISTINCT
+        vr.VisitorRegID as busId,
+        vr.VisitorRegNo as busRegNo,
+        vr.VistorName as driverName,
+        vr.Mobile as driverMobile,
+        vr.VisitorSubCatName as busType,
+        vr.AssociatedFlat as route,
+        vr.AssociatedBlock as area,
+        vh.INTime as checkInTime,
+        vh.INTimeTxt as checkInTimeText,
+        EXTRACT(EPOCH FROM (NOW() - vh.INTime))/3600 as hoursCheckedIn
+      FROM VisitorRegistration vr
+      INNER JOIN VisitorRegVisitHistory vh ON vr.VisitorRegID = vh.VisitorRegID
+      WHERE vr.TenantID = $1 
+        AND vr.IsActive = 'Y'
+        AND vr.VisitorCatName = 'Bus'
+        AND vh.TenantID = $1
+        AND vh.IsActive = 'Y'
+        AND (vh.OutTime IS NULL OR vh.OutTimeTxt IS NULL OR vh.OutTimeTxt = '')
+      ORDER BY vh.INTime DESC
+    `;
+
+    const { query } = require('../config/database');
+    const result = await query(sql, [tenantId]);
+
+    const buses = result.rows.map(row => ({
+      ...row,
+      hoursCheckedIn: Math.round(row.hourscheckedin * 100) / 100
+    }));
+
+    return {
+      responseCode: responseUtils.RESPONSE_CODES.SUCCESS,
+      data: buses,
+      count: buses.length
+    };
+  } catch (error) {
+    console.error('Error fetching pending checkout buses:', error);
+    return {
+      responseCode: responseUtils.RESPONSE_CODES.ERROR,
+      responseMessage: responseUtils.RESPONSE_MESSAGES.ERROR,
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    };
+  }
+}
+
+
+  
 }
 
 module.exports = BusService

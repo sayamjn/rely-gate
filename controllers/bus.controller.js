@@ -318,6 +318,67 @@ class BusController {
       });
     }
   }
+
+  // GET /api/buses - List buses with pagination and search (legacy)
+static async getBuses(req, res) {
+  try {
+    const { 
+      page = 1, 
+      pageSize = 20, 
+      search = '', 
+      tenantId 
+    } = req.query;
+    
+    const userTenantId = req.user.tenantId;
+
+    if (tenantId && parseInt(tenantId) !== userTenantId) {
+      return res.status(403).json({
+        responseCode: responseUtils.RESPONSE_CODES.ERROR,
+        responseMessage: 'Access denied for this tenant'
+      });
+    }
+
+    const result = await BusService.getBuses(
+      userTenantId,
+      parseInt(page),
+      parseInt(pageSize),
+      search
+    );
+
+    res.json(result);
+  } catch (error) {
+    console.error('Error in getBuses:', error);
+    res.status(500).json({
+      responseCode: responseUtils.RESPONSE_CODES.ERROR,
+      responseMessage: 'Internal server error',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+}
+
+// GET /api/buses/pending-checkout - Get buses currently checked in
+static async getPendingCheckout(req, res) {
+  try {
+    const { tenantId } = req.query;
+    const userTenantId = req.user.tenantId;
+
+    if (tenantId && parseInt(tenantId) !== userTenantId) {
+      return res.status(403).json({
+        responseCode: responseUtils.RESPONSE_CODES.ERROR,
+        responseMessage: 'Access denied for this tenant'
+      });
+    }
+
+    const result = await BusService.getPendingCheckout(userTenantId);
+    res.json(result);
+  } catch (error) {
+    console.error('Error in getPendingCheckout:', error);
+    res.status(500).json({
+      responseCode: responseUtils.RESPONSE_CODES.ERROR,
+      responseMessage: 'Internal server error'
+    });
+  }
+}
 }
 
 module.exports = BusController;

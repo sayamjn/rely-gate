@@ -436,6 +436,56 @@ WHERE vr.TenantID = $1
     const result = await query(sql, [tenantId]);
     return result.rows;
   }
+
+  // Get students currently checked in (pending checkout)
+  static async getPendingCheckout(tenantId) {
+    try {
+      const sql = `
+      SELECT DISTINCT
+        vr.VisitorRegID as studentId,
+        vr.VisitorRegNo as studentRegNo,
+        vr.VistorName as studentName,
+        vr.Mobile as mobile,
+        COALESCE(bvu.Course, vr.AssociatedBlock) as course,
+        COALESCE(bvu.Hostel, vr.AssociatedFlat) as hostel,
+        vh.INTime as checkInTime,
+        vh.INTimeTxt as checkInTimeText,
+        EXTRACT(EPOCH FROM (NOW() - vh.INTime))/3600 as hoursCheckedIn
+      FROM VisitorRegistration vr
+      INNER JOIN VisitorRegVisitHistory vh ON vr.VisitorRegID = vh.VisitorRegID
+      LEFT JOIN BulkVisitorUpload bvu ON vr.Mobile = bvu.Mobile AND bvu.Type = 'student'
+      WHERE vr.TenantID = $1 
+        AND vr.IsActive = 'Y'
+        AND vr.VisitorCatName = 'Student'
+        AND vh.TenantID = $1
+        AND vh.IsActive = 'Y'
+        AND (vh.OutTime IS NULL OR vh.OutTimeTxt IS NULL OR vh.OutTimeTxt = '')
+      ORDER BY vh.INTime DESC
+    `;
+
+      const { query } = require("../config/database");
+      const result = await query(sql, [tenantId]);
+
+      const students = result.rows.map((row) => ({
+        ...row,
+        hoursCheckedIn: Math.round(row.hourscheckedin * 100) / 100,
+      }));
+
+      return {
+        responseCode: responseUtils.RESPONSE_CODES.SUCCESS,
+        data: students,
+        count: students.length,
+      };
+    } catch (error) {
+      console.error("Error fetching pending checkout students:", error);
+      return {
+        responseCode: responseUtils.RESPONSE_CODES.ERROR,
+        responseMessage: responseUtils.RESPONSE_MESSAGES.ERROR,
+        error:
+          process.env.NODE_ENV === "development" ? error.message : undefined,
+      };
+    }
+  }
 }
 
 module.exports = StudentModel;

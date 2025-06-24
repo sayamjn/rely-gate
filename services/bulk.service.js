@@ -349,7 +349,7 @@ class BulkService {
     }
   }
 
-  // Process staff CSV - SIMPLIFIED
+  // Process staff CSV 
   static async processStaffCSV(filePath, tenantId, createdBy) {
     try {
       const staff = [];
@@ -487,6 +487,180 @@ class BulkService {
 
     return results;
   }
+
+  // Process student CSV 
+
+   static async processStudentCSV(filePath, tenantId, createdBy) {
+    try {
+      const students = [];
+      
+      return new Promise((resolve, reject) => {
+        let isFirstRow = true;
+        let rowNumber = 0;
+        
+        fs.createReadStream(filePath)
+          .pipe(csv({ headers: false }))
+          .on('data', (row) => {
+            rowNumber++;
+            
+            if (isFirstRow) {
+              isFirstRow = false;
+              return; // Skip header row
+            }
+
+            const values = Object.values(row);
+            
+            // Validate minimum required columns
+            if (values.length >= 4) {
+              students.push({
+                studentId: values[0]?.trim() || '',
+                name: values[1]?.trim() || '',
+                mobile: values[2]?.trim() || '',
+                course: values[3]?.trim() || '',
+                hostel: values[4]?.trim() || '',
+                tenantId,
+                createdBy,
+                rowNumber
+              });
+            }
+          })
+          .on('end', async () => {
+            try {
+              if (students.length === 0) {
+                return resolve({
+                  responseCode: responseUtils.RESPONSE_CODES.ERROR,
+                  responseMessage: 'No valid student data found in CSV file'
+                });
+              }
+
+              const result = await this.bulkInsertStudents(students);
+              resolve({
+                responseCode: responseUtils.RESPONSE_CODES.SUCCESS,
+                responseMessage: `Successfully processed ${students.length} students. Success: ${result.successful}, Failed: ${result.failed}`,
+                data: result
+              });
+            } catch (error) {
+              reject(error);
+            }
+          })
+          .on('error', (error) => {
+            reject(error);
+          });
+      });
+    } catch (error) {
+      console.error('Error processing student CSV:', error);
+      return {
+        responseCode: responseUtils.RESPONSE_CODES.ERROR,
+        responseMessage: responseUtils.RESPONSE_MESSAGES.ERROR,
+        error: process.env.NODE_ENV === 'development' ? error.message : undefined
+      };
+    }
+  }
+
+  // BULK INSERT STUDENTS
+  static async bulkInsertStudents(students) {
+    const results = {
+      successful: 0,
+      failed: 0,
+      details: []
+    };
+
+    for (const student of students) {
+      try {
+        // Validate student data
+        if (!student.name || !student.mobile) {
+          results.failed++;
+          results.details.push({
+            row: student.rowNumber,
+            item: student.name || 'Unknown',
+            status: 'Failed',
+            reason: 'Missing required fields (name, mobile)'
+          });
+          continue;
+        }
+
+        // Check if mobile already exists
+        const existingCheck = await query(
+          'SELECT VisitorRegID FROM VisitorRegistration WHERE Mobile = $1 AND TenantID = $2 AND IsActive = \'Y\'',
+          [student.mobile, student.tenantId]
+        );
+
+        if (existingCheck.rows.length > 0) {
+          results.failed++;
+          results.details.push({
+            row: student.rowNumber,
+            item: student.name,
+            status: 'Failed',
+            reason: 'Mobile number already exists'
+          });
+          continue;
+        }
+
+        // Generate registration number and security code
+        const timestamp = Date.now();
+        const visitorRegNo = `STU${student.tenantId}${timestamp}${Math.floor(Math.random() * 99)}`;
+        const securityCode = Math.floor(100000 + Math.random() * 900000).toString();
+
+        // Insert into VisitorRegistration table
+        const insertSql = `
+          INSERT INTO VisitorRegistration (
+            TenantID, IsActive, StatusID, StatusName, VisitorCatID, VisitorCatName,
+            VisitorSubCatID, VisitorSubCatName, VisitorRegNo, SecurityCode, VistorName,
+            Mobile, AssociatedFlat, AssociatedBlock, ValidityFlag, ValidStartDate,
+            CreatedDate, UpdatedDate, CreatedBy, UpdatedBy
+          ) VALUES (
+            $1, 'Y', 1, 'ACTIVE', 3, 'Student', 6, 'Regular Student', $2, $3, $4,
+            $5, $6, $7, 'Y', NOW(), NOW(), NOW(), $8, $8
+          ) RETURNING VisitorRegID
+        `;
+
+        const result = await query(insertSql, [
+          student.tenantId,
+          visitorRegNo,
+          securityCode,
+          student.name,
+          student.mobile,
+          student.hostel || '',
+          student.course || '',
+          student.createdBy
+        ]);
+
+        // Also insert into BulkVisitorUpload for tracking
+        await query(`
+          INSERT INTO BulkVisitorUpload (StudentID, Name, Mobile, Course, Hostel, TenantID, Type)
+          VALUES ($1, $2, $3, $4, $5, $6, 'student')
+        `, [
+          student.studentId || visitorRegNo,
+          student.name,
+          student.mobile,
+          student.course,
+          student.hostel,
+          student.tenantId
+        ]);
+
+        results.successful++;
+        results.details.push({
+          row: student.rowNumber,
+          item: student.name,
+          status: 'Success',
+          visitorRegNo,
+          securityCode
+        });
+
+      } catch (error) {
+        results.failed++;
+        results.details.push({
+          row: student.rowNumber,
+          item: student.name || 'Unknown',
+          status: 'Failed',
+          reason: error.message
+        });
+      }
+    }
+
+    return results;
+  }
+  
 }
 
 module.exports = BulkService;

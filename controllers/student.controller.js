@@ -381,6 +381,30 @@ class StudentController {
     }
   }
 
+
+  // GET /api/students/pending-checkout - Get students currently checked in
+static async getPendingCheckout(req, res) {
+  try {
+    const { tenantId } = req.query;
+    const userTenantId = req.user.tenantId;
+
+    if (tenantId && parseInt(tenantId) !== userTenantId) {
+      return res.status(403).json({
+        responseCode: responseUtils.RESPONSE_CODES.ERROR,
+        responseMessage: 'Access denied for this tenant'
+      });
+    }
+
+    const result = await StudentService.getPendingCheckout(userTenantId);
+    res.json(result);
+  } catch (error) {
+    console.error('Error in getPendingCheckout:', error);
+    res.status(500).json({
+      responseCode: responseUtils.RESPONSE_CODES.ERROR,
+      responseMessage: 'Internal server error'
+    });
+  }
+}
 }
 
 module.exports = StudentController;
