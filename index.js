@@ -24,6 +24,7 @@ const vehicleRoutes = require('./routes/vehicle.routes');
 const studentRoutes = require('./routes/student.routes');
 const busRoutes = require('./routes/bus.routes');
 const staffRoutes = require('./routes/staff.routes');
+const gatePassRoutes = require('./routes/gatepass.routes');
 
 const app = express();
 const PORT = config.port || 3000;
@@ -99,7 +100,7 @@ app.use('/api/vehicles', vehicleRoutes);
 app.use('/api/students', studentRoutes);
 app.use('/api/buses', busRoutes);
 app.use('/api/staff', staffRoutes); 
-
+app.use("/api/gatepass", gatePassRoutes)
 // Error handling middleware (must be last)
 app.use(handleError);
 app.use(notFound);
