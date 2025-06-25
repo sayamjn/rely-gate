@@ -1,6 +1,7 @@
 const { query } = require("../config/database");
 const StaffModel = require("../models/staff.model");
 const responseUtils = require("../utils/constants");
+const MessagingService = require("./messaging.service");
 
 class StaffService {
   // Get all staff with pagination and search
@@ -278,85 +279,89 @@ class StaffService {
   }
 
   // Get staff with filters (similar to student/bus list)
-static async getStaffWithFilters(tenantId, filters) {
-  try {
-    const {
-      page = 1,
-      pageSize = 20,
-      search = '',
-      designation = '',
-      staffId = '',
-      name = '',
-      department = '',
-      fromDate = null,
-      toDate = null
-    } = filters;
+  static async getStaffWithFilters(tenantId, filters) {
+    try {
+      const {
+        page = 1,
+        pageSize = 20,
+        search = "",
+        designation = "",
+        staffId = "",
+        name = "",
+        department = "",
+        fromDate = null,
+        toDate = null,
+      } = filters;
 
-    const offset = (page - 1) * pageSize;
-    
-    // Build dynamic WHERE conditions
-    let whereConditions = ['vr.TenantID = $1', "vr.IsActive = 'Y'", "vr.VisitorCatName = 'Staff'"];
-    let params = [tenantId];
-    let paramIndex = 2;
+      const offset = (page - 1) * pageSize;
 
-    if (search && search.trim()) {
-      whereConditions.push(`(
+      // Build dynamic WHERE conditions
+      let whereConditions = [
+        "vr.TenantID = $1",
+        "vr.IsActive = 'Y'",
+        "vr.VisitorCatName = 'Staff'",
+      ];
+      let params = [tenantId];
+      let paramIndex = 2;
+
+      if (search && search.trim()) {
+        whereConditions.push(`(
         vr.VistorName ILIKE $${paramIndex} OR 
         vr.Mobile ILIKE $${paramIndex} OR 
         vr.VisitorRegNo ILIKE $${paramIndex} OR
         vr.Email ILIKE $${paramIndex}
       )`);
-      params.push(`%${search.trim()}%`);
-      paramIndex++;
-    }
+        params.push(`%${search.trim()}%`);
+        paramIndex++;
+      }
 
-    if (designation && designation.trim()) {
-      whereConditions.push(`vr.VisitorSubCatName ILIKE $${paramIndex}`);
-      params.push(`%${designation.trim()}%`);
-      paramIndex++;
-    }
+      if (designation && designation.trim()) {
+        whereConditions.push(`vr.VisitorSubCatName ILIKE $${paramIndex}`);
+        params.push(`%${designation.trim()}%`);
+        paramIndex++;
+      }
 
-    if (staffId && staffId.trim()) {
-      whereConditions.push(`vr.VisitorRegNo ILIKE $${paramIndex}`);
-      params.push(`%${staffId.trim()}%`);
-      paramIndex++;
-    }
+      if (staffId && staffId.trim()) {
+        whereConditions.push(`vr.VisitorRegNo ILIKE $${paramIndex}`);
+        params.push(`%${staffId.trim()}%`);
+        paramIndex++;
+      }
 
-    if (name && name.trim()) {
-      whereConditions.push(`vr.VistorName ILIKE $${paramIndex}`);
-      params.push(`%${name.trim()}%`);
-      paramIndex++;
-    }
+      if (name && name.trim()) {
+        whereConditions.push(`vr.VistorName ILIKE $${paramIndex}`);
+        params.push(`%${name.trim()}%`);
+        paramIndex++;
+      }
 
-    if (department && department.trim()) {
-      whereConditions.push(`vr.AssociatedBlock ILIKE $${paramIndex}`);
-      params.push(`%${department.trim()}%`);
-      paramIndex++;
-    }
+      if (department && department.trim()) {
+        whereConditions.push(`vr.AssociatedBlock ILIKE $${paramIndex}`);
+        params.push(`%${department.trim()}%`);
+        paramIndex++;
+      }
 
-    if (fromDate) {
-      whereConditions.push(`DATE(vr.CreatedDate) >= $${paramIndex}`);
-      params.push(fromDate);
-      paramIndex++;
-    }
+      if (fromDate) {
+        whereConditions.push(`DATE(vr.CreatedDate) >= $${paramIndex}`);
+        params.push(fromDate);
+        paramIndex++;
+      }
 
-    if (toDate) {
-      whereConditions.push(`DATE(vr.CreatedDate) <= $${paramIndex}`);
-      params.push(toDate);
-      paramIndex++;
-    }
+      if (toDate) {
+        whereConditions.push(`DATE(vr.CreatedDate) <= $${paramIndex}`);
+        params.push(toDate);
+        paramIndex++;
+      }
 
-    const whereClause = whereConditions.join(' AND ');
+      const whereClause = whereConditions.join(" AND ");
 
-    // Count query first (simpler)
-    const countQuery = `
+      // Count query first (simpler)
+      const countQuery = `
       SELECT COUNT(*) as total
       FROM VisitorRegistration vr
       WHERE ${whereClause}
     `;
 
-    // Main data query with simplified structure
-    const dataQuery = `
+      // Main data query with simplified structure
+      const dataQuery = `
       SELECT 
         vr.VisitorRegID as staffId,
         vr.VistorName as name,
@@ -403,93 +408,97 @@ static async getStaffWithFilters(tenantId, filters) {
       LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
     `;
 
-    // Add pagination parameters
-    const dataParams = [...params, pageSize, offset];
-    const countParams = [...params];
+      // Add pagination parameters
+      const dataParams = [...params, pageSize, offset];
+      const countParams = [...params];
 
-    // Execute both queries
-    const [dataResult, countResult] = await Promise.all([
-      query(dataQuery, dataParams),
-      query(countQuery, countParams)
-    ]);
+      // Execute both queries
+      const [dataResult, countResult] = await Promise.all([
+        query(dataQuery, dataParams),
+        query(countQuery, countParams),
+      ]);
 
-    const totalCount = parseInt(countResult.rows[0].total);
-    const totalPages = Math.ceil(totalCount / pageSize);
-    const currentPage = page;
+      const totalCount = parseInt(countResult.rows[0].total);
+      const totalPages = Math.ceil(totalCount / pageSize);
+      const currentPage = page;
 
-    // Format duration helper
-    const formatDuration = (startTime, endTime) => {
-      if (!startTime) return '0 min';
-      
-      const end = endTime ? new Date(endTime) : new Date();
-      const start = new Date(startTime);
-      const diffMs = end - start;
-      const diffHours = diffMs / (1000 * 60 * 60);
-      
-      if (diffHours < 1) {
-        const minutes = Math.floor(diffMs / (1000 * 60));
-        return `${minutes}m`;
-      }
-      
-      const hours = Math.floor(diffHours);
-      const minutes = Math.floor((diffHours - hours) * 60);
-      return hours > 0 ? `${hours}h ${minutes}m` : `${minutes}m`;
-    };
+      // Format duration helper
+      const formatDuration = (startTime, endTime) => {
+        if (!startTime) return "0 min";
 
-    // Calculate current status
-    const calculateStatus = (inTime, outTime) => {
-      if (!inTime) return 'NEVER_VISITED';
-      if (inTime && !outTime) return 'CHECKED_IN';
-      if (inTime && outTime) return 'CHECKED_OUT';
-      return 'NEVER_VISITED';
-    };
+        const end = endTime ? new Date(endTime) : new Date();
+        const start = new Date(startTime);
+        const diffMs = end - start;
+        const diffHours = diffMs / (1000 * 60 * 60);
 
-    return {
-      responseCode: responseUtils.RESPONSE_CODES.SUCCESS,
-      data: dataResult.rows.map(staff => {
-        const currentStatus = calculateStatus(staff.lastintime, staff.lastouttime);
-        
-        return {
-          staffId: staff.staffid,
-          name: staff.name,
-          mobile: staff.mobile,
-          staffRegNo: staff.staffregno,
-          designation: staff.designation,
-          workLocation: staff.worklocation,
-          department: staff.department,
-          email: staff.email,
-          status: staff.status,
-          registrationDate: staff.registrationdate,
-          visits: {
-            lastInTime: staff.lastintime,
-            lastOutTime: staff.lastouttime,
-            lastVisitDate: staff.lastvisitdate,
-            duration: formatDuration(staff.lastintime, staff.lastouttime)
-          },
-          currentStatus: currentStatus,
-          isCheckedIn: currentStatus === 'CHECKED_IN',
-          isCheckedOut: currentStatus === 'CHECKED_OUT'
-        };
-      }),
-      pagination: {
-        currentPage,
-        pageSize,
-        totalCount,
-        totalPages,
-        hasNext: currentPage < totalPages,
-        hasPrev: currentPage > 1
-      },
-      filters: filters
-    };
-  } catch (error) {
-    console.error('Error fetching staff with filters:', error);
-    return {
-      responseCode: responseUtils.RESPONSE_CODES.ERROR,
-      responseMessage: responseUtils.RESPONSE_MESSAGES.ERROR,
-      error: process.env.NODE_ENV === 'development' ? error.message : undefined
-    };
+        if (diffHours < 1) {
+          const minutes = Math.floor(diffMs / (1000 * 60));
+          return `${minutes}m`;
+        }
+
+        const hours = Math.floor(diffHours);
+        const minutes = Math.floor((diffHours - hours) * 60);
+        return hours > 0 ? `${hours}h ${minutes}m` : `${minutes}m`;
+      };
+
+      // Calculate current status
+      const calculateStatus = (inTime, outTime) => {
+        if (!inTime) return "NEVER_VISITED";
+        if (inTime && !outTime) return "CHECKED_IN";
+        if (inTime && outTime) return "CHECKED_OUT";
+        return "NEVER_VISITED";
+      };
+
+      return {
+        responseCode: responseUtils.RESPONSE_CODES.SUCCESS,
+        data: dataResult.rows.map((staff) => {
+          const currentStatus = calculateStatus(
+            staff.lastintime,
+            staff.lastouttime
+          );
+
+          return {
+            staffId: staff.staffid,
+            name: staff.name,
+            mobile: staff.mobile,
+            staffRegNo: staff.staffregno,
+            designation: staff.designation,
+            workLocation: staff.worklocation,
+            department: staff.department,
+            email: staff.email,
+            status: staff.status,
+            registrationDate: staff.registrationdate,
+            visits: {
+              lastInTime: staff.lastintime,
+              lastOutTime: staff.lastouttime,
+              lastVisitDate: staff.lastvisitdate,
+              duration: formatDuration(staff.lastintime, staff.lastouttime),
+            },
+            currentStatus: currentStatus,
+            isCheckedIn: currentStatus === "CHECKED_IN",
+            isCheckedOut: currentStatus === "CHECKED_OUT",
+          };
+        }),
+        pagination: {
+          currentPage,
+          pageSize,
+          totalCount,
+          totalPages,
+          hasNext: currentPage < totalPages,
+          hasPrev: currentPage > 1,
+        },
+        filters: filters,
+      };
+    } catch (error) {
+      console.error("Error fetching staff with filters:", error);
+      return {
+        responseCode: responseUtils.RESPONSE_CODES.ERROR,
+        responseMessage: responseUtils.RESPONSE_MESSAGES.ERROR,
+        error:
+          process.env.NODE_ENV === "development" ? error.message : undefined,
+      };
+    }
   }
-}
 
   // Get available designations
   static async getDesignations(tenantId) {
@@ -555,103 +564,109 @@ static async getStaffWithFilters(tenantId, filters) {
     }
   }
 
-
   // Staff registration with OTP
-static async registerStaff(tenantId, mobile, designation) {
-  try {
-    // Check if staff already exists
-    const checkSql = `
+  static async registerStaff(tenantId, mobile, designation) {
+    try {
+      // Check if staff already exists
+      const checkSql = `
       SELECT COUNT(*) as count
       FROM VisitorRegistration
       WHERE TenantID = $1 AND Mobile = $2 AND VisitorCatName = 'Staff' AND IsActive = 'Y'
     `;
-    const checkResult = await query(checkSql, [tenantId, mobile]);
-    
-    if (checkResult.rows[0].count > 0) {
-      return {
-        responseCode: responseUtils.RESPONSE_CODES.ERROR,
-        responseMessage: 'Staff member with this mobile number already exists'
-      };
-    }
+      const checkResult = await query(checkSql, [tenantId, mobile]);
 
-    // Generate OTP
-    const otpNumber = Math.floor(100000 + Math.random() * 900000).toString();
-    console.log("otpNumber : ",otpNumber)
-    
-    // Insert OTP record
-    const otpSql = `
-      INSERT INTO PortalOTP (TenantID, MobileNo, OTPNumber, IsActive, CreatedDate, CreatedBy)
-      VALUES ($1, $2, $3, 'Y', NOW(), 'System')
-      RETURNING PPOTPID
-    `;
-    
-    const otpResult = await query(otpSql, [tenantId, mobile, otpNumber]);
-
-    // In production, send actual SMS here
-    console.log(`OTP for staff registration: ${otpNumber} to ${mobile}`);
-
-    return {
-      responseCode: responseUtils.RESPONSE_CODES.SUCCESS,
-      responseMessage: `OTP sent to ${mobile.substring(0, 5)}***${mobile.substring(8)}`,
-      data: {
-        refId: otpResult.rows[0].ppotpid,
-        mobile: mobile,
-        designation: designation,
-        otpSent: true
+      if (checkResult.rows[0].count > 0) {
+        return {
+          responseCode: responseUtils.RESPONSE_CODES.ERROR,
+          responseMessage:
+            "Staff member with this mobile number already exists",
+        };
       }
-    };
-  } catch (error) {
-    console.error('Error in staff registration:', error);
-    return {
-      responseCode: responseUtils.RESPONSE_CODES.ERROR,
-      responseMessage: responseUtils.RESPONSE_MESSAGES.ERROR,
-      error: process.env.NODE_ENV === 'development' ? error.message : undefined
-    };
-  }
-}
 
-// Verify registration OTP and create staff
-static async verifyRegistration(tenantId, mobile, otpNumber, staffData, createdBy) {
-  try {
-    // Verify OTP
-    const otpSql = `
-      SELECT PPOTPID
-      FROM PortalOTP
-      WHERE TenantID = $1 AND MobileNo = $2 AND OTPNumber = $3 AND IsActive = 'Y'
-        AND CreatedDate > NOW() - INTERVAL '10 minutes'
-      ORDER BY CreatedDate DESC
-      LIMIT 1
-    `;
-    
-    const otpResult = await query(otpSql, [tenantId, mobile, otpNumber]);
-    
-    if (otpResult.rows.length === 0) {
+      // Generate OTP
+
+      const otpResult = await MessagingService.generateAndSendOTP(
+        tenantId,
+        mobile,
+        "System"
+      );
+
+      // In production, send actual SMS here
+      console.log(
+        `OTP for staff registration: ${otpResult.otpNumber} to ${mobile}`
+      );
+
+      return {
+        responseCode: responseUtils.RESPONSE_CODES.SUCCESS,
+        responseMessage: `OTP sent to ${mobile.substring(
+          0,
+          5
+        )}***${mobile.substring(8)}`,
+        data: {
+          refId: otpResult.refId,
+          mobile: mobile,
+          designation: designation,
+          otpSent: true,
+        },
+      };
+    } catch (error) {
+      console.error("Error in staff registration:", error);
       return {
         responseCode: responseUtils.RESPONSE_CODES.ERROR,
-        responseMessage: 'Invalid or expired OTP'
+        responseMessage: responseUtils.RESPONSE_MESSAGES.ERROR,
+        error:
+          process.env.NODE_ENV === "development" ? error.message : undefined,
       };
     }
+  }
 
-    // Get designation details
-    const designationSql = `
+  static async verifyRegistration(
+    tenantId,
+    mobile,
+    otpNumber,
+    refId,
+    staffData,
+    createdBy
+  ) {
+    try {
+      const verification = await MessagingService.verifyOTP(
+        refId,
+        otpNumber,
+        mobile
+      );
+
+      if (!verification.verified) {
+        return {
+          responseCode: responseUtils.RESPONSE_CODES.ERROR,
+          responseMessage: "Invalid or expired OTP",
+        };
+      }
+
+      // Get designation details
+      const designationSql = `
       SELECT VisitorSubCatID
       FROM VisitorSubCategory
       WHERE TenantID = $1 AND VisitorSubCatName = $2 AND VisitorCatID = 1 AND IsActive = 'Y'
       LIMIT 1
     `;
-    const designationResult = await query(designationSql, [tenantId, staffData.designation]);
-    
-    let visitorSubCatId = 1; // Default
-    if (designationResult.rows.length > 0) {
-      visitorSubCatId = designationResult.rows[0].visitorsubcatid;
-    }
+      const designationResult = await query(designationSql, [
+        tenantId,
+        staffData.designation,
+      ]);
 
-    // Generate staff registration number
-    const staffRegNo = `STA${tenantId}${Date.now().toString().slice(-6)}`;
-    const securityCode = Math.floor(100000 + Math.random() * 900000).toString();
+      let visitorSubCatId = 1; // Default
+      if (designationResult.rows.length > 0) {
+        visitorSubCatId = designationResult.rows[0].visitorsubcatid;
+      }
 
-    // Insert staff registration
-    const insertSql = `
+      // Generate staff registration number
+      const staffRegNo = `STA${tenantId}${Date.now().toString().slice(-6)}`;
+      const securityCode = Math.floor(
+        100000 + Math.random() * 900000
+      ).toString();
+
+      // Insert staff registration
+      const insertSql = `
       INSERT INTO VisitorRegistration (
         TenantID, VistorName, Mobile, VisitorCatID, VisitorCatName,
         VisitorSubCatID, VisitorSubCatName, VisitorRegNo, SecurityCode,
@@ -663,72 +678,76 @@ static async verifyRegistration(tenantId, mobile, otpNumber, staffData, createdB
       ) RETURNING VisitorRegID
     `;
 
-    const values = [
-      tenantId,
-      staffData.name,
-      mobile,
-      visitorSubCatId,
-      staffData.designation,
-      staffRegNo,
-      securityCode,
-      staffData.email || '',
-      staffData.address1 || '',
-      staffData.address2 || '',
-      createdBy
-    ];
+      const values = [
+        tenantId,
+        staffData.name,
+        mobile,
+        visitorSubCatId,
+        staffData.designation,
+        staffRegNo,
+        securityCode,
+        staffData.email || "",
+        staffData.address1 || "",
+        staffData.address2 || "",
+        createdBy,
+      ];
 
-    const result = await query(insertSql, values);
+      const result = await query(insertSql, values);
 
-    // Deactivate OTP
-    await query(
-      "UPDATE PortalOTP SET IsActive = 'N' WHERE PPOTPID = $1",
-      [otpResult.rows[0].ppotpid]
-    );
+      // Deactivate OTP
+      await query("UPDATE PortalOTP SET IsActive = 'N' WHERE PPOTPID = $1", [
+        refId,
+      ]);
 
-    return {
-      responseCode: responseUtils.RESPONSE_CODES.SUCCESS,
-      responseMessage: 'Staff registration completed successfully',
-      data: {
-        staffId: result.rows[0].visitorregid,
-        staffRegNo: staffRegNo,
-        name: staffData.name,
-        mobile: mobile,
-        designation: staffData.designation,
-        securityCode: securityCode
-      }
-    };
-  } catch (error) {
-    console.error('Error in verify registration:', error);
-    return {
-      responseCode: responseUtils.RESPONSE_CODES.ERROR,
-      responseMessage: responseUtils.RESPONSE_MESSAGES.ERROR,
-      error: process.env.NODE_ENV === 'development' ? error.message : undefined
-    };
+      return {
+        responseCode: responseUtils.RESPONSE_CODES.SUCCESS,
+        responseMessage: "Staff registration completed successfully",
+        data: {
+          staffId: result.rows[0].visitorregid,
+          staffRegNo: staffRegNo,
+          name: staffData.name,
+          mobile: mobile,
+          designation: staffData.designation,
+          securityCode: securityCode,
+        },
+      };
+    } catch (error) {
+      console.error("Error in verify registration:", error);
+      return {
+        responseCode: responseUtils.RESPONSE_CODES.ERROR,
+        responseMessage: responseUtils.RESPONSE_MESSAGES.ERROR,
+        error:
+          process.env.NODE_ENV === "development" ? error.message : undefined,
+      };
+    }
   }
-}
 
-// Export staff data to CSV
-static async exportStaff(tenantId, filters = {}) {
-  try {
-    let whereConditions = ['TenantID = $1', "IsActive = 'Y'", "VisitorCatName = 'Staff'"];
-    let params = [tenantId];
-    let paramIndex = 2;
+  // Export staff data to CSV
+  static async exportStaff(tenantId, filters = {}) {
+    try {
+      let whereConditions = [
+        "TenantID = $1",
+        "IsActive = 'Y'",
+        "VisitorCatName = 'Staff'",
+      ];
+      let params = [tenantId];
+      let paramIndex = 2;
 
-    if (filters.designation && filters.designation.trim()) {
-      whereConditions.push(`VisitorSubCatName ILIKE $${paramIndex}`);
-      params.push(`%${filters.designation.trim()}%`);
-      paramIndex++;
-    }
+      if (filters.designation && filters.designation.trim()) {
+        whereConditions.push(`VisitorSubCatName ILIKE $${paramIndex}`);
+        params.push(`%${filters.designation.trim()}%`);
+        paramIndex++;
+      }
 
-    if (filters.department && filters.department.trim()) {
-      whereConditions.push(`AssociatedBlock ILIKE $${paramIndex}`);
-      params.push(`%${filters.department.trim()}%`);
-      paramIndex++;
-    }
+      if (filters.department && filters.department.trim()) {
+        whereConditions.push(`AssociatedBlock ILIKE $${paramIndex}`);
+        params.push(`%${filters.department.trim()}%`);
+        paramIndex++;
+      }
 
-    const whereClause = whereConditions.join(' AND ');
+      const whereClause = whereConditions.join(" AND ");
 
-    const sql = `
+      const sql = `
       SELECT 
         VisitorRegNo as "Staff ID",
         VistorName as "Name",
@@ -744,48 +763,51 @@ static async exportStaff(tenantId, filters = {}) {
       ORDER BY VistorName
     `;
 
-    const result = await query(sql, params);
+      const result = await query(sql, params);
 
-    if (result.rows.length === 0) {
+      if (result.rows.length === 0) {
+        return {
+          responseCode: responseUtils.RESPONSE_CODES.ERROR,
+          responseMessage: "No staff data found for export",
+        };
+      }
+
+      // Convert to CSV
+      const headers = Object.keys(result.rows[0]);
+      const csvRows = [headers.join(",")];
+
+      result.rows.forEach((row) => {
+        const values = headers.map((header) => {
+          const value = row[header] || "";
+          // Escape quotes and wrap in quotes if contains comma or quotes
+          const stringValue = value.toString();
+          if (
+            stringValue.includes(",") ||
+            stringValue.includes('"') ||
+            stringValue.includes("\n")
+          ) {
+            return `"${stringValue.replace(/"/g, '""')}"`;
+          }
+          return stringValue;
+        });
+        csvRows.push(values.join(","));
+      });
+
+      return {
+        responseCode: responseUtils.RESPONSE_CODES.SUCCESS,
+        csvData: csvRows.join("\n"),
+        count: result.rows.length,
+      };
+    } catch (error) {
+      console.error("Error exporting staff:", error);
       return {
         responseCode: responseUtils.RESPONSE_CODES.ERROR,
-        responseMessage: 'No staff data found for export'
+        responseMessage: responseUtils.RESPONSE_MESSAGES.ERROR,
+        error:
+          process.env.NODE_ENV === "development" ? error.message : undefined,
       };
     }
-
-    // Convert to CSV
-    const headers = Object.keys(result.rows[0]);
-    const csvRows = [headers.join(',')];
-    
-    result.rows.forEach(row => {
-      const values = headers.map(header => {
-        const value = row[header] || '';
-        // Escape quotes and wrap in quotes if contains comma or quotes
-        const stringValue = value.toString();
-        if (stringValue.includes(',') || stringValue.includes('"') || stringValue.includes('\n')) {
-          return `"${stringValue.replace(/"/g, '""')}"`;
-        }
-        return stringValue;
-      });
-      csvRows.push(values.join(','));
-    });
-
-    return {
-      responseCode: responseUtils.RESPONSE_CODES.SUCCESS,
-      csvData: csvRows.join('\n'),
-      count: result.rows.length
-    };
-  } catch (error) {
-    console.error('Error exporting staff:', error);
-    return {
-      responseCode: responseUtils.RESPONSE_CODES.ERROR,
-      responseMessage: responseUtils.RESPONSE_MESSAGES.ERROR,
-      error: process.env.NODE_ENV === 'development' ? error.message : undefined
-    };
   }
-}
-
-
 }
 
 module.exports = StaffService;

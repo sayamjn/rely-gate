@@ -1,7 +1,8 @@
 const { query } = require("../config/database");
 const ResponseFormatter = require("../utils/response");
 const responseUtils = require("../utils/constants");
-const SMSService = require("./sms.service");
+const MessagingService = require("./messaging.service");
+const GatePassModel = require("../models/gatepass.model");
 
 class GatepassService {
   // Generate random 6-digit security code
@@ -37,7 +38,7 @@ class GatepassService {
           Remark, CreatedDate, UpdatedDate, CreatedBy, UpdatedBy
         ) VALUES (
           $1, 'Y', $2, $3, 6, 'Gate Pass', 0, NULL, $4, $5, $6, $7, 1, $8, $9, NOW(),
-          $10, NOW(), NOW(), $11, $11
+          $10, NOW(), NOW(), $11, $12
         ) RETURNING VisitorID
       `;
 
@@ -52,6 +53,7 @@ class GatepassService {
         visitDate,
         visitDateTxt,
         securityCode,
+        remark,
         createdBy,
       ]);
 
@@ -72,7 +74,9 @@ class GatepassService {
             mobile,
             visitDate,
             purposeName,
+            purposeId,
             visitDateTxt,
+            remark,
           },
           "Gate pass created successfully"
         );
@@ -360,11 +364,12 @@ class GatepassService {
 
   // 4. CHECK-OUT GATEPASS - Sets OUTTime
 
+  // ===============================================
 
-static async checkoutGatepass(visitorId, tenantId, updatedBy) {
-  try {
-    // Check current state
-    const checkSql = `
+  static async checkoutGatepass(visitorId, tenantId, updatedBy) {
+    try {
+      // Check current state
+      const checkSql = `
       SELECT 
         VisitorID as "visitorId",
         Fname as "fname",
@@ -376,32 +381,34 @@ static async checkoutGatepass(visitorId, tenantId, updatedBy) {
       FROM VisitorMaster
       WHERE VisitorID = $1 AND TenantID = $2 AND VisitorCatID = 6 AND IsActive = 'Y'
     `;
-    
-    const checkResult = await query(checkSql, [visitorId, tenantId]);
-    
-    if (checkResult.rows.length === 0) {
-      return ResponseFormatter.error('Gate pass not found');
-    }
-    
-    const gatepass = checkResult.rows[0];
-    
-    // Validation: Must be approved
-    if (gatepass.statusId !== 2) {
-      return ResponseFormatter.error('Gate pass must be approved');
-    }
-    
-    // Validation: Must be checked in first (NO direct checkout!)
-    if (!gatepass.inTime) {
-      return ResponseFormatter.error('Gate pass must be checked in before check-out');
-    }
-    
-    // Validation: Cannot check-out if already checked out
-    if (gatepass.outTime) {
-      return ResponseFormatter.error('Gate pass is already checked out');
-    }
-    
-    // Perform check-out: ONLY set OutTime (no auto check-in)
-    const checkoutSql = `
+
+      const checkResult = await query(checkSql, [visitorId, tenantId]);
+
+      if (checkResult.rows.length === 0) {
+        return ResponseFormatter.error("Gate pass not found");
+      }
+
+      const gatepass = checkResult.rows[0];
+
+      // Validation: Must be approved
+      if (gatepass.statusId !== 2) {
+        return ResponseFormatter.error("Gate pass must be approved");
+      }
+
+      // Validation: Must be checked in first (NO direct checkout!)
+      if (!gatepass.inTime) {
+        return ResponseFormatter.error(
+          "Gate pass must be checked in before check-out"
+        );
+      }
+
+      // Validation: Cannot check-out if already checked out
+      if (gatepass.outTime) {
+        return ResponseFormatter.error("Gate pass is already checked out");
+      }
+
+      // Perform check-out: ONLY set OutTime (no auto check-in)
+      const checkoutSql = `
       UPDATE VisitorMaster 
       SET OutTime = NOW(), 
           OutTimeTxt = TO_CHAR(NOW(), 'HH12:MI AM'),
@@ -412,31 +419,33 @@ static async checkoutGatepass(visitorId, tenantId, updatedBy) {
         AND OutTime IS NULL
       RETURNING VisitorID
     `;
-    
-    const result = await query(checkoutSql, [visitorId, tenantId, updatedBy]);
-    
-    if (result.rows.length > 0) {
-      return ResponseFormatter.success({
-        visitorId: result.rows[0].visitorid || result.rows[0].VisitorID,
-        visitorName: gatepass.fname,
-        mobile: gatepass.mobile,
-        checkOutTime: new Date().toLocaleTimeString('en-US', { 
-          hour: '2-digit', 
-          minute: '2-digit', 
-          hour12: true 
-        }),
-        status: 'Checked Out',
-        currentState: 'CHECKED_OUT'
-      }, 'Check-out successful');
-    } else {
-      return ResponseFormatter.error('Failed to check-out');
+
+      const result = await query(checkoutSql, [visitorId, tenantId, updatedBy]);
+
+      if (result.rows.length > 0) {
+        return ResponseFormatter.success(
+          {
+            visitorId: result.rows[0].visitorid || result.rows[0].VisitorID,
+            visitorName: gatepass.fname,
+            mobile: gatepass.mobile,
+            checkOutTime: new Date().toLocaleTimeString("en-US", {
+              hour: "2-digit",
+              minute: "2-digit",
+              hour12: true,
+            }),
+            status: "Checked Out",
+            currentState: "CHECKED_OUT",
+          },
+          "Check-out successful"
+        );
+      } else {
+        return ResponseFormatter.error("Failed to check-out");
+      }
+    } catch (error) {
+      console.error("Error in checkoutGatepass:", error);
+      return ResponseFormatter.error("Internal server error");
     }
-    
-  } catch (error) {
-    console.error('Error in checkoutGatepass:', error);
-    return ResponseFormatter.error('Internal server error');
   }
-}
 
   // 6. GET GATEPASS STATUS
   static async getGatepassStatus(visitorId, tenantId) {
@@ -563,24 +572,15 @@ static async checkoutGatepass(visitorId, tenantId, updatedBy) {
   // 9. GET GATEPASS PURPOSES
   static async getGatepassPurposes(tenantId) {
     try {
-      const sql = `
-        SELECT 
-          VisitPurposeID as "purposeId",
-          VisitPurpose as "purposeName"
-        FROM VisitorPuposeMaster
-        WHERE TenantID = $1 AND IsActive = 'Y'
-        ORDER BY VisitPurpose
-      `;
-
-      const result = await query(sql, [tenantId]);
+      const purposes = await GatePassModel.getGatePassPurposes(tenantId);
 
       return ResponseFormatter.success(
-        result.rows,
-        "Purposes retrieved successfully",
-        result.rows.length
+        purposes,
+        "Gate pass purposes retrieved successfully",
+        purposes.length
       );
     } catch (error) {
-      console.error("Error in getGatepassPurposes:", error);
+      console.error("Error in getGatepassPurposes service:", error);
       return ResponseFormatter.error("Internal server error");
     }
   }
@@ -688,21 +688,15 @@ static async checkoutGatepass(visitorId, tenantId, updatedBy) {
     }
   }
 
-  // 11. SEND APPROVAL SMS
   static async sendApprovalSMS(mobile, name, securityCode) {
     try {
       const message = `Hello ${name}, your Gate Pass has been approved. Security Code: ${securityCode}. Please show this code at the gate. - Rely Gate`;
 
-      // Try to load SMS service
+      const tenantId = 1; // TODO: Replace with actual tenantId
+
       try {
-        if (SMSService && typeof SMSService.sendSMS === "function") {
-          await SMSService.sendSMS(mobile, message);
-          console.log(`SMS sent to ${mobile}: ${message}`);
-        } else {
-          console.log(
-            `SMS Service (DISABLED) - To: ${mobile}, Message: ${message}`
-          );
-        }
+        await MessagingService.sendGenericSMS(tenantId, mobile, message);
+        console.log(`SMS sent to ${mobile}: ${message}`);
       } catch (smsError) {
         console.log(
           `SMS Service (DISABLED) - To: ${mobile}, Message: ${message}`
@@ -710,7 +704,15 @@ static async checkoutGatepass(visitorId, tenantId, updatedBy) {
       }
     } catch (error) {
       console.error("Error sending approval SMS:", error);
-      // Don't throw error as SMS failure shouldn't stop the approval process
+    }
+  }
+
+  static async getPurposeById(purposeId, tenantId) {
+    try {
+      return await GatePassModel.getPurposeById(purposeId, tenantId);
+    } catch (error) {
+      console.error("Error in getPurposeById:", error);
+      throw error;
     }
   }
 }

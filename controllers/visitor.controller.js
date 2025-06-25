@@ -1,7 +1,7 @@
 const VisitorModel = require("../models/visitor.model");
 const VisitorService = require("../services/visitor.service");
 const AnalyticsService = require("../services/analytics.service");
-
+const MessagingService = require("../services/messaging.service");
 const responseUtils = require("../utils/constants");
 
 class VisitorController {
@@ -148,7 +148,13 @@ class VisitorController {
         });
       }
 
-      const result = await VisitorService.verifyOTP(refId, otpNumber, mobile);
+      const userTenantId = req.user.tenantId;
+      const result = await VisitorService.verifyOTP(
+        refId,
+        otpNumber,
+        mobile,
+        userTenantId
+      );
 
       res.json(result);
     } catch (error) {

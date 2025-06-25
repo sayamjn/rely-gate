@@ -367,7 +367,7 @@ class GatePassModel {
     return result.rows[0];
   }
 
-  // Get gate pass purposes (can reuse from visitor purposes)
+  // Get gate pass purposes
   static async getGatePassPurposes(tenantId) {
     const sql = `
     SELECT 
@@ -376,7 +376,9 @@ class GatePassModel {
       PurposeCatID as "purposeCatId",
       PurposeCatName as "purposeCatName"
     FROM VisitorPuposeMaster
-    WHERE TenantID = $1 AND IsActive = 'Y'
+    WHERE TenantID = $1 
+      AND IsActive = 'Y' 
+      AND PurposeCatID = 6
     ORDER BY VisitPurpose ASC
   `;
 
@@ -434,15 +436,17 @@ class GatePassModel {
   // Get purpose by ID for validation
   static async getPurposeById(purposeId, tenantId) {
     const sql = `
-      SELECT 
-        VisitPurposeID as "purposeId",
-        VisitPurpose as "purposeName",
-        PurposeCatID as "purposeCatId",
-        PurposeCatName as "purposeCatName",
-        IsActive as "isActive"
-      FROM VisitorPuposeMaster
-      WHERE VisitPurposeID = $1 AND TenantID = $2
-    `;
+    SELECT 
+      VisitPurposeID as "purposeId",
+      VisitPurpose as "purposeName",
+      PurposeCatID as "purposeCatId",
+      PurposeCatName as "purposeCatName",
+      IsActive as "isActive"
+    FROM VisitorPuposeMaster
+    WHERE VisitPurposeID = $1 
+      AND TenantID = $2 
+      AND PurposeCatID = 6
+  `;
 
     const result = await query(sql, [purposeId, tenantId]);
     return result.rows[0];

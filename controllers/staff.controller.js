@@ -309,7 +309,8 @@ class StaffController {
         address2,
         remarks,
         vehicleNumber,
-        tenantId
+        tenantId,
+        refId
       } = req.body;
       
       const userTenantId = req.user.tenantId;
@@ -326,6 +327,7 @@ class StaffController {
         userTenantId,
         mobile,
         otpNumber,
+        refId,
         {
           name,
           designation,

@@ -1,29 +1,33 @@
-const VisitorModel = require('../models/visitor.model');
-const OTPModel = require('../models/otp.model');
-const fs = require('fs').promises;
-const path = require('path');
+const VisitorModel = require("../models/visitor.model");
+const OTPModel = require("../models/otp.model");
+const fs = require("fs").promises;
+const path = require("path");
 const responseUtils = require("../utils/constants");
-const QRService = require('./qr.service');
-const FCMService = require('./fcm.service');
-const { query } = require('../config/database');
+const QRService = require("./qr.service");
+const FCMService = require("./fcm.service");
+const { query } = require("../config/database");
+const MessagingService = require("./messaging.service");
 
 class VisitorService {
-
   // Get visitor purposes by category
   static async getVisitorPurposes(tenantId, purposeCatId = 0) {
     try {
-      const purposes = await VisitorModel.getVisitorPurposeByCategory(tenantId, purposeCatId);
+      const purposes = await VisitorModel.getVisitorPurposeByCategory(
+        tenantId,
+        purposeCatId
+      );
       return {
         responseCode: responseUtils.RESPONSE_CODES.SUCCESS,
         data: purposes,
-        count: purposes.length
+        count: purposes.length,
       };
     } catch (error) {
-      console.error('Error fetching visitor purposes:', error);
+      console.error("Error fetching visitor purposes:", error);
       return {
         responseCode: responseUtils.RESPONSE_CODES.ERROR,
         responseMessage: responseUtils.RESPONSE_MESSAGES.ERROR,
-        error: process.env.NODE_ENV === 'development' ? error.message : undefined
+        error:
+          process.env.NODE_ENV === "development" ? error.message : undefined,
       };
     }
   }
@@ -31,18 +35,22 @@ class VisitorService {
   // Get visitor subcategories
   static async getVisitorSubCategories(tenantId, visitorCatId = 0) {
     try {
-      const subcategories = await VisitorModel.getVisitorSubCategories(tenantId, visitorCatId);
+      const subcategories = await VisitorModel.getVisitorSubCategories(
+        tenantId,
+        visitorCatId
+      );
       return {
         responseCode: responseUtils.RESPONSE_CODES.SUCCESS,
         data: subcategories,
-        count: subcategories.length
+        count: subcategories.length,
       };
     } catch (error) {
-      console.error('Error fetching visitor subcategories:', error);
+      console.error("Error fetching visitor subcategories:", error);
       return {
         responseCode: responseUtils.RESPONSE_CODES.ERROR,
         responseMessage: responseUtils.RESPONSE_MESSAGES.ERROR,
-        error: process.env.NODE_ENV === 'development' ? error.message : undefined
+        error:
+          process.env.NODE_ENV === "development" ? error.message : undefined,
       };
     }
   }
@@ -53,25 +61,37 @@ class VisitorService {
       if (!mobile || mobile.length !== 10 || !/^\d+$/.test(mobile)) {
         return {
           responseCode: responseUtils.RESPONSE_CODES.ERROR,
-          responseMessage: 'Invalid mobile number'
+          responseMessage: "Invalid mobile number",
         };
       }
 
       if (visitorTypeId) {
-        const exists = await VisitorModel.checkVisitorExists(mobile, tenantId, parseInt(visitorTypeId));
+        const exists = await VisitorModel.checkVisitorExists(
+          mobile,
+          tenantId,
+          parseInt(visitorTypeId)
+        );
         if (exists) {
           return {
             responseCode: responseUtils.RESPONSE_CODES.MOBILE_EXISTS,
-            responseMessage: responseUtils.RESPONSE_MESSAGES.MOBILE_EXISTS
+            responseMessage: responseUtils.RESPONSE_MESSAGES.MOBILE_EXISTS,
           };
         }
       }
 
-      const otpResult = await OTPModel.generateOTP(tenantId, mobile, appuser);
 
-      if (process.env.SMS_ENABLED === 'Y') {
-        // TODO: Implement SMS service
-        console.log(`SMS would be sent to ${mobile}: ${otpResult.otpNumber}`);
+      const otpResult = await MessagingService.sendVisitorOTP(
+        mobile,
+        tenantId,
+        visitorTypeId,
+        appuser
+      );
+
+      if (!otpResult.success) {
+        return {
+          responseCode: responseUtils.RESPONSE_CODES.ERROR,
+          responseMessage: otpResult.message,
+        };
       }
 
       console.log(`OTP for ${mobile}: ${otpResult.otpNumber}`);
@@ -80,14 +100,18 @@ class VisitorService {
         responseCode: responseUtils.RESPONSE_CODES.SUCCESS,
         responseMessage: responseUtils.RESPONSE_MESSAGES.OTP_SENT,
         refId: otpResult.refId,
-        otp: process.env.NODE_ENV === 'development' ? otpResult.otpNumber : undefined
+        otp:
+          process.env.NODE_ENV === "development"
+            ? otpResult.otpNumber
+            : undefined,
       };
     } catch (error) {
-      console.error('Error sending OTP:', error);
+      console.error("Error sending OTP:", error);
       return {
         responseCode: responseUtils.RESPONSE_CODES.ERROR,
         responseMessage: responseUtils.RESPONSE_MESSAGES.ERROR,
-        error: process.env.NODE_ENV === 'development' ? error.message : undefined
+        error:
+          process.env.NODE_ENV === "development" ? error.message : undefined,
       };
     }
   }
@@ -98,13 +122,16 @@ class VisitorService {
       if (!mobile || mobile.length !== 10 || !/^\d+$/.test(mobile)) {
         return {
           responseCode: responseUtils.RESPONSE_CODES.ERROR,
-          responseMessage: 'Invalid mobile number'
+          responseMessage: "Invalid mobile number",
         };
       }
 
-      const otpResult = await OTPModel.generateOTP(tenantId, mobile, appuser);
+     const otpResult = await MessagingService.generateAndSendOTP(tenantId, mobile, appuser);
 
-      const recentVisitors = await VisitorModel.getRecentVisitorByMobile(tenantId, mobile);
+      const recentVisitors = await VisitorModel.getRecentVisitorByMobile(
+        tenantId,
+        mobile
+      );
 
       console.log(`OTP for ${mobile}: ${otpResult.otpNumber}`);
 
@@ -113,14 +140,18 @@ class VisitorService {
         responseMessage: responseUtils.RESPONSE_MESSAGES.OTP_SENT,
         refId: otpResult.refId,
         data: recentVisitors,
-        otp: process.env.NODE_ENV === 'development' ? otpResult.otpNumber : undefined
+        otp:
+          process.env.NODE_ENV === "development"
+            ? otpResult.otpNumber
+            : undefined,
       };
     } catch (error) {
-      console.error('Error sending unregistered OTP:', error);
+      console.error("Error sending unregistered OTP:", error);
       return {
         responseCode: responseUtils.RESPONSE_CODES.ERROR,
         responseMessage: responseUtils.RESPONSE_MESSAGES.ERROR,
-        error: process.env.NODE_ENV === 'development' ? error.message : undefined
+        error:
+          process.env.NODE_ENV === "development" ? error.message : undefined,
       };
     }
   }
@@ -128,27 +159,28 @@ class VisitorService {
   // Verify OTP
   static async verifyOTP(refId, otpNumber, mobile) {
     try {
-      const verification = await OTPModel.verifyOTP(refId, otpNumber, mobile);
+      const verification = await MessagingService.verifyOTP(refId, otpNumber, mobile);
 
       if (verification.verified) {
         return {
           responseCode: responseUtils.RESPONSE_CODES.SUCCESS,
           responseMessage: responseUtils.RESPONSE_MESSAGES.OTP_VERIFIED,
           tenantId: verification.tenantId,
-          mobile: verification.mobile
+          mobile: verification.mobile,
         };
       } else {
         return {
           responseCode: responseUtils.RESPONSE_CODES.ERROR,
-          responseMessage: responseUtils.RESPONSE_MESSAGES.OTP_INVALID
+          responseMessage: responseUtils.RESPONSE_MESSAGES.OTP_INVALID,
         };
       }
     } catch (error) {
-      console.error('Error verifying OTP:', error);
+      console.error("Error verifying OTP:", error);
       return {
         responseCode: responseUtils.RESPONSE_CODES.ERROR,
         responseMessage: responseUtils.RESPONSE_MESSAGES.ERROR,
-        error: process.env.NODE_ENV === 'development' ? error.message : undefined
+        error:
+          process.env.NODE_ENV === "development" ? error.message : undefined,
       };
     }
   }
@@ -156,23 +188,23 @@ class VisitorService {
   // image saving with better error handling
   static async saveImage(base64String, imageName, extension, filePath) {
     try {
-      if (!base64String || extension === 'N/A') {
+      if (!base64String || extension === "N/A") {
         return false;
       }
 
       await fs.mkdir(filePath, { recursive: true });
 
-      const cleanBase64 = base64String.replace(/\n/g, '').replace(/ /g, '');
-      
-      const base64Data = cleanBase64.replace(/^data:image\/[a-z]+;base64,/, '');
-      const imageBuffer = Buffer.from(base64Data, 'base64');
+      const cleanBase64 = base64String.replace(/\n/g, "").replace(/ /g, "");
+
+      const base64Data = cleanBase64.replace(/^data:image\/[a-z]+;base64,/, "");
+      const imageBuffer = Buffer.from(base64Data, "base64");
 
       const fullPath = path.join(filePath, `${imageName}${extension}`);
       await fs.writeFile(fullPath, imageBuffer);
 
       return true;
     } catch (error) {
-      console.error('Error saving image:', error);
+      console.error("Error saving image:", error);
       return false;
     }
   }
@@ -181,9 +213,21 @@ class VisitorService {
   static async createUnregisteredVisitor(visitorData) {
     try {
       const {
-        tenantId, fname, mobile, vehicleNo, flatName, visitorCatId,
-        visitorCatName, visitorSubCatId, visitorSubCatName, visitPurposeId,
-        visitPurpose, totalVisitor, photoPath, vehiclePhotoPath, createdBy
+        tenantId,
+        fname,
+        mobile,
+        vehicleNo,
+        flatName,
+        visitorCatId,
+        visitorCatName,
+        visitorSubCatId,
+        visitorSubCatName,
+        visitPurposeId,
+        visitPurpose,
+        totalVisitor,
+        photoPath,
+        vehiclePhotoPath,
+        createdBy,
       } = visitorData;
 
       let photoData = null;
@@ -191,20 +235,30 @@ class VisitorService {
 
       if (photoPath) {
         const photoName = `UnRegVisitor_${Date.now()}`;
-        const saved = await this.saveImage(photoPath, photoName, '.jpeg', './uploads/visitors/');
+        const saved = await this.saveImage(
+          photoPath,
+          photoName,
+          ".jpeg",
+          "./uploads/visitors/"
+        );
         if (saved) photoData = `${photoName}.jpeg`;
       }
 
       if (vehiclePhotoPath) {
         const vehiclePhotoName = `Vehicle_${Date.now()}`;
-        const saved = await this.saveImage(vehiclePhotoPath, vehiclePhotoName, '.jpeg', './uploads/vehicles/');
+        const saved = await this.saveImage(
+          vehiclePhotoPath,
+          vehiclePhotoName,
+          ".jpeg",
+          "./uploads/vehicles/"
+        );
         if (saved) vehiclePhotoData = `${vehiclePhotoName}.jpeg`;
       }
 
       const result = await VisitorModel.createUnregisteredVisitor({
         ...visitorData,
         photoData,
-        vehiclePhotoData
+        vehiclePhotoData,
       });
 
       try {
@@ -214,24 +268,25 @@ class VisitorService {
           visitorName: fname,
           visitorCategory: visitorSubCatName,
           photoUrl: photoData ? `/uploads/visitors/${photoData}` : null,
-          type: 'UNREGISTERED_CHECKIN'
+          type: "UNREGISTERED_CHECKIN",
         });
       } catch (fcmError) {
-        console.error('FCM notification failed:', fcmError);
+        console.error("FCM notification failed:", fcmError);
         // Don't fail the entire operation if FCM fails
       }
 
       return {
         responseCode: responseUtils.RESPONSE_CODES.SUCCESS,
         responseMessage: responseUtils.RESPONSE_MESSAGES.VISITOR_CREATED,
-        visitorId: result.visitorid
+        visitorId: result.visitorid,
       };
     } catch (error) {
-      console.error('Error creating unregistered visitor:', error);
+      console.error("Error creating unregistered visitor:", error);
       return {
         responseCode: responseUtils.RESPONSE_CODES.ERROR,
         responseMessage: responseUtils.RESPONSE_MESSAGES.ERROR,
-        error: process.env.NODE_ENV === 'development' ? error.message : undefined
+        error:
+          process.env.NODE_ENV === "development" ? error.message : undefined,
       };
     }
   }
@@ -241,15 +296,29 @@ class VisitorService {
     try {
       const securityCode = QRService.generateSecurityCode();
       const visitorRegNo = QRService.generateVisitorRegNo(
-        visitorData.visitorCatId, 
+        visitorData.visitorCatId,
         visitorData.tenantId
       );
 
       const {
-        tenantId, vistorName, mobile, email, visitorCatId, visitorCatName,
-        visitorSubCatId, visitorSubCatName, flatId, flatName, vehicleNo,
-        identityId, idName, idNumber, photoPath, vehiclePhotoPath,
-        idPhotoPath, createdBy
+        tenantId,
+        vistorName,
+        mobile,
+        email,
+        visitorCatId,
+        visitorCatName,
+        visitorSubCatId,
+        visitorSubCatName,
+        flatId,
+        flatName,
+        vehicleNo,
+        identityId,
+        idName,
+        idNumber,
+        photoPath,
+        vehiclePhotoPath,
+        idPhotoPath,
+        createdBy,
       } = visitorData;
 
       let photoData = null;
@@ -258,19 +327,34 @@ class VisitorService {
 
       if (photoPath) {
         const photoName = `RegVisitor_${Date.now()}`;
-        const saved = await this.saveImage(photoPath, photoName, '.jpeg', './uploads/registered_visitors/');
+        const saved = await this.saveImage(
+          photoPath,
+          photoName,
+          ".jpeg",
+          "./uploads/registered_visitors/"
+        );
         if (saved) photoData = `${photoName}.jpeg`;
       }
 
       if (vehiclePhotoPath) {
         const vehiclePhotoName = `RegVehicle_${Date.now()}`;
-        const saved = await this.saveImage(vehiclePhotoPath, vehiclePhotoName, '.jpeg', './uploads/vehicles/');
+        const saved = await this.saveImage(
+          vehiclePhotoPath,
+          vehiclePhotoName,
+          ".jpeg",
+          "./uploads/vehicles/"
+        );
         if (saved) vehiclePhotoData = `${vehiclePhotoName}.jpeg`;
       }
 
       if (idPhotoPath) {
         const idPhotoName = `RegVisitorID_${Date.now()}`;
-        const saved = await this.saveImage(idPhotoPath, idPhotoName, '.jpeg', './uploads/visitor_ids/');
+        const saved = await this.saveImage(
+          idPhotoPath,
+          idPhotoName,
+          ".jpeg",
+          "./uploads/visitor_ids/"
+        );
         if (saved) idPhotoData = `${idPhotoName}.jpeg`;
       }
 
@@ -280,10 +364,10 @@ class VisitorService {
         visitorRegNo,
         photoData,
         vehiclePhotoData,
-        idPhotoData
+        idPhotoData,
       });
 
-      if (process.env.SMS_ENABLED === 'Y') {
+      if (process.env.SMS_ENABLED === "Y") {
         // TODO: Implement SMS service for security code
         console.log(`Security code ${securityCode} would be sent to ${mobile}`);
       }
@@ -293,33 +377,43 @@ class VisitorService {
         responseMessage: responseUtils.RESPONSE_MESSAGES.VISITOR_CREATED,
         visitorRegId: result.visitorregid,
         securityCode: result.securitycode,
-        visitorRegNo: visitorRegNo
+        visitorRegNo: visitorRegNo,
       };
     } catch (error) {
-      console.error('Error creating registered visitor:', error);
+      console.error("Error creating registered visitor:", error);
       return {
         responseCode: responseUtils.RESPONSE_CODES.ERROR,
         responseMessage: responseUtils.RESPONSE_MESSAGES.ERROR,
-        error: process.env.NODE_ENV === 'development' ? error.message : undefined
+        error:
+          process.env.NODE_ENV === "development" ? error.message : undefined,
       };
     }
   }
 
   // Get registered visitors
-  static async getRegisteredVisitors(tenantId, visitorCatId = 0, visitorSubCatId = 0) {
+  static async getRegisteredVisitors(
+    tenantId,
+    visitorCatId = 0,
+    visitorSubCatId = 0
+  ) {
     try {
-      const visitors = await VisitorModel.getRegisteredVisitors(tenantId, visitorCatId, visitorSubCatId);
+      const visitors = await VisitorModel.getRegisteredVisitors(
+        tenantId,
+        visitorCatId,
+        visitorSubCatId
+      );
       return {
         responseCode: responseUtils.RESPONSE_CODES.SUCCESS,
         data: visitors,
-        count: visitors.length
+        count: visitors.length,
       };
     } catch (error) {
-      console.error('Error fetching registered visitors:', error);
+      console.error("Error fetching registered visitors:", error);
       return {
         responseCode: responseUtils.RESPONSE_CODES.ERROR,
         responseMessage: responseUtils.RESPONSE_MESSAGES.ERROR,
-        error: process.env.NODE_ENV === 'development' ? error.message : undefined
+        error:
+          process.env.NODE_ENV === "development" ? error.message : undefined,
       };
     }
   }
@@ -327,40 +421,47 @@ class VisitorService {
   // checkout with proper validation
   static async checkoutVisitor(visitorId, tenantId) {
     try {
-      const result = await VisitorModel.updateVisitorCheckout(visitorId, tenantId);
-      
+      const result = await VisitorModel.updateVisitorCheckout(
+        visitorId,
+        tenantId
+      );
+
       if (result) {
         try {
-          const visitorDetails = await VisitorModel.getVisitorById(visitorId, tenantId);
+          const visitorDetails = await VisitorModel.getVisitorById(
+            visitorId,
+            tenantId
+          );
           if (visitorDetails) {
             await FCMService.notifyVisitorCheckOut({
               tenantId,
               flatName: visitorDetails.flatname,
               visitorName: visitorDetails.fname,
               visitorCategory: visitorDetails.visitorsubcatname,
-              type: 'UNREGISTERED_CHECKOUT'
+              type: "UNREGISTERED_CHECKOUT",
             });
           }
         } catch (fcmError) {
-          console.error('FCM notification failed:', fcmError);
+          console.error("FCM notification failed:", fcmError);
         }
 
         return {
           responseCode: responseUtils.RESPONSE_CODES.SUCCESS,
-          responseMessage: 'Visitor checked out successfully'
+          responseMessage: "Visitor checked out successfully",
         };
       } else {
         return {
           responseCode: responseUtils.RESPONSE_CODES.ERROR,
-          responseMessage: 'Visitor not found or already checked out'
+          responseMessage: "Visitor not found or already checked out",
         };
       }
     } catch (error) {
-      console.error('Error checking out visitor:', error);
+      console.error("Error checking out visitor:", error);
       return {
         responseCode: responseUtils.RESPONSE_CODES.ERROR,
         responseMessage: responseUtils.RESPONSE_MESSAGES.ERROR,
-        error: process.env.NODE_ENV === 'development' ? error.message : undefined
+        error:
+          process.env.NODE_ENV === "development" ? error.message : undefined,
       };
     }
   }
@@ -368,25 +469,31 @@ class VisitorService {
   // registered visitor check-in
   static async checkinRegisteredVisitor(visitorRegId, tenantId, createdBy) {
     try {
-      const visitor = await VisitorModel.getVisitorForCheckIn(visitorRegId, tenantId);
-      
+      const visitor = await VisitorModel.getVisitorForCheckIn(
+        visitorRegId,
+        tenantId
+      );
+
       if (!visitor) {
         return {
           responseCode: responseUtils.RESPONSE_CODES.ERROR,
-          responseMessage: 'Visitor not found'
+          responseMessage: "Visitor not found",
         };
       }
 
-      const activeVisit = await VisitorModel.getActiveVisitHistory(visitorRegId, tenantId);
-      
+      const activeVisit = await VisitorModel.getActiveVisitHistory(
+        visitorRegId,
+        tenantId
+      );
+
       if (activeVisit) {
         return {
           responseCode: responseUtils.RESPONSE_CODES.ERROR,
-          responseMessage: 'Visitor is already checked in',
+          responseMessage: "Visitor is already checked in",
           data: {
             historyId: activeVisit.regvisitorhistoryid,
-            checkInTime: activeVisit.intimetxt
-          }
+            checkInTime: activeVisit.intimetxt,
+          },
         };
       }
 
@@ -404,7 +511,7 @@ class VisitorService {
         visitorSubCatName: visitor.visitorsubcatname,
         associatedFlat: visitor.flatname || visitor.associatedflat,
         associatedBlock: visitor.associatedblock,
-        createdBy
+        createdBy,
       });
 
       try {
@@ -413,32 +520,35 @@ class VisitorService {
           flatName: visitor.flatname || visitor.associatedflat,
           visitorName: visitor.vistorname,
           visitorCategory: visitor.visitorsubcatname,
-          photoUrl: visitor.photopath ? `${visitor.photopath}/${visitor.photoname}` : null,
-          type: 'REGISTERED_CHECKIN'
+          photoUrl: visitor.photopath
+            ? `${visitor.photopath}/${visitor.photoname}`
+            : null,
+          type: "REGISTERED_CHECKIN",
         });
       } catch (fcmError) {
-        console.error('FCM notification failed:', fcmError);
+        console.error("FCM notification failed:", fcmError);
       }
 
       return {
         responseCode: responseUtils.RESPONSE_CODES.SUCCESS,
-        responseMessage: 'Visitor checked in successfully',
+        responseMessage: "Visitor checked in successfully",
         data: {
           historyId: visitHistory.regvisitorhistoryid,
           visitorName: visitor.vistorname,
-          checkInTime: new Date().toLocaleTimeString('en-US', { 
-            hour: '2-digit', 
-            minute: '2-digit', 
-            hour12: true 
-          })
-        }
+          checkInTime: new Date().toLocaleTimeString("en-US", {
+            hour: "2-digit",
+            minute: "2-digit",
+            hour12: true,
+          }),
+        },
       };
     } catch (error) {
-      console.error('Error checking in visitor:', error);
+      console.error("Error checking in visitor:", error);
       return {
         responseCode: responseUtils.RESPONSE_CODES.ERROR,
         responseMessage: responseUtils.RESPONSE_MESSAGES.ERROR,
-        error: process.env.NODE_ENV === 'development' ? error.message : undefined
+        error:
+          process.env.NODE_ENV === "development" ? error.message : undefined,
       };
     }
   }
@@ -446,48 +556,56 @@ class VisitorService {
   // checkout for registered visitors
   static async checkoutRegisteredVisitor(historyId, tenantId, updatedBy) {
     try {
-      const result = await VisitorModel.updateVisitHistoryCheckout(historyId, tenantId, updatedBy);
-      
+      const result = await VisitorModel.updateVisitHistoryCheckout(
+        historyId,
+        tenantId,
+        updatedBy
+      );
+
       if (result) {
         try {
-          const visitDetails = await VisitorModel.getVisitHistoryById(historyId, tenantId);
+          const visitDetails = await VisitorModel.getVisitHistoryById(
+            historyId,
+            tenantId
+          );
           if (visitDetails) {
             await FCMService.notifyVisitorCheckOut({
               tenantId,
               flatName: visitDetails.associatedflat,
               visitorName: visitDetails.vistorname,
               visitorCategory: visitDetails.visitorsubcatname,
-              type: 'REGISTERED_CHECKOUT'
+              type: "REGISTERED_CHECKOUT",
             });
           }
         } catch (fcmError) {
-          console.error('FCM notification failed:', fcmError);
+          console.error("FCM notification failed:", fcmError);
         }
 
         return {
           responseCode: responseUtils.RESPONSE_CODES.SUCCESS,
-          responseMessage: 'Visitor checked out successfully',
+          responseMessage: "Visitor checked out successfully",
           data: {
             historyId: result.regvisitorhistoryid,
-            checkOutTime: new Date().toLocaleTimeString('en-US', { 
-              hour: '2-digit', 
-              minute: '2-digit', 
-              hour12: true 
-            })
-          }
+            checkOutTime: new Date().toLocaleTimeString("en-US", {
+              hour: "2-digit",
+              minute: "2-digit",
+              hour12: true,
+            }),
+          },
         };
       } else {
         return {
           responseCode: responseUtils.RESPONSE_CODES.ERROR,
-          responseMessage: 'Visit history not found or already checked out'
+          responseMessage: "Visit history not found or already checked out",
         };
       }
     } catch (error) {
-      console.error('Error checking out visitor:', error);
+      console.error("Error checking out visitor:", error);
       return {
         responseCode: responseUtils.RESPONSE_CODES.ERROR,
         responseMessage: responseUtils.RESPONSE_MESSAGES.ERROR,
-        error: process.env.NODE_ENV === 'development' ? error.message : undefined
+        error:
+          process.env.NODE_ENV === "development" ? error.message : undefined,
       };
     }
   }
@@ -495,18 +613,23 @@ class VisitorService {
   // Get visit history
   static async getVisitHistory(visitorRegId, tenantId, limit = 10) {
     try {
-      const history = await VisitorModel.getVisitHistory(visitorRegId, tenantId, limit);
+      const history = await VisitorModel.getVisitHistory(
+        visitorRegId,
+        tenantId,
+        limit
+      );
       return {
         responseCode: responseUtils.RESPONSE_CODES.SUCCESS,
         data: history,
-        count: history.length
+        count: history.length,
       };
     } catch (error) {
-      console.error('Error fetching visit history:', error);
+      console.error("Error fetching visit history:", error);
       return {
         responseCode: responseUtils.RESPONSE_CODES.ERROR,
         responseMessage: responseUtils.RESPONSE_MESSAGES.ERROR,
-        error: process.env.NODE_ENV === 'development' ? error.message : undefined
+        error:
+          process.env.NODE_ENV === "development" ? error.message : undefined,
       };
     }
   }
@@ -518,14 +641,15 @@ class VisitorService {
       return {
         responseCode: responseUtils.RESPONSE_CODES.SUCCESS,
         data: visitors,
-        count: visitors.length
+        count: visitors.length,
       };
     } catch (error) {
-      console.error('Error fetching pending checkout visitors:', error);
+      console.error("Error fetching pending checkout visitors:", error);
       return {
         responseCode: responseUtils.RESPONSE_CODES.ERROR,
         responseMessage: responseUtils.RESPONSE_MESSAGES.ERROR,
-        error: process.env.NODE_ENV === 'development' ? error.message : undefined
+        error:
+          process.env.NODE_ENV === "development" ? error.message : undefined,
       };
     }
   }
@@ -533,12 +657,15 @@ class VisitorService {
   // QR generation with proper data structure
   static async generateVisitorQR(visitorRegId, tenantId) {
     try {
-      const visitor = await VisitorModel.getVisitorForCheckIn(visitorRegId, tenantId);
-      
+      const visitor = await VisitorModel.getVisitorForCheckIn(
+        visitorRegId,
+        tenantId
+      );
+
       if (!visitor) {
         return {
           responseCode: responseUtils.RESPONSE_CODES.ERROR,
-          responseMessage: 'Visitor not found'
+          responseMessage: "Visitor not found",
         };
       }
 
@@ -547,9 +674,17 @@ class VisitorService {
 
       if (!securityCode || !visitorRegNo) {
         securityCode = QRService.generateSecurityCode();
-        visitorRegNo = QRService.generateVisitorRegNo(visitor.visitorcatid, tenantId);
-        
-        await VisitorModel.updateVisitorSecurity(visitorRegId, securityCode, visitorRegNo, tenantId);
+        visitorRegNo = QRService.generateVisitorRegNo(
+          visitor.visitorcatid,
+          tenantId
+        );
+
+        await VisitorModel.updateVisitorSecurity(
+          visitorRegId,
+          securityCode,
+          visitorRegNo,
+          tenantId
+        );
       }
 
       const completeVisitorData = {
@@ -560,24 +695,24 @@ class VisitorService {
         mobile: visitor.mobile,
         flat: visitor.flatname || visitor.associatedflat,
         timestamp: Date.now(),
-        uuid: require('uuid').v4()
+        uuid: require("uuid").v4(),
       };
 
       const qrResult = await QRService.generateQRCode(completeVisitorData, {
         width: 300,
-        margin: 2
+        margin: 2,
       });
 
       if (!qrResult.success) {
         return {
           responseCode: responseUtils.RESPONSE_CODES.ERROR,
-          responseMessage: 'Failed to generate QR code'
+          responseMessage: "Failed to generate QR code",
         };
       }
 
       return {
         responseCode: responseUtils.RESPONSE_CODES.SUCCESS,
-        responseMessage: 'QR code generated successfully',
+        responseMessage: "QR code generated successfully",
         data: {
           visitorRegId: visitor.visitorregid,
           visitorName: visitor.vistorname,
@@ -585,15 +720,16 @@ class VisitorService {
           visitorRegNo: visitorRegNo,
           qrData: qrResult.qrData,
           qrImage: qrResult.qrImage,
-          qrBase64: qrResult.qrBase64
-        }
+          qrBase64: qrResult.qrBase64,
+        },
       };
     } catch (error) {
-      console.error('Error generating visitor QR:', error);
+      console.error("Error generating visitor QR:", error);
       return {
         responseCode: responseUtils.RESPONSE_CODES.ERROR,
         responseMessage: responseUtils.RESPONSE_MESSAGES.ERROR,
-        error: process.env.NODE_ENV === 'development' ? error.message : undefined
+        error:
+          process.env.NODE_ENV === "development" ? error.message : undefined,
       };
     }
   }
@@ -602,11 +738,11 @@ class VisitorService {
   static async scanQRCode(qrString, tenantId, userInfo) {
     try {
       const parseResult = QRService.parseQRData(qrString);
-      
+
       if (!parseResult.success) {
         return {
           responseCode: responseUtils.RESPONSE_CODES.ERROR,
-          responseMessage: parseResult.error
+          responseMessage: parseResult.error,
         };
       }
 
@@ -615,7 +751,7 @@ class VisitorService {
       if (!qrData.tenantid || !qrData.mainid || !qrData.type) {
         return {
           responseCode: responseUtils.RESPONSE_CODES.ERROR,
-          responseMessage: 'Invalid QR code format - missing required fields'
+          responseMessage: "Invalid QR code format - missing required fields",
         };
       }
 
@@ -623,14 +759,14 @@ class VisitorService {
       if (!verifyResult.valid) {
         return {
           responseCode: responseUtils.RESPONSE_CODES.ERROR,
-          responseMessage: verifyResult.reason
+          responseMessage: verifyResult.reason,
         };
       }
 
       if (parseInt(qrData.tenantid) !== tenantId) {
         return {
           responseCode: responseUtils.RESPONSE_CODES.ERROR,
-          responseMessage: 'Access denied for this tenant'
+          responseMessage: "Access denied for this tenant",
         };
       }
 
@@ -640,62 +776,82 @@ class VisitorService {
 
       // Try multiple lookup strategies based on C# logic
       // 1. First try to find by registration number
-      visitor = await VisitorModel.getVisitorByRegNo(qrData.mainid, tenantId, visitorCatId);
-      
+      visitor = await VisitorModel.getVisitorByRegNo(
+        qrData.mainid,
+        tenantId,
+        visitorCatId
+      );
+
       // 2. If not found, try by security code
       if (!visitor) {
-        visitor = await VisitorModel.getVisitorBySecurityCode(qrData.mainid, tenantId);
-        
+        visitor = await VisitorModel.getVisitorBySecurityCode(
+          qrData.mainid,
+          tenantId
+        );
+
         // Validate category if found by security code
-        if (visitor && visitorCatId > 0 && visitor.visitorcatid !== visitorCatId) {
+        if (
+          visitor &&
+          visitorCatId > 0 &&
+          visitor.visitorcatid !== visitorCatId
+        ) {
           visitor = null; // Category mismatch
         }
       }
 
       // 3. If still not found and it's a special type, try alternative lookup
-      if (!visitor && (qrData.type === 'stu' || qrData.type === 'sta')) {
+      if (!visitor && (qrData.type === "stu" || qrData.type === "sta")) {
         // For students/staff, try alternative lookup logic
-        visitor = await VisitorModel.getVisitorByAlternativeId(qrData.mainid, tenantId, visitorCatId);
+        visitor = await VisitorModel.getVisitorByAlternativeId(
+          qrData.mainid,
+          tenantId,
+          visitorCatId
+        );
       }
 
       if (!visitor) {
         return {
           responseCode: responseUtils.RESPONSE_CODES.ERROR,
-          responseMessage: 'Visitor not found or QR code invalid'
+          responseMessage: "Visitor not found or QR code invalid",
         };
       }
 
-      const checkInOutInfo = await VisitorModel.getVisitorCheckInOutStatus(visitor.visitorregid, tenantId, visitorCatId);
+      const checkInOutInfo = await VisitorModel.getVisitorCheckInOutStatus(
+        visitor.visitorregid,
+        tenantId,
+        visitorCatId
+      );
 
       return {
         responseCode: responseUtils.RESPONSE_CODES.SUCCESS,
-        responseMessage: 'QR code scanned successfully',
+        responseMessage: "QR code scanned successfully",
         data: {
           visitor: visitor,
           qrData: qrData,
           checkInOutInfo: checkInOutInfo,
           scanTime: new Date().toISOString(),
           scannedBy: userInfo.username,
-          actionRequired: checkInOutInfo.code === 1 ? 'CHECK_IN' : 'CHECK_OUT'
-        }
+          actionRequired: checkInOutInfo.code === 1 ? "CHECK_IN" : "CHECK_OUT",
+        },
       };
     } catch (error) {
-      console.error('Error scanning QR code:', error);
+      console.error("Error scanning QR code:", error);
       return {
         responseCode: responseUtils.RESPONSE_CODES.ERROR,
         responseMessage: responseUtils.RESPONSE_MESSAGES.ERROR,
-        error: process.env.NODE_ENV === 'development' ? error.message : undefined
+        error:
+          process.env.NODE_ENV === "development" ? error.message : undefined,
       };
     }
   }
 
   static getCategoryIdFromType(typeCode) {
     const typeMap = {
-      'sta': 1, // Staff
-      'unr': 2, // Unregistered
-      'stu': 3, // Student
-      'gue': 4, // Guest
-      'bus': 5  // Bus
+      sta: 1, // Staff
+      unr: 2, // Unregistered
+      stu: 3, // Student
+      gue: 4, // Guest
+      bus: 5, // Bus
     };
     return typeMap[typeCode] || 2;
   }
@@ -703,16 +859,20 @@ class VisitorService {
   // search with advanced filtering
   static async searchVisitors(tenantId, searchParams) {
     try {
-      const visitors = await VisitorModel.searchVisitors(tenantId, searchParams);
-      
-      const totalCount = visitors.length > 0 ? parseInt(visitors[0].total_count) : 0;
+      const visitors = await VisitorModel.searchVisitors(
+        tenantId,
+        searchParams
+      );
+
+      const totalCount =
+        visitors.length > 0 ? parseInt(visitors[0].total_count) : 0;
       const currentPage = parseInt(searchParams.page) || 1;
       const pageSize = parseInt(searchParams.pageSize) || 20;
       const totalPages = Math.ceil(totalCount / pageSize);
 
       return {
         responseCode: responseUtils.RESPONSE_CODES.SUCCESS,
-        data: visitors.map(v => {
+        data: visitors.map((v) => {
           const { total_count, ...visitorData } = v;
           return visitorData;
         }),
@@ -722,15 +882,16 @@ class VisitorService {
           totalCount,
           totalPages,
           hasNext: currentPage < totalPages,
-          hasPrev: currentPage > 1
-        }
+          hasPrev: currentPage > 1,
+        },
       };
     } catch (error) {
-      console.error('Error searching visitors:', error);
+      console.error("Error searching visitors:", error);
       return {
         responseCode: responseUtils.RESPONSE_CODES.ERROR,
         responseMessage: responseUtils.RESPONSE_MESSAGES.ERROR,
-        error: process.env.NODE_ENV === 'development' ? error.message : undefined
+        error:
+          process.env.NODE_ENV === "development" ? error.message : undefined,
       };
     }
   }
@@ -745,74 +906,76 @@ class VisitorService {
 
       return qrResult;
     } catch (error) {
-      console.error('Error saving QR code:', error);
+      console.error("Error saving QR code:", error);
       return { success: false, error: error.message };
     }
   }
 
   static async getVisitorsWithFilters(tenantId, filters) {
-      try {
-        let whereConditions = ['vr.TenantID = $1', "vr.IsActive = 'Y'"];
-        let params = [tenantId];
-        let paramIndex = 2;
+    try {
+      let whereConditions = ["vr.TenantID = $1", "vr.IsActive = 'Y'"];
+      let params = [tenantId];
+      let paramIndex = 2;
 
-        // Build dynamic WHERE clause
-        if (filters.search) {
-          whereConditions.push(`(vr.VistorName ILIKE $${paramIndex} OR vr.Mobile ILIKE $${paramIndex} OR vr.VisitorRegNo ILIKE $${paramIndex})`);
-          params.push(`%${filters.search}%`);
-          paramIndex++;
-        }
+      // Build dynamic WHERE clause
+      if (filters.search) {
+        whereConditions.push(
+          `(vr.VistorName ILIKE $${paramIndex} OR vr.Mobile ILIKE $${paramIndex} OR vr.VisitorRegNo ILIKE $${paramIndex})`
+        );
+        params.push(`%${filters.search}%`);
+        paramIndex++;
+      }
 
-        if (filters.visitorCatId) {
-          whereConditions.push(`vr.VisitorCatID = $${paramIndex}`);
-          params.push(filters.visitorCatId);
-          paramIndex++;
-        }
+      if (filters.visitorCatId) {
+        whereConditions.push(`vr.VisitorCatID = $${paramIndex}`);
+        params.push(filters.visitorCatId);
+        paramIndex++;
+      }
 
-        if (filters.visitorSubCatId) {
-          whereConditions.push(`vr.VisitorSubCatID = $${paramIndex}`);
-          params.push(filters.visitorSubCatId);
-          paramIndex++;
-        }
+      if (filters.visitorSubCatId) {
+        whereConditions.push(`vr.VisitorSubCatID = $${paramIndex}`);
+        params.push(filters.visitorSubCatId);
+        paramIndex++;
+      }
 
-        if (filters.flatName) {
-          whereConditions.push(`vr.AssociatedFlat ILIKE $${paramIndex}`);
-          params.push(`%${filters.flatName}%`);
-          paramIndex++;
-        }
+      if (filters.flatName) {
+        whereConditions.push(`vr.AssociatedFlat ILIKE $${paramIndex}`);
+        params.push(`%${filters.flatName}%`);
+        paramIndex++;
+      }
 
-        if (filters.mobile) {
-          whereConditions.push(`vr.Mobile ILIKE $${paramIndex}`);
-          params.push(`%${filters.mobile}%`);
-          paramIndex++;
-        }
+      if (filters.mobile) {
+        whereConditions.push(`vr.Mobile ILIKE $${paramIndex}`);
+        params.push(`%${filters.mobile}%`);
+        paramIndex++;
+      }
 
-        if (filters.fromDate) {
-          whereConditions.push(`vr.CreatedDate >= $${paramIndex}`);
-          params.push(filters.fromDate);
-          paramIndex++;
-        }
+      if (filters.fromDate) {
+        whereConditions.push(`vr.CreatedDate >= $${paramIndex}`);
+        params.push(filters.fromDate);
+        paramIndex++;
+      }
 
-        if (filters.toDate) {
-          whereConditions.push(`vr.CreatedDate <= $${paramIndex}`);
-          params.push(filters.toDate);
-          paramIndex++;
-        }
+      if (filters.toDate) {
+        whereConditions.push(`vr.CreatedDate <= $${paramIndex}`);
+        params.push(filters.toDate);
+        paramIndex++;
+      }
 
-        const whereClause = whereConditions.join(' AND ');
-        const offset = (filters.page - 1) * filters.pageSize;
+      const whereClause = whereConditions.join(" AND ");
+      const offset = (filters.page - 1) * filters.pageSize;
 
-        // Get total count
-        const countSql = `
+      // Get total count
+      const countSql = `
           SELECT COUNT(*) as total
           FROM VisitorRegistration vr
           WHERE ${whereClause}
         `;
-        const countResult = await query(countSql, params);
-        const totalRecords = parseInt(countResult.rows[0].total);
+      const countResult = await query(countSql, params);
+      const totalRecords = parseInt(countResult.rows[0].total);
 
-        // Get paginated data with visit status - FIXED table name
-        const sql = `
+      // Get paginated data with visit status - FIXED table name
+      const sql = `
           SELECT 
             vr.*,
             CASE 
@@ -835,36 +998,37 @@ class VisitorService {
           ORDER BY vr.CreatedDate DESC
           LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
         `;
-        
-        params.push(filters.pageSize, offset);
-        const result = await query(sql, params);
 
-        return {
-          responseCode: responseUtils.RESPONSE_CODES.SUCCESS,
-          responseMessage: responseUtils.RESPONSE_MESSAGES.SUCCESS,
-          data: {
-            visitors: result.rows,
-            pagination: {
-              currentPage: filters.page,
-              pageSize: filters.pageSize,
-              totalRecords,
-              totalPages: Math.ceil(totalRecords / filters.pageSize)
-            }
-          }
-        };
-      } catch (error) {
-        console.error('Error getting visitors with filters:', error);
-        return {
-          responseCode: responseUtils.RESPONSE_CODES.ERROR,
-          responseMessage: responseUtils.RESPONSE_MESSAGES.ERROR,
-          error: process.env.NODE_ENV === 'development' ? error.message : undefined
-        };
-      }
+      params.push(filters.pageSize, offset);
+      const result = await query(sql, params);
+
+      return {
+        responseCode: responseUtils.RESPONSE_CODES.SUCCESS,
+        responseMessage: responseUtils.RESPONSE_MESSAGES.SUCCESS,
+        data: {
+          visitors: result.rows,
+          pagination: {
+            currentPage: filters.page,
+            pageSize: filters.pageSize,
+            totalRecords,
+            totalPages: Math.ceil(totalRecords / filters.pageSize),
+          },
+        },
+      };
+    } catch (error) {
+      console.error("Error getting visitors with filters:", error);
+      return {
+        responseCode: responseUtils.RESPONSE_CODES.ERROR,
+        responseMessage: responseUtils.RESPONSE_MESSAGES.ERROR,
+        error:
+          process.env.NODE_ENV === "development" ? error.message : undefined,
+      };
     }
+  }
 
- static async exportVisitors(tenantId, filters = {}) {
+  static async exportVisitors(tenantId, filters = {}) {
     try {
-      let whereConditions = ['vr.TenantID = $1', "vr.IsActive = 'Y'"];
+      let whereConditions = ["vr.TenantID = $1", "vr.IsActive = 'Y'"];
       let params = [tenantId];
       let paramIndex = 2;
 
@@ -893,7 +1057,7 @@ class VisitorService {
         paramIndex++;
       }
 
-      const whereClause = whereConditions.join(' AND ');
+      const whereClause = whereConditions.join(" AND ");
 
       const sql = `
         SELECT 
@@ -929,47 +1093,52 @@ class VisitorService {
       if (result.rows.length === 0) {
         return {
           responseCode: responseUtils.RESPONSE_CODES.ERROR,
-          responseMessage: 'No visitor data found for export'
+          responseMessage: "No visitor data found for export",
         };
       }
 
       // Convert to CSV
       const headers = Object.keys(result.rows[0]);
-      const csvRows = [headers.join(',')];
-      
-      result.rows.forEach(row => {
-        const values = headers.map(header => {
-          const value = row[header] || '';
+      const csvRows = [headers.join(",")];
+
+      result.rows.forEach((row) => {
+        const values = headers.map((header) => {
+          const value = row[header] || "";
           const stringValue = value.toString();
-          if (stringValue.includes(',') || stringValue.includes('"') || stringValue.includes('\n')) {
+          if (
+            stringValue.includes(",") ||
+            stringValue.includes('"') ||
+            stringValue.includes("\n")
+          ) {
             return `"${stringValue.replace(/"/g, '""')}"`;
           }
           return stringValue;
         });
-        csvRows.push(values.join(','));
+        csvRows.push(values.join(","));
       });
 
       return {
         responseCode: responseUtils.RESPONSE_CODES.SUCCESS,
-        csvData: csvRows.join('\n'),
-        count: result.rows.length
+        csvData: csvRows.join("\n"),
+        count: result.rows.length,
       };
     } catch (error) {
-      console.error('Error exporting visitors:', error);
+      console.error("Error exporting visitors:", error);
       return {
         responseCode: responseUtils.RESPONSE_CODES.ERROR,
         responseMessage: responseUtils.RESPONSE_MESSAGES.ERROR,
-        error: process.env.NODE_ENV === 'development' ? error.message : undefined
+        error:
+          process.env.NODE_ENV === "development" ? error.message : undefined,
       };
     }
   }
- static async getPendingCheckout(tenantId, visitorCatId = null) {
+  static async getPendingCheckout(tenantId, visitorCatId = null) {
     try {
       let whereConditions = [
-        'vr.TenantID = $1',
+        "vr.TenantID = $1",
         "vr.IsActive = 'Y'",
-        'vh.OutTime IS NULL',
-        'vh.OutTimeTxt IS NULL OR vh.OutTimeTxt = \'\''
+        "vh.OutTime IS NULL",
+        "vh.OutTimeTxt IS NULL OR vh.OutTimeTxt = ''",
       ];
       let params = [tenantId];
       let paramIndex = 2;
@@ -980,7 +1149,7 @@ class VisitorService {
         paramIndex++;
       }
 
-      const whereClause = whereConditions.join(' AND ');
+      const whereClause = whereConditions.join(" AND ");
 
       const sql = `
         SELECT 
@@ -1010,50 +1179,53 @@ class VisitorService {
         responseMessage: responseUtils.RESPONSE_MESSAGES.SUCCESS,
         data: {
           pendingCheckout: result.rows,
-          count: result.rows.length
-        }
+          count: result.rows.length,
+        },
       };
     } catch (error) {
-      console.error('Error getting pending checkout visitors:', error);
+      console.error("Error getting pending checkout visitors:", error);
       return {
         responseCode: responseUtils.RESPONSE_CODES.ERROR,
         responseMessage: responseUtils.RESPONSE_MESSAGES.ERROR,
-        error: process.env.NODE_ENV === 'development' ? error.message : undefined
+        error:
+          process.env.NODE_ENV === "development" ? error.message : undefined,
       };
     }
   }
 
   // getVisitors method
-static async getVisitors(tenantId, page = 1, pageSize = 20, search = '') {
-  try {
-    const offset = (page - 1) * pageSize;
-    
-    // FIXED: Remove restrictive category filtering to match POST behavior
-    let whereConditions = ['TenantID = $1', "IsActive = 'Y'"];
-    let params = [tenantId];
-    let paramIndex = 2;
+  static async getVisitors(tenantId, page = 1, pageSize = 20, search = "") {
+    try {
+      const offset = (page - 1) * pageSize;
 
-    if (search && search.trim()) {
-      whereConditions.push(`(VistorName ILIKE $${paramIndex} OR VisitorRegNo ILIKE $${paramIndex} OR Mobile ILIKE $${paramIndex})`);
-      params.push(`%${search.trim()}%`);
-      paramIndex++;
-    }
+      // FIXED: Remove restrictive category filtering to match POST behavior
+      let whereConditions = ["TenantID = $1", "IsActive = 'Y'"];
+      let params = [tenantId];
+      let paramIndex = 2;
 
-    const whereClause = whereConditions.join(' AND ');
+      if (search && search.trim()) {
+        whereConditions.push(
+          `(VistorName ILIKE $${paramIndex} OR VisitorRegNo ILIKE $${paramIndex} OR Mobile ILIKE $${paramIndex})`
+        );
+        params.push(`%${search.trim()}%`);
+        paramIndex++;
+      }
 
-    // Get total count
-    const countSql = `
+      const whereClause = whereConditions.join(" AND ");
+
+      // Get total count
+      const countSql = `
       SELECT COUNT(*) as total
       FROM VisitorRegistration
       WHERE ${whereClause}
     `;
 
-    const { query } = require('../config/database');
-    const countResult = await query(countSql, params);
-    const totalCount = parseInt(countResult.rows[0].total);
+      const { query } = require("../config/database");
+      const countResult = await query(countSql, params);
+      const totalCount = parseInt(countResult.rows[0].total);
 
-    // Get paginated data
-    const dataSql = `
+      // Get paginated data
+      const dataSql = `
       SELECT 
         VisitorRegID as visitorId,
         VisitorRegNo as visitorRegNo,
@@ -1072,33 +1244,33 @@ static async getVisitors(tenantId, page = 1, pageSize = 20, search = '') {
       LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
     `;
 
-    params.push(pageSize, offset);
-    const dataResult = await query(dataSql, params);
+      params.push(pageSize, offset);
+      const dataResult = await query(dataSql, params);
 
-    const totalPages = Math.ceil(totalCount / pageSize);
+      const totalPages = Math.ceil(totalCount / pageSize);
 
-    return {
-      responseCode: responseUtils.RESPONSE_CODES.SUCCESS,
-      data: dataResult.rows,
-      pagination: {
-        currentPage: page,
-        pageSize,
-        totalCount,
-        totalPages,
-        hasNext: page < totalPages,
-        hasPrev: page > 1
-      }
-    };
-  } catch (error) {
-    console.error('Error fetching visitors:', error);
-    return {
-      responseCode: responseUtils.RESPONSE_CODES.ERROR,
-      responseMessage: responseUtils.RESPONSE_MESSAGES.ERROR,
-      error: process.env.NODE_ENV === 'development' ? error.message : undefined
-    };
+      return {
+        responseCode: responseUtils.RESPONSE_CODES.SUCCESS,
+        data: dataResult.rows,
+        pagination: {
+          currentPage: page,
+          pageSize,
+          totalCount,
+          totalPages,
+          hasNext: page < totalPages,
+          hasPrev: page > 1,
+        },
+      };
+    } catch (error) {
+      console.error("Error fetching visitors:", error);
+      return {
+        responseCode: responseUtils.RESPONSE_CODES.ERROR,
+        responseMessage: responseUtils.RESPONSE_MESSAGES.ERROR,
+        error:
+          process.env.NODE_ENV === "development" ? error.message : undefined,
+      };
+    }
   }
-}
-
 }
 
 module.exports = VisitorService;

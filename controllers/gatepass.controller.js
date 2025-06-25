@@ -1,8 +1,7 @@
-const GatepassService = require('../services/gatepass.service');
-const responseUtils = require('../utils/constants');
+const GatepassService = require("../services/gatepass.service");
+const responseUtils = require("../utils/constants");
 
 class GatepassController {
-  
   // POST /api/gatepass - Create new gatepass
   static async createGatepass(req, res) {
     try {
@@ -12,76 +11,104 @@ class GatepassController {
         visitDate,
         purposeId,
         purposeName,
-        statusId = 1, // Default to Pending
+        statusId = 1,
         tenantId,
-        remark = ''
+        remark = "",
       } = req.body;
-      
+
       const userTenantId = req.user.tenantId;
-      const createdBy = req.user.username || 'System';
+      const createdBy = req.user.username || "System";
 
       if (tenantId && parseInt(tenantId) !== userTenantId) {
         return res.status(403).json({
           responseCode: responseUtils.RESPONSE_CODES.ERROR,
-          responseMessage: 'Access denied for this tenant'
+          responseMessage: "Access denied for this tenant",
         });
+      }
+
+      // Purpose validation and lookup logic
+      let finalPurposeName;
+      const parsedPurposeId = parseInt(purposeId);
+
+      if (parsedPurposeId === -1) {
+        // Custom purpose - use provided purposeName
+        if (!purposeName || purposeName.trim() === "") {
+          return res.status(400).json({
+            responseCode: responseUtils.RESPONSE_CODES.ERROR,
+            responseMessage: "Purpose name is required for custom purpose",
+          });
+        }
+        finalPurposeName = purposeName.trim();
+      } else {
+        // Fetch purpose from database - ONLY gate pass purposes (PurposeCatID = 6)
+        const purposeResult = await GatepassService.getPurposeById(
+          parsedPurposeId,
+          userTenantId
+        );
+
+        if (!purposeResult) {
+          return res.status(400).json({
+            responseCode: responseUtils.RESPONSE_CODES.ERROR,
+            responseMessage:
+              "Invalid purpose ID or purpose not available for gate pass",
+          });
+        }
+
+        finalPurposeName = purposeResult.purposeName;
       }
 
       const gatepassData = {
         fname: fname.trim(),
         mobile: mobile.trim(),
         visitDate,
-        purposeId: parseInt(purposeId),
-        purposeName: purposeName.trim(),
+        purposeId: parsedPurposeId,
+        purposeName: finalPurposeName,
         statusId: parseInt(statusId),
         tenantId: userTenantId,
         remark: remark.trim(),
-        createdBy
+        createdBy,
       };
 
       const result = await GatepassService.createGatepass(gatepassData);
       res.json(result);
     } catch (error) {
-      console.error('Error in createGatepass:', error);
+      console.error("Error in createGatepass:", error);
       res.status(500).json({
         responseCode: responseUtils.RESPONSE_CODES.ERROR,
-        responseMessage: 'Internal server error'
+        responseMessage: "Internal server error",
       });
     }
   }
-
   // GET /api/gatepass - List gatepasses (simple)
   static async listGatepasses(req, res) {
     try {
-      const {
-        page = 1,
-        pageSize = 20,
-        search = '',
-        tenantId
-      } = req.query;
-      
+      const { page = 1, pageSize = 20, search = "", tenantId } = req.query;
+
       const userTenantId = req.user.tenantId;
 
       if (tenantId && parseInt(tenantId) !== userTenantId) {
         return res.status(403).json({
           responseCode: responseUtils.RESPONSE_CODES.ERROR,
-          responseMessage: 'Access denied for this tenant'
+          responseMessage: "Access denied for this tenant",
         });
       }
 
       const filters = {
         page: parseInt(page),
         pageSize: parseInt(pageSize),
-        search: search.trim()
+        search: search.trim(),
       };
 
-      const result = await GatepassService.getGatepassesWithFilters(userTenantId, filters);
+      const result = await GatepassService.getGatepassesWithFilters(
+        userTenantId,
+        filters
+      );
       res.json(result);
     } catch (error) {
-      console.error('Error in listGatepasses:', error);
+      console.error("Error in listGatepasses:", error);
       res.status(500).json({
         responseCode: responseUtils.RESPONSE_CODES.ERROR,
-        responseMessage: 'Internal server error'
+        responseMessage: "Internal server error",
       });
     }
   }
@@ -92,20 +119,20 @@ class GatepassController {
       const {
         page = 1,
         pageSize = 20,
-        search = '',
+        search = "",
         purposeId = null,
         statusId = null,
         fromDate = null,
         toDate = null,
-        tenantId
+        tenantId,
       } = req.body;
-      
+
       const userTenantId = req.user.tenantId;
 
       if (tenantId && parseInt(tenantId) !== userTenantId) {
         return res.status(403).json({
           responseCode: responseUtils.RESPONSE_CODES.ERROR,
-          responseMessage: 'Access denied for this tenant'
+          responseMessage: "Access denied for this tenant",
         });
       }
 
@@ -116,16 +143,19 @@ class GatepassController {
         purposeId: purposeId ? parseInt(purposeId) : null,
         statusId: statusId ? parseInt(statusId) : null,
         fromDate,
-        toDate
+        toDate,
       };
 
-      const result = await GatepassService.getGatepassesWithFilters(userTenantId, filters);
+      const result = await GatepassService.getGatepassesWithFilters(
+        userTenantId,
+        filters
+      );
       res.json(result);
     } catch (error) {
-      console.error('Error in listGatepassesAdvanced:', error);
+      console.error("Error in listGatepassesAdvanced:", error);
       res.status(500).json({
         responseCode: responseUtils.RESPONSE_CODES.ERROR,
-        responseMessage: 'Internal server error'
+        responseMessage: "Internal server error",
       });
     }
   }
@@ -136,19 +166,19 @@ class GatepassController {
       const { visitorId } = req.params;
       const { tenantId } = req.body;
       const userTenantId = req.user.tenantId;
-      const updatedBy = req.user.username || 'System';
+      const updatedBy = req.user.username || "System";
 
       if (tenantId && parseInt(tenantId) !== userTenantId) {
         return res.status(403).json({
           responseCode: responseUtils.RESPONSE_CODES.ERROR,
-          responseMessage: 'Access denied for this tenant'
+          responseMessage: "Access denied for this tenant",
         });
       }
 
       if (!visitorId) {
         return res.status(400).json({
           responseCode: responseUtils.RESPONSE_CODES.ERROR,
-          responseMessage: 'Visitor ID is required'
+          responseMessage: "Visitor ID is required",
         });
       }
 
@@ -160,10 +190,10 @@ class GatepassController {
 
       res.json(result);
     } catch (error) {
-      console.error('Error in approveGatepass:', error);
+      console.error("Error in approveGatepass:", error);
       res.status(500).json({
         responseCode: responseUtils.RESPONSE_CODES.ERROR,
-        responseMessage: 'Internal server error'
+        responseMessage: "Internal server error",
       });
     }
   }
@@ -174,19 +204,19 @@ class GatepassController {
       const { visitorId } = req.params;
       const { tenantId } = req.body;
       const userTenantId = req.user.tenantId;
-      const updatedBy = req.user.username || 'System';
+      const updatedBy = req.user.username || "System";
 
       if (tenantId && parseInt(tenantId) !== userTenantId) {
         return res.status(403).json({
           responseCode: responseUtils.RESPONSE_CODES.ERROR,
-          responseMessage: 'Access denied for this tenant'
+          responseMessage: "Access denied for this tenant",
         });
       }
 
       if (!visitorId) {
         return res.status(400).json({
           responseCode: responseUtils.RESPONSE_CODES.ERROR,
-          responseMessage: 'Visitor ID is required'
+          responseMessage: "Visitor ID is required",
         });
       }
 
@@ -198,10 +228,10 @@ class GatepassController {
 
       res.json(result);
     } catch (error) {
-      console.error('Error in checkinGatepass:', error);
+      console.error("Error in checkinGatepass:", error);
       res.status(500).json({
         responseCode: responseUtils.RESPONSE_CODES.ERROR,
-        responseMessage: 'Internal server error'
+        responseMessage: "Internal server error",
       });
     }
   }
@@ -212,19 +242,19 @@ class GatepassController {
       const { visitorId } = req.params;
       const { tenantId } = req.body;
       const userTenantId = req.user.tenantId;
-      const updatedBy = req.user.username || 'System';
+      const updatedBy = req.user.username || "System";
 
       if (tenantId && parseInt(tenantId) !== userTenantId) {
         return res.status(403).json({
           responseCode: responseUtils.RESPONSE_CODES.ERROR,
-          responseMessage: 'Access denied for this tenant'
+          responseMessage: "Access denied for this tenant",
         });
       }
 
       if (!visitorId) {
         return res.status(400).json({
           responseCode: responseUtils.RESPONSE_CODES.ERROR,
-          responseMessage: 'Visitor ID is required'
+          responseMessage: "Visitor ID is required",
         });
       }
 
@@ -236,10 +266,10 @@ class GatepassController {
 
       res.json(result);
     } catch (error) {
-      console.error('Error in checkoutGatepass:', error);
+      console.error("Error in checkoutGatepass:", error);
       res.status(500).json({
         responseCode: responseUtils.RESPONSE_CODES.ERROR,
-        responseMessage: 'Internal server error'
+        responseMessage: "Internal server error",
       });
     }
   }
@@ -254,14 +284,14 @@ class GatepassController {
       if (tenantId && parseInt(tenantId) !== userTenantId) {
         return res.status(403).json({
           responseCode: responseUtils.RESPONSE_CODES.ERROR,
-          responseMessage: 'Access denied for this tenant'
+          responseMessage: "Access denied for this tenant",
         });
       }
 
       if (!visitorId) {
         return res.status(400).json({
           responseCode: responseUtils.RESPONSE_CODES.ERROR,
-          responseMessage: 'Visitor ID is required'
+          responseMessage: "Visitor ID is required",
         });
       }
 
@@ -272,10 +302,10 @@ class GatepassController {
 
       res.json(result);
     } catch (error) {
-      console.error('Error in getGatepassStatus:', error);
+      console.error("Error in getGatepassStatus:", error);
       res.status(500).json({
         responseCode: responseUtils.RESPONSE_CODES.ERROR,
-        responseMessage: 'Internal server error'
+        responseMessage: "Internal server error",
       });
     }
   }
@@ -289,17 +319,17 @@ class GatepassController {
       if (tenantId && parseInt(tenantId) !== userTenantId) {
         return res.status(403).json({
           responseCode: responseUtils.RESPONSE_CODES.ERROR,
-          responseMessage: 'Access denied for this tenant'
+          responseMessage: "Access denied for this tenant",
         });
       }
 
       const result = await GatepassService.getPendingCheckin(userTenantId);
       res.json(result);
     } catch (error) {
-      console.error('Error in getPendingCheckin:', error);
+      console.error("Error in getPendingCheckin:", error);
       res.status(500).json({
         responseCode: responseUtils.RESPONSE_CODES.ERROR,
-        responseMessage: 'Internal server error'
+        responseMessage: "Internal server error",
       });
     }
   }
@@ -313,17 +343,17 @@ class GatepassController {
       if (tenantId && parseInt(tenantId) !== userTenantId) {
         return res.status(403).json({
           responseCode: responseUtils.RESPONSE_CODES.ERROR,
-          responseMessage: 'Access denied for this tenant'
+          responseMessage: "Access denied for this tenant",
         });
       }
 
       const result = await GatepassService.getPendingCheckout(userTenantId);
       res.json(result);
     } catch (error) {
-      console.error('Error in getPendingCheckout:', error);
+      console.error("Error in getPendingCheckout:", error);
       res.status(500).json({
         responseCode: responseUtils.RESPONSE_CODES.ERROR,
-        responseMessage: 'Internal server error'
+        responseMessage: "Internal server error",
       });
     }
   }
@@ -337,17 +367,17 @@ class GatepassController {
       if (tenantId && parseInt(tenantId) !== userTenantId) {
         return res.status(403).json({
           responseCode: responseUtils.RESPONSE_CODES.ERROR,
-          responseMessage: 'Access denied for this tenant'
+          responseMessage: "Access denied for this tenant",
         });
       }
 
       const result = await GatepassService.getGatepassPurposes(userTenantId);
       res.json(result);
     } catch (error) {
-      console.error('Error in getGatepassPurposes:', error);
+      console.error("Error in getGatepassPurposes:", error);
       res.status(500).json({
         responseCode: responseUtils.RESPONSE_CODES.ERROR,
-        responseMessage: 'Internal server error'
+        responseMessage: "Internal server error",
       });
     }
   }
@@ -360,15 +390,15 @@ class GatepassController {
         statusId = null,
         fromDate = null,
         toDate = null,
-        tenantId
+        tenantId,
       } = req.query;
-      
+
       const userTenantId = req.user.tenantId;
 
       if (tenantId && parseInt(tenantId) !== userTenantId) {
         return res.status(403).json({
           responseCode: responseUtils.RESPONSE_CODES.ERROR,
-          responseMessage: 'Access denied for this tenant'
+          responseMessage: "Access denied for this tenant",
         });
       }
 
@@ -376,23 +406,31 @@ class GatepassController {
         purposeId: purposeId ? parseInt(purposeId) : null,
         statusId: statusId ? parseInt(statusId) : null,
         fromDate,
-        toDate
+        toDate,
       };
 
-      const result = await GatepassService.exportGatepasses(userTenantId, filters);
-      
+      const result = await GatepassService.exportGatepasses(
+        userTenantId,
+        filters
+      );
+
       if (result.responseCode === responseUtils.RESPONSE_CODES.SUCCESS) {
-        res.setHeader('Content-Type', 'text/csv');
-        res.setHeader('Content-Disposition', `attachment; filename="gatepasses_${new Date().toISOString().split('T')[0]}.csv"`);
+        res.setHeader("Content-Type", "text/csv");
+        res.setHeader(
+          "Content-Disposition",
+          `attachment; filename="gatepasses_${
+            new Date().toISOString().split("T")[0]
+          }.csv"`
+        );
         res.send(result.csvData);
       } else {
         res.status(400).json(result);
       }
     } catch (error) {
-      console.error('Error in exportGatepasses:', error);
+      console.error("Error in exportGatepasses:", error);
       res.status(500).json({
         responseCode: responseUtils.RESPONSE_CODES.ERROR,
-        responseMessage: 'Internal server error'
+        responseMessage: "Internal server error",
       });
     }
   }
@@ -400,16 +438,20 @@ class GatepassController {
   // GET /api/gatepass/template - Download CSV template
   static async downloadTemplate(req, res) {
     try {
-      const template = 'Name,Mobile,Visit_Date,Purpose_ID,Purpose_Name,Status_ID,Remark\n"John Doe","9876543210","2024-06-26T10:00:00.000Z","1","Meeting","1","Sample gatepass"';
-      
-      res.setHeader('Content-Type', 'text/csv');
-      res.setHeader('Content-Disposition', 'attachment; filename="gatepass_template.csv"');
+      const template =
+        'Name,Mobile,Visit_Date,Purpose_ID,Purpose_Name,Status_ID,Remark\n"John Doe","9876543210","2024-06-26T10:00:00.000Z","1","Meeting","1","Sample gatepass"';
+
+      res.setHeader("Content-Type", "text/csv");
+      res.setHeader(
+        "Content-Disposition",
+        'attachment; filename="gatepass_template.csv"'
+      );
       res.send(template);
     } catch (error) {
-      console.error('Error in downloadTemplate:', error);
+      console.error("Error in downloadTemplate:", error);
       res.status(500).json({
         responseCode: responseUtils.RESPONSE_CODES.ERROR,
-        responseMessage: 'Internal server error'
+        responseMessage: "Internal server error",
       });
     }
   }
