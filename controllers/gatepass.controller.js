@@ -459,7 +459,6 @@ class GatepassController {
     }
   }
 
-  // ===== NEW PURPOSE MANAGEMENT METHODS =====
 
   // POST /api/gatepass/purposes - Add new purpose
   static async addGatePassPurpose(req, res) {

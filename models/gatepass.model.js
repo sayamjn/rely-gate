@@ -611,9 +611,9 @@ static async deleteGatePassPurpose(purposeId, tenantId, updatedBy) {
     WHERE VisitPurposeID = $2 
       AND TenantID = $3 
       AND PurposeCatID = 6
+      AND IsActive = 'Y'
     RETURNING VisitPurposeID as "purposeId"
   `;
-
   const result = await query(sql, [updatedBy, purposeId, tenantId]);
   return result.rows[0];
 }

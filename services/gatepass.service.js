@@ -805,27 +805,48 @@ class GatepassService {
   }
 
   // Delete purpose
-  static async deleteGatePassPurpose(purposeId, tenantId, updatedBy) {
-    try {
-      const deletedPurpose = await GatePassModel.deleteGatePassPurpose(
-        purposeId,
-        tenantId,
-        updatedBy
-      );
-
-      if (!deletedPurpose) {
-        return ResponseFormatter.error("Purpose not found or access denied");
-      }
-
-      return ResponseFormatter.success(
-        { purposeId: deletedPurpose.purposeId },
-        "Purpose deleted successfully"
-      );
-    } catch (error) {
-      console.error("Error in deleteGatePassPurpose service:", error);
-      return ResponseFormatter.error("Internal server error");
+static async deleteGatePassPurpose(purposeId, tenantId, updatedBy) {
+  try {
+    const checkSql = `
+      SELECT VisitPurposeID, IsActive, VisitPurpose
+      FROM VisitorPuposeMaster 
+      WHERE VisitPurposeID = $1 
+        AND TenantID = $2 
+        AND PurposeCatID = 6
+    `;
+    
+    const checkResult = await query(checkSql, [purposeId, tenantId]);
+    
+    if (checkResult.rows.length === 0) {
+      return ResponseFormatter.error('Purpose not found or access denied');
     }
+    
+    const purpose = checkResult.rows[0];
+    
+    if (purpose.isactive === 'N' || purpose.IsActive === 'N') {
+      return ResponseFormatter.error('Purpose is already deleted');
+    }
+    
+    const deletedPurpose = await GatePassModel.deleteGatePassPurpose(
+      purposeId,
+      tenantId,
+      updatedBy
+    );
+
+    if (!deletedPurpose) {
+      return ResponseFormatter.error('Failed to delete purpose');
+    }
+
+    return ResponseFormatter.success(
+      { purposeId: deletedPurpose.purposeId },
+      'Purpose deleted successfully'
+    );
+
+  } catch (error) {
+    console.error('Error in deleteGatePassPurpose service:', error);
+    return ResponseFormatter.error('Internal server error');
   }
+}
 }
 
 module.exports = GatepassService;
