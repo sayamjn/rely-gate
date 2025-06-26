@@ -12,7 +12,7 @@ class GatepassController {
         purposeId,
         purposeName,
         statusId = 1,
-        tenantId, 
+        tenantId,
         remark = "",
       } = req.body;
 
@@ -366,7 +366,7 @@ class GatepassController {
   static async getGatepassPurposes(req, res) {
     try {
       const { tenantId } = req.query;
-      
+
       if (!tenantId) {
         return res.status(400).json({
           responseCode: responseUtils.RESPONSE_CODES.ERROR,
@@ -466,7 +466,7 @@ class GatepassController {
     try {
       const { purposeName, tenantId } = req.body;
       const userTenantId = tenantId || (req.user ? req.user.tenantId : null);
-      const createdBy = (req.user ? req.user.username : null) || 'System';
+      const createdBy = (req.user ? req.user.username : null) || "System";
 
       if (!userTenantId) {
         return res.status(400).json({
@@ -478,19 +478,18 @@ class GatepassController {
       const purposeData = {
         tenantId: userTenantId,
         purposeName: purposeName.trim(),
-        createdBy
+        createdBy,
       };
 
       const result = await GatepassService.addGatePassPurpose(purposeData);
-      
-      const statusCode = result.responseCode === 'S' ? 201 : 400;
-      res.status(statusCode).json(result);
 
+      const statusCode = result.responseCode === "S" ? 201 : 400;
+      res.status(statusCode).json(result);
     } catch (error) {
-      console.error('Error in addGatePassPurpose:', error);
+      console.error("Error in addGatePassPurpose:", error);
       res.status(500).json({
         responseCode: responseUtils.RESPONSE_CODES.ERROR,
-        responseMessage: 'Internal server error'
+        responseMessage: "Internal server error",
       });
     }
   }
@@ -501,7 +500,7 @@ class GatepassController {
       const { purposeId } = req.params;
       const { purposeName, tenantId } = req.body;
       const userTenantId = tenantId || (req.user ? req.user.tenantId : null);
-      const updatedBy = (req.user ? req.user.username : null) || 'System';
+      const updatedBy = (req.user ? req.user.username : null) || "System";
 
       if (!userTenantId) {
         return res.status(400).json({
@@ -517,14 +516,13 @@ class GatepassController {
         updatedBy
       );
 
-      const statusCode = result.responseCode === 'S' ? 200 : 400;
+      const statusCode = result.responseCode === "S" ? 200 : 400;
       res.status(statusCode).json(result);
-
     } catch (error) {
-      console.error('Error in updateGatePassPurpose:', error);
+      console.error("Error in updateGatePassPurpose:", error);
       res.status(500).json({
         responseCode: responseUtils.RESPONSE_CODES.ERROR,
-        responseMessage: 'Internal server error'
+        responseMessage: "Internal server error",
       });
     }
   }
@@ -533,14 +531,13 @@ class GatepassController {
   static async deleteGatePassPurpose(req, res) {
     try {
       const { purposeId } = req.params;
-      const { tenantId } = req.body;
-      const userTenantId = tenantId || (req.user ? req.user.tenantId : null);
-      const updatedBy = (req.user ? req.user.username : null) || 'System';
+      const userTenantId = req.user.tenantId;
+      const updatedBy = req.user.username || "System";
 
-      if (!userTenantId) {
+      if (!purposeId) {
         return res.status(400).json({
           responseCode: responseUtils.RESPONSE_CODES.ERROR,
-          responseMessage: "TenantId is required",
+          responseMessage: "Purpose ID is required",
         });
       }
 
@@ -550,14 +547,13 @@ class GatepassController {
         updatedBy
       );
 
-      const statusCode = result.responseCode === 'S' ? 200 : 400;
+      const statusCode = result.responseCode === "S" ? 200 : 400;
       res.status(statusCode).json(result);
-
     } catch (error) {
-      console.error('Error in deleteGatePassPurpose:', error);
+      console.error("Error in deleteGatePassPurpose:", error);
       res.status(500).json({
         responseCode: responseUtils.RESPONSE_CODES.ERROR,
-        responseMessage: 'Internal server error'
+        responseMessage: "Internal server error",
       });
     }
   }
