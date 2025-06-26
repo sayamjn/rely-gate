@@ -19,8 +19,6 @@ class GatepassController {
       const finalTenantId = tenantId || (req.user ? req.user.tenantId : null);
       const createdBy = (req.user ? req.user.username : null) || "System";
 
-      console.log("tenantId from body:", tenantId);
-      console.log("finalTenantId:", finalTenantId);
 
       if (!finalTenantId) {
         return res.status(400).json({

@@ -1,6 +1,4 @@
-const { query } = require("../config/database");
 const ResponseFormatter = require("../utils/response");
-const responseUtils = require("../utils/constants");
 const MessagingService = require("./messaging.service");
 const GatePassModel = require("../models/gatepass.model");
 
@@ -29,20 +27,8 @@ class GatepassService {
       const statusName = statusId === 2 ? "Approved" : "Pending";
       const visitDateTxt = new Date(visitDate).toLocaleDateString("en-US");
 
-      // Insert into VisitorMaster with VisitorCatID = 6 (Gate Pass)
-      const sql = `
-        INSERT INTO VisitorMaster (
-          TenantID, IsActive, StatusID, StatusName, VisitorCatID, VisitorCatName,
-          VisitorSubCatID, VisitorSubCatName, VisitPurposeID, VisitPurpose,
-          Fname, Mobile, TotalVisitor, VisitDate, VisitDateTxt, OTPVerifiedDate,
-          Remark, CreatedDate, UpdatedDate, CreatedBy, UpdatedBy
-        ) VALUES (
-          $1, 'Y', $2, $3, 6, 'Gate Pass', 0, NULL, $4, $5, $6, $7, 1, $8, $9, NOW(),
-          $10, NOW(), NOW(), $11, $12
-        ) RETURNING VisitorID
-      `;
-
-      const result = await query(sql, [
+      // Use model method instead of direct query
+      const result = await GatePassModel.createGatePass({
         tenantId,
         statusId,
         statusName,
@@ -55,10 +41,10 @@ class GatepassService {
         securityCode,
         remark,
         createdBy,
-      ]);
+      });
 
-      if (result.rows.length > 0) {
-        const visitorId = result.rows[0].visitorid || result.rows[0].VisitorID;
+      if (result) {
+        const visitorId = result.visitorid || result.VisitorID;
 
         // Send SMS if status is approved (statusId = 2)
         if (statusId === 2) {
@@ -92,116 +78,19 @@ class GatepassService {
   // 2. GET GATEPASSES WITH FILTERS
   static async getGatepassesWithFilters(tenantId, filters) {
     try {
-      const {
-        page = 1,
-        pageSize = 20,
-        search = "",
-        purposeId = null,
-        statusId = null,
-        fromDate = null,
-        toDate = null,
-      } = filters;
+      const { page = 1, pageSize = 20 } = filters;
 
-      let whereConditions = [
-        "TenantID = $1",
-        "VisitorCatID = 6",
-        "IsActive = 'Y'",
-      ];
-      let params = [tenantId];
-      let paramIndex = 2;
-
-      // Add search condition
-      if (search) {
-        whereConditions.push(
-          `(Fname ILIKE $${paramIndex} OR Mobile ILIKE $${paramIndex})`
-        );
-        params.push(`%${search}%`);
-        paramIndex++;
-      }
-
-      // Add purpose filter
-      if (purposeId) {
-        whereConditions.push(`VisitPurposeID = $${paramIndex}`);
-        params.push(purposeId);
-        paramIndex++;
-      }
-
-      // Add status filter
-      if (statusId) {
-        whereConditions.push(`StatusID = $${paramIndex}`);
-        params.push(statusId);
-        paramIndex++;
-      }
-
-      // Add date range filter
-      if (fromDate) {
-        whereConditions.push(`VisitDate >= $${paramIndex}`);
-        params.push(fromDate);
-        paramIndex++;
-      }
-
-      if (toDate) {
-        whereConditions.push(`VisitDate <= $${paramIndex}`);
-        params.push(toDate);
-        paramIndex++;
-      }
-
-      const whereClause = whereConditions.join(" AND ");
-      const offset = (page - 1) * pageSize;
-
-      // Get total count
-      const countSql = `
-        SELECT COUNT(*) as total
-        FROM VisitorMaster
-        WHERE ${whereClause}
-      `;
-      const countResult = await query(countSql, params);
-      const totalCount = parseInt(countResult.rows[0].total);
-
-      // Get paginated data
-      const dataSql = `
-        SELECT 
-          VisitorID as "visitorId",
-          Fname as "fname",
-          Mobile as "mobile",
-          VisitDate as "visitDate",
-          VisitDateTxt as "visitDateTxt",
-          VisitPurposeID as "purposeId",
-          VisitPurpose as "purposeName",
-          StatusID as "statusId",
-          StatusName as "statusName",
-          Remark as "securityCode",
-          INTime as "inTime",
-          OutTime as "outTime",
-          INTimeTxt as "inTimeTxt",
-          OutTimeTxt as "outTimeTxt",
-          CreatedDate as "createdDate",
-          CASE 
-            WHEN StatusID != 2 THEN 'PENDING_APPROVAL'
-            WHEN INTime IS NULL THEN 'APPROVED_READY_FOR_CHECKIN'
-            WHEN INTime IS NOT NULL AND OutTime IS NULL THEN 'CHECKED_IN'
-            WHEN INTime IS NOT NULL AND OutTime IS NOT NULL THEN 'CHECKED_OUT'
-            ELSE 'UNKNOWN'
-          END as "currentState"
-        FROM VisitorMaster
-        WHERE ${whereClause}
-        ORDER BY CreatedDate DESC
-        LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
-      `;
-
-      params.push(pageSize, offset);
-      const dataResult = await query(dataSql, params);
-
-      const totalPages = Math.ceil(totalCount / pageSize);
+      // Use model method instead of direct query
+      const result = await GatePassModel.getGatePassesWithFilters(tenantId, filters);
 
       return ResponseFormatter.success({
-        gatepasses: dataResult.rows,
+        gatepasses: result.data,
         pagination: {
           currentPage: page,
           pageSize,
-          totalCount,
-          totalPages,
-          hasNext: page < totalPages,
+          totalCount: result.totalCount,
+          totalPages: result.totalPages,
+          hasNext: page < result.totalPages,
           hasPrev: page > 1,
         },
         filters,
@@ -215,28 +104,12 @@ class GatepassService {
   // 3. APPROVE GATEPASS - CRITICAL: Only changes status, NO INTime set!
   static async approveGatepass(visitorId, tenantId, updatedBy) {
     try {
-      // First check if gatepass exists and is pending
-      const checkSql = `
-        SELECT 
-          VisitorID as "visitorId",
-          Fname as "fname",
-          Mobile as "mobile",
-          StatusID as "statusId",
-          StatusName as "statusName",
-          Remark as "securityCode",
-          INTime as "inTime",
-          OutTime as "outTime"
-        FROM VisitorMaster
-        WHERE VisitorID = $1 AND TenantID = $2 AND VisitorCatID = 6 AND IsActive = 'Y'
-      `;
+      // Use model method to check gate pass
+      const gatepass = await GatePassModel.checkGatePassForApproval(visitorId, tenantId);
 
-      const checkResult = await query(checkSql, [visitorId, tenantId]);
-
-      if (checkResult.rows.length === 0) {
+      if (!gatepass) {
         return ResponseFormatter.error("Gate pass not found");
       }
-
-      const gatepass = checkResult.rows[0];
 
       if (gatepass.statusId !== 1) {
         return ResponseFormatter.error(
@@ -244,20 +117,10 @@ class GatepassService {
         );
       }
 
-      // CRITICAL: Only update status, do NOT touch INTime or OutTime
-      const approveSql = `
-        UPDATE VisitorMaster 
-        SET StatusID = 2, 
-            StatusName = 'Approved',
-            UpdatedDate = NOW(),
-            UpdatedBy = $3
-        WHERE VisitorID = $1 AND TenantID = $2 AND VisitorCatID = 6
-        RETURNING VisitorID
-      `;
+      // Use model method to approve
+      const result = await GatePassModel.approveGatePass(visitorId, tenantId, updatedBy);
 
-      const result = await query(approveSql, [visitorId, tenantId, updatedBy]);
-
-      if (result.rows.length > 0) {
+      if (result) {
         // Send approval SMS
         await this.sendApprovalSMS(
           gatepass.mobile,
@@ -267,7 +130,7 @@ class GatepassService {
 
         return ResponseFormatter.success(
           {
-            visitorId: result.rows[0].visitorid || result.rows[0].VisitorID,
+            visitorId: result.visitorid || result.VisitorID,
             status: "Approved",
             securityCode: gatepass.securityCode,
             fname: gatepass.fname,
@@ -288,27 +151,12 @@ class GatepassService {
   // 4. CHECK-IN GATEPASS - Sets INTime
   static async checkinGatepass(visitorId, tenantId, updatedBy) {
     try {
-      // Check current state
-      const checkSql = `
-        SELECT 
-          VisitorID as "visitorId",
-          Fname as "fname",
-          Mobile as "mobile",
-          StatusID as "statusId",
-          StatusName as "statusName",
-          INTime as "inTime",
-          OutTime as "outTime"
-        FROM VisitorMaster
-        WHERE VisitorID = $1 AND TenantID = $2 AND VisitorCatID = 6 AND IsActive = 'Y'
-      `;
+      // Use model method to check current state
+      const gatepass = await GatePassModel.checkGatePassForCheckin(visitorId, tenantId);
 
-      const checkResult = await query(checkSql, [visitorId, tenantId]);
-
-      if (checkResult.rows.length === 0) {
+      if (!gatepass) {
         return ResponseFormatter.error("Gate pass not found");
       }
-
-      const gatepass = checkResult.rows[0];
 
       // Validation: Must be approved first
       if (gatepass.statusId !== 2) {
@@ -322,25 +170,13 @@ class GatepassService {
         return ResponseFormatter.error("Gate pass is already checked in");
       }
 
-      // Perform check-in: Set INTime and clear OutTime (for re-entry cases)
-      const checkinSql = `
-        UPDATE VisitorMaster 
-        SET INTime = NOW(), 
-            INTimeTxt = TO_CHAR(NOW(), 'HH12:MI AM'),
-            OutTime = NULL,
-            OutTimeTxt = NULL,
-            UpdatedDate = NOW(),
-            UpdatedBy = $3
-        WHERE VisitorID = $1 AND TenantID = $2 AND VisitorCatID = 6
-        RETURNING VisitorID
-      `;
+      // Use model method to checkin
+      const result = await GatePassModel.checkinGatePass(visitorId, tenantId, updatedBy);
 
-      const result = await query(checkinSql, [visitorId, tenantId, updatedBy]);
-
-      if (result.rows.length > 0) {
+      if (result) {
         return ResponseFormatter.success(
           {
-            visitorId: result.rows[0].visitorid || result.rows[0].VisitorID,
+            visitorId: result.visitorid || result.VisitorID,
             visitorName: gatepass.fname,
             mobile: gatepass.mobile,
             checkInTime: new Date().toLocaleTimeString("en-US", {
@@ -362,33 +198,15 @@ class GatepassService {
     }
   }
 
-  // 4. CHECK-OUT GATEPASS - Sets OUTTime
-
-  // ===============================================
-
+  // 5. CHECK-OUT GATEPASS - Sets OUTTime
   static async checkoutGatepass(visitorId, tenantId, updatedBy) {
     try {
-      // Check current state
-      const checkSql = `
-      SELECT 
-        VisitorID as "visitorId",
-        Fname as "fname",
-        Mobile as "mobile",
-        StatusID as "statusId",
-        StatusName as "statusName", 
-        INTime as "inTime",
-        OutTime as "outTime"
-      FROM VisitorMaster
-      WHERE VisitorID = $1 AND TenantID = $2 AND VisitorCatID = 6 AND IsActive = 'Y'
-    `;
+      // Use model method to check current state
+      const gatepass = await GatePassModel.checkGatePassForCheckout(visitorId, tenantId);
 
-      const checkResult = await query(checkSql, [visitorId, tenantId]);
-
-      if (checkResult.rows.length === 0) {
+      if (!gatepass) {
         return ResponseFormatter.error("Gate pass not found");
       }
-
-      const gatepass = checkResult.rows[0];
 
       // Validation: Must be approved
       if (gatepass.statusId !== 2) {
@@ -407,25 +225,13 @@ class GatepassService {
         return ResponseFormatter.error("Gate pass is already checked out");
       }
 
-      // Perform check-out: ONLY set OutTime (no auto check-in)
-      const checkoutSql = `
-      UPDATE VisitorMaster 
-      SET OutTime = NOW(), 
-          OutTimeTxt = TO_CHAR(NOW(), 'HH12:MI AM'),
-          UpdatedDate = NOW(),
-          UpdatedBy = $3
-      WHERE VisitorID = $1 AND TenantID = $2 AND VisitorCatID = 6
-        AND INTime IS NOT NULL 
-        AND OutTime IS NULL
-      RETURNING VisitorID
-    `;
+      // Use model method to checkout
+      const result = await GatePassModel.checkoutGatePass(visitorId, tenantId, updatedBy);
 
-      const result = await query(checkoutSql, [visitorId, tenantId, updatedBy]);
-
-      if (result.rows.length > 0) {
+      if (result) {
         return ResponseFormatter.success(
           {
-            visitorId: result.rows[0].visitorid || result.rows[0].VisitorID,
+            visitorId: result.visitorid || result.VisitorID,
             visitorName: gatepass.fname,
             mobile: gatepass.mobile,
             checkOutTime: new Date().toLocaleTimeString("en-US", {
@@ -450,38 +256,12 @@ class GatepassService {
   // 6. GET GATEPASS STATUS
   static async getGatepassStatus(visitorId, tenantId) {
     try {
-      const sql = `
-        SELECT 
-          VisitorID as "visitorId",
-          Fname as "fname",
-          Mobile as "mobile",
-          StatusID as "statusId",
-          StatusName as "statusName",
-          INTime as "inTime",
-          OutTime as "outTime",
-          INTimeTxt as "inTimeTxt",
-          OutTimeTxt as "outTimeTxt",
-          Remark as "securityCode",
-          VisitPurpose as "purposeName",
-          VisitDate as "visitDate",
-          VisitDateTxt as "visitDateTxt",
-          CreatedDate as "createdDate",
-          CASE 
-            WHEN StatusID != 2 THEN 'PENDING_APPROVAL'
-            WHEN INTime IS NULL THEN 'APPROVED_READY_FOR_CHECKIN'
-            WHEN INTime IS NOT NULL AND OutTime IS NULL THEN 'CHECKED_IN'
-            WHEN INTime IS NOT NULL AND OutTime IS NOT NULL THEN 'CHECKED_OUT'
-            ELSE 'UNKNOWN'
-          END as "currentState"
-        FROM VisitorMaster
-        WHERE VisitorID = $1 AND TenantID = $2 AND VisitorCatID = 6 AND IsActive = 'Y'
-      `;
+      // Use model method instead of direct query
+      const result = await GatePassModel.getGatePassStatus(visitorId, tenantId);
 
-      const result = await query(sql, [visitorId, tenantId]);
-
-      if (result.rows.length > 0) {
+      if (result) {
         return ResponseFormatter.success(
-          result.rows[0],
+          result,
           "Gate pass status retrieved"
         );
       } else {
@@ -496,35 +276,12 @@ class GatepassService {
   // 7. GET PENDING CHECK-IN - Approved gatepasses ready for check-in OR re-entry
   static async getPendingCheckin(tenantId) {
     try {
-      const sql = `
-        SELECT 
-          VisitorID as "visitorId",
-          Fname as "fname",
-          Mobile as "mobile",
-          VisitPurpose as "purposeName",
-          Remark as "securityCode",
-          VisitDate as "visitDate",
-          VisitDateTxt as "visitDateTxt",
-          CreatedDate as "createdDate",
-          CASE 
-            WHEN INTime IS NULL THEN 'READY_FOR_FIRST_CHECKIN'
-            WHEN INTime IS NOT NULL AND OutTime IS NOT NULL THEN 'READY_FOR_RE_ENTRY'
-            ELSE 'UNKNOWN'
-          END as "checkinType"
-        FROM VisitorMaster
-        WHERE TenantID = $1 
-          AND VisitorCatID = 6 
-          AND IsActive = 'Y'
-          AND StatusID = 2
-          AND (INTime IS NULL OR (INTime IS NOT NULL AND OutTime IS NOT NULL))
-        ORDER BY CreatedDate ASC
-      `;
-
-      const result = await query(sql, [tenantId]);
+      // Use model method instead of direct query
+      const result = await GatePassModel.getPendingCheckins(tenantId);
 
       return ResponseFormatter.success({
-        pendingCheckin: result.rows,
-        count: result.rows.length,
+        pendingCheckin: result,
+        count: result.length,
       });
     } catch (error) {
       console.error("Error in getPendingCheckin:", error);
@@ -535,33 +292,12 @@ class GatepassService {
   // 8. GET PENDING CHECK-OUT - Gatepasses currently checked in
   static async getPendingCheckout(tenantId) {
     try {
-      const sql = `
-        SELECT 
-          VisitorID as "visitorId",
-          Fname as "fname",
-          Mobile as "mobile",
-          VisitPurpose as "purposeName",
-          Remark as "securityCode",
-          INTime as "inTime",
-          INTimeTxt as "inTimeTxt",
-          VisitDate as "visitDate",
-          VisitDateTxt as "visitDateTxt",
-          EXTRACT(EPOCH FROM (NOW() - INTime))/3600 as "hoursCheckedIn"
-        FROM VisitorMaster
-        WHERE TenantID = $1 
-          AND VisitorCatID = 6 
-          AND IsActive = 'Y'
-          AND StatusID = 2
-          AND INTime IS NOT NULL
-          AND OutTime IS NULL
-        ORDER BY INTime ASC
-      `;
-
-      const result = await query(sql, [tenantId]);
+      // Use model method instead of direct query
+      const result = await GatePassModel.getPendingCheckouts(tenantId);
 
       return ResponseFormatter.success({
-        pendingCheckout: result.rows,
-        count: result.rows.length,
+        pendingCheckout: result,
+        count: result.length,
       });
     } catch (error) {
       console.error("Error in getPendingCheckout:", error);
@@ -588,65 +324,8 @@ class GatepassService {
   // 10. EXPORT GATEPASSES TO CSV
   static async exportGatepasses(tenantId, filters) {
     try {
-      const {
-        purposeId = null,
-        statusId = null,
-        fromDate = null,
-        toDate = null,
-      } = filters;
-
-      let whereConditions = [
-        "TenantID = $1",
-        "VisitorCatID = 6",
-        "IsActive = 'Y'",
-      ];
-      let params = [tenantId];
-      let paramIndex = 2;
-
-      if (purposeId) {
-        whereConditions.push(`VisitPurposeID = $${paramIndex}`);
-        params.push(purposeId);
-        paramIndex++;
-      }
-
-      if (statusId) {
-        whereConditions.push(`StatusID = $${paramIndex}`);
-        params.push(statusId);
-        paramIndex++;
-      }
-
-      if (fromDate) {
-        whereConditions.push(`VisitDate >= $${paramIndex}`);
-        params.push(fromDate);
-        paramIndex++;
-      }
-
-      if (toDate) {
-        whereConditions.push(`VisitDate <= $${paramIndex}`);
-        params.push(toDate);
-        paramIndex++;
-      }
-
-      const whereClause = whereConditions.join(" AND ");
-
-      const sql = `
-        SELECT 
-          VisitorID,
-          Fname,
-          Mobile,
-          VisitDateTxt,
-          VisitPurpose,
-          StatusName,
-          Remark as SecurityCode,
-          INTimeTxt,
-          OutTimeTxt,
-          TO_CHAR(CreatedDate, 'YYYY-MM-DD HH24:MI:SS') as CreatedDate
-        FROM VisitorMaster
-        WHERE ${whereClause}
-        ORDER BY CreatedDate DESC
-      `;
-
-      const result = await query(sql, params);
+      // Use model method instead of direct query
+      const result = await GatePassModel.exportGatePasses(tenantId, filters);
 
       // Convert to CSV
       const headers = [
@@ -663,7 +342,7 @@ class GatepassService {
       ];
       const csvRows = [headers.join(",")];
 
-      result.rows.forEach((row) => {
+      result.forEach((row) => {
         const values = [
           row.visitorid || row.VisitorID,
           `"${row.fname}"`,
@@ -805,48 +484,39 @@ class GatepassService {
   }
 
   // Delete purpose
-static async deleteGatePassPurpose(purposeId, tenantId, updatedBy) {
-  try {
-    const checkSql = `
-      SELECT VisitPurposeID, IsActive, VisitPurpose
-      FROM VisitorPuposeMaster 
-      WHERE VisitPurposeID = $1 
-        AND TenantID = $2 
-        AND PurposeCatID = 6
-    `;
-    
-    const checkResult = await query(checkSql, [purposeId, tenantId]);
-    
-    if (checkResult.rows.length === 0) {
-      return ResponseFormatter.error('Purpose not found or access denied');
-    }
-    
-    const purpose = checkResult.rows[0];
-    
-    if (purpose.isactive === 'N' || purpose.IsActive === 'N') {
-      return ResponseFormatter.error('Purpose is already deleted');
-    }
-    
-    const deletedPurpose = await GatePassModel.deleteGatePassPurpose(
-      purposeId,
-      tenantId,
-      updatedBy
-    );
+  static async deleteGatePassPurpose(purposeId, tenantId, updatedBy) {
+    try {
+      // Check if purpose exists and its current status
+      const purpose = await GatePassModel.checkPurposeStatus(purposeId, tenantId);
 
-    if (!deletedPurpose) {
-      return ResponseFormatter.error('Failed to delete purpose');
+      if (!purpose) {
+        return ResponseFormatter.error("Purpose not found or access denied");
+      }
+
+      if (purpose.isactive === "N" || purpose.IsActive === "N") {
+        return ResponseFormatter.error("Purpose is already deleted");
+      }
+
+      // Now perform the delete
+      const deletedPurpose = await GatePassModel.deleteGatePassPurpose(
+        purposeId,
+        tenantId,
+        updatedBy
+      );
+
+      if (!deletedPurpose) {
+        return ResponseFormatter.error("Failed to delete purpose");
+      }
+
+      return ResponseFormatter.success(
+        { purposeId: deletedPurpose.purposeId },
+        "Purpose deleted successfully"
+      );
+    } catch (error) {
+      console.error("Error in deleteGatePassPurpose service:", error);
+      return ResponseFormatter.error("Internal server error");
     }
-
-    return ResponseFormatter.success(
-      { purposeId: deletedPurpose.purposeId },
-      'Purpose deleted successfully'
-    );
-
-  } catch (error) {
-    console.error('Error in deleteGatePassPurpose service:', error);
-    return ResponseFormatter.error('Internal server error');
   }
-}
 }
 
 module.exports = GatepassService;
