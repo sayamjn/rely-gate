@@ -742,6 +742,44 @@ CREATE TABLE VisitorSubCategory (
     UpdatedBy varchar(50)
 );
 
+
+-- Table: LoginUser (PostgreSQL version)
+CREATE TABLE LoginUser (
+    LoginID SERIAL PRIMARY KEY,
+    TenantID int,
+    IsActive char(1),
+    RoleAccessID int,
+    RoleName varchar(250),
+    FirstN varchar(100),
+    MiddleN varchar(100),
+    LastN varchar(100),
+    UserName varchar(250) NOT NULL,
+    Passwrd varchar(1000) NOT NULL,
+    DisplayN varchar(250),
+    Email varchar(150),
+    Mobile varchar(50),
+    MobileSecondary varchar(50),
+    PhotoFlag char(10),
+    PhotoPath varchar(1000),
+    Photo varchar(450),
+    LastLogin timestamp,
+    LastPasswrdChgedDate timestamp,
+    SharedLogin char(10),
+    LoginIP varchar(250),
+    LinkFlatFlag char(1),
+    LinkeFlatID varchar(250),
+    LinkeFlatName varchar(450),
+    Custom_1 varchar(50),
+    Custom_2 varchar(50),
+    CreatedDate timestamp,
+    UpdatedDate timestamp,
+    CreatedBy varchar(250),
+    UpdatedBy varchar(250),
+    
+    -- Add unique constraint on UserName
+    CONSTRAINT UK_LoginUser_UserName UNIQUE (UserName)
+);
+
 -- Foreign Key Constraints
 ALTER TABLE FuncRoleAccess 
     ADD CONSTRAINT FK_FuncRoleAccess_RoleMaster 
@@ -766,4 +804,7 @@ CREATE INDEX idx_incident_tenant_status ON IncidentEntry(TenantID, StatusID);
 CREATE INDEX idx_login_user_tenant ON LoginUser(TenantID, UserName);
 CREATE INDEX idx_visitor_tenant_status ON VisitorMaster(TenantID, StatusID);
 CREATE INDEX idx_visitor_reg_tenant ON VisitorRegistration(TenantID);
-
+CREATE INDEX idx_loginuser_tenant ON LoginUser(TenantID);
+CREATE INDEX idx_loginuser_username ON LoginUser(UserName);
+CREATE INDEX idx_loginuser_email ON LoginUser(Email);
+CREATE INDEX idx_loginuser_role ON LoginUser(RoleAccessID);

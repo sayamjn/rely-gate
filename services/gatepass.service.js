@@ -715,6 +715,117 @@ class GatepassService {
       throw error;
     }
   }
+
+  // Add new purpose
+  static async addGatePassPurpose(purposeData) {
+    try {
+      const { tenantId, purposeName, createdBy } = purposeData;
+
+      if (!purposeName || purposeName.trim() === "") {
+        return ResponseFormatter.error("Purpose name is required");
+      }
+
+      if (purposeName.length > 250) {
+        return ResponseFormatter.error(
+          "Purpose name too long (max 250 characters)"
+        );
+      }
+
+      const exists = await GatePassModel.checkPurposeExists(
+        tenantId,
+        purposeName.trim()
+      );
+      if (exists) {
+        return ResponseFormatter.error(
+          "Purpose already exists for this tenant"
+        );
+      }
+
+      const newPurpose = await GatePassModel.addGatePassPurpose({
+        tenantId,
+        purposeName: purposeName.trim(),
+        createdBy,
+      });
+
+      return ResponseFormatter.success(
+        newPurpose,
+        "Purpose added successfully"
+      );
+    } catch (error) {
+      console.error("Error in addGatePassPurpose service:", error);
+      return ResponseFormatter.error("Internal server error");
+    }
+  }
+
+  // Update purpose
+  static async updateGatePassPurpose(
+    purposeId,
+    tenantId,
+    purposeName,
+    updatedBy
+  ) {
+    try {
+      if (!purposeName || purposeName.trim() === "") {
+        return ResponseFormatter.error("Purpose name is required");
+      }
+
+      if (purposeName.length > 250) {
+        return ResponseFormatter.error(
+          "Purpose name too long (max 250 characters)"
+        );
+      }
+
+      const exists = await GatePassModel.checkPurposeExists(
+        tenantId,
+        purposeName.trim()
+      );
+      if (exists) {
+        return ResponseFormatter.error("Purpose name already exists");
+      }
+
+      const updatedPurpose = await GatePassModel.updateGatePassPurpose(
+        purposeId,
+        tenantId,
+        purposeName.trim(),
+        updatedBy
+      );
+
+      if (!updatedPurpose) {
+        return ResponseFormatter.error("Purpose not found or access denied");
+      }
+
+      return ResponseFormatter.success(
+        updatedPurpose,
+        "Purpose updated successfully"
+      );
+    } catch (error) {
+      console.error("Error in updateGatePassPurpose service:", error);
+      return ResponseFormatter.error("Internal server error");
+    }
+  }
+
+  // Delete purpose
+  static async deleteGatePassPurpose(purposeId, tenantId, updatedBy) {
+    try {
+      const deletedPurpose = await GatePassModel.deleteGatePassPurpose(
+        purposeId,
+        tenantId,
+        updatedBy
+      );
+
+      if (!deletedPurpose) {
+        return ResponseFormatter.error("Purpose not found or access denied");
+      }
+
+      return ResponseFormatter.success(
+        { purposeId: deletedPurpose.purposeId },
+        "Purpose deleted successfully"
+      );
+    } catch (error) {
+      console.error("Error in deleteGatePassPurpose service:", error);
+      return ResponseFormatter.error("Internal server error");
+    }
+  }
 }
 
 module.exports = GatepassService;

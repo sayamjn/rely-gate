@@ -385,14 +385,14 @@ class GatePassModel {
     const result = await query(sql, [tenantId]);
 
     // Add custom purpose option at the beginning
-    const customPurpose = {
-      purposeId: -1,
-      purposeName: "Custom Purpose",
-      purposeCatId: 6,
-      purposeCatName: "Gate Pass",
-    };
+    // const customPurpose = {
+    //   purposeId: -1,
+    //   purposeName: "Custom Purpose",
+    //   purposeCatId: 6,
+    //   purposeCatName: "Gate Pass",
+    // };
 
-    return [customPurpose, ...result.rows];
+    return [...result.rows];
   }
 
   // Check if mobile has active gate pass for same day
@@ -532,6 +532,92 @@ class GatePassModel {
     const result = await query(sql, params);
     return result.rows;
   }
+
+  // Add new purpose for gate pass
+  static async addGatePassPurpose(purposeData) {
+  const sql = `
+    INSERT INTO VisitorPuposeMaster (
+      TenantID, 
+      PurposeCatID, 
+      PurposeCatName, 
+      VisitPurpose, 
+      IsActive,
+      CreatedBy,
+      CreatedDate
+    ) VALUES ($1, $2, $3, $4, $5, $6, NOW())
+    RETURNING 
+      VisitPurposeID as "purposeId",
+      VisitPurpose as "purposeName",
+      PurposeCatID as "purposeCatId",
+      PurposeCatName as "purposeCatName"
+  `;
+
+  const values = [
+    purposeData.tenantId,
+    6, // Gate Pass category
+    'Gate Pass',
+    purposeData.purposeName,
+    'Y',
+    purposeData.createdBy
+  ];
+
+  const result = await query(sql, values);
+  return result.rows[0];
+}
+
+// Check if purpose name already exists for tenant
+static async checkPurposeExists(tenantId, purposeName) {
+  const sql = `
+    SELECT VisitPurposeID 
+    FROM VisitorPuposeMaster 
+    WHERE TenantID = $1 
+      AND PurposeCatID = 6 
+      AND LOWER(VisitPurpose) = LOWER($2)
+      AND IsActive = 'Y'
+  `;
+
+  const result = await query(sql, [tenantId, purposeName]);
+  return result.rows.length > 0;
+}
+
+// Update existing purpose
+static async updateGatePassPurpose(purposeId, tenantId, purposeName, updatedBy) {
+  const sql = `
+    UPDATE VisitorPuposeMaster 
+    SET VisitPurpose = $1,
+        UpdatedBy = $2,
+        UpdatedDate = NOW()
+    WHERE VisitPurposeID = $3 
+      AND TenantID = $4 
+      AND PurposeCatID = 6
+    RETURNING 
+      VisitPurposeID as "purposeId",
+      VisitPurpose as "purposeName",
+      PurposeCatID as "purposeCatId",
+      PurposeCatName as "purposeCatName"
+  `;
+
+  const result = await query(sql, [purposeName, updatedBy, purposeId, tenantId]);
+  return result.rows[0];
+}
+
+// Delete purpose (soft delete)
+static async deleteGatePassPurpose(purposeId, tenantId, updatedBy) {
+  const sql = `
+    UPDATE VisitorPuposeMaster 
+    SET IsActive = 'N',
+        UpdatedBy = $1,
+        UpdatedDate = NOW()
+    WHERE VisitPurposeID = $2 
+      AND TenantID = $3 
+      AND PurposeCatID = 6
+    RETURNING VisitPurposeID as "purposeId"
+  `;
+
+  const result = await query(sql, [updatedBy, purposeId, tenantId]);
+  return result.rows[0];
+}
+
 }
 
 module.exports = GatePassModel;

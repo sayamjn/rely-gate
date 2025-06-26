@@ -60,7 +60,7 @@ router.post('/:busId/checkout', [
     
     // If purposeId is -1, purposeName is required
     if (purposeId === -1 && (!purposeName || purposeName.trim() === '')) {
-      throw new Error('PurposeName is required when purposeId is -1 (custom purpose)');
+      throw new Error('PurposeName is required when purposeId is -1');
     }
     
     // If purposeId is provided and not -1, it should be positive
