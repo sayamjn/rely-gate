@@ -44,4 +44,5 @@ class FloorModel {
   }
 }
 
-module.exports = FloorModel
+module.exports = FloorModel;
+

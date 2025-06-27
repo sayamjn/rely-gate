@@ -255,7 +255,7 @@ router.post(
       .withMessage("TenantId must be numeric"),
   ],
   handleValidationErrors,
-  authenticateToken,
+  
   GatepassController.addGatePassPurpose
 );
 
@@ -281,7 +281,7 @@ router.put(
       .withMessage("TenantId must be numeric"),
   ],
   handleValidationErrors,
-  authenticateToken,
+  
   GatepassController.updateGatePassPurpose
 );
 
@@ -300,7 +300,7 @@ router.delete(
       .withMessage("TenantId must be numeric"),
   ],
   handleValidationErrors,
-  authenticateToken,
+  
   GatepassController.deleteGatePassPurpose
 );
 
