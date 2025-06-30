@@ -84,7 +84,14 @@ class GatepassController {
   // GET /api/gatepass - List gatepasses (simple)
   static async listGatepasses(req, res) {
     try {
-      const { page = 1, pageSize = 20, search = "", tenantId } = req.query;
+      const { 
+        page = 1, 
+        pageSize = 20, 
+        search = "", 
+        statusId = null,
+        purposeId = null,
+        tenantId 
+      } = req.query;
 
       const userTenantId = tenantId || (req.user ? req.user.tenantId : null);
 
@@ -99,6 +106,8 @@ class GatepassController {
         page: parseInt(page),
         pageSize: parseInt(pageSize),
         search: search.trim(),
+        statusId: statusId ? parseInt(statusId) : null,
+        purposeId: purposeId ? parseInt(purposeId) : null,
       };
 
       const result = await GatepassService.getGatepassesWithFilters(
