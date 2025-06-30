@@ -1,4 +1,5 @@
 const { query } = require("../config/database");
+const DateFormatter = require("../utils/dateFormatter");
 
 class GatePassModel {
   // Create new gate pass (moved from service)
@@ -123,7 +124,7 @@ class GatePassModel {
         Fname as "fname",
         Mobile as "mobile",
         VisitDate as "visitDate",
-        VisitDateTxt as "visitDateTxt",
+        TO_CHAR(VisitDate, '${DateFormatter.PG_DATETIME_FORMAT}') as "visitDateTxt",
         VisitPurposeID as "purposeId",
         VisitPurpose as "purposeName",
         StatusID as "statusId",
@@ -131,8 +132,14 @@ class GatePassModel {
         Remark as "securityCode",
         INTime as "inTime",
         OutTime as "outTime",
-        INTimeTxt as "inTimeTxt",
-        OutTimeTxt as "outTimeTxt",
+        CASE 
+          WHEN INTime IS NOT NULL THEN TO_CHAR(INTime, '${DateFormatter.PG_DATETIME_FORMAT}')
+          ELSE INTimeTxt
+        END as "inTimeTxt",
+        CASE 
+          WHEN OutTime IS NOT NULL THEN TO_CHAR(OutTime, '${DateFormatter.PG_DATETIME_FORMAT}')
+          ELSE OutTimeTxt
+        END as "outTimeTxt",
         CreatedDate as "createdDate",
         CASE 
           WHEN StatusID != 2 THEN 'PENDING_APPROVAL'
@@ -219,7 +226,7 @@ class GatePassModel {
     const sql = `
       UPDATE VisitorMaster 
       SET INTime = NOW(), 
-          INTimeTxt = TO_CHAR(NOW(), 'HH12:MI AM'),
+          INTimeTxt = TO_CHAR(NOW(), '${DateFormatter.PG_DATETIME_FORMAT}'),
           OutTime = NULL,
           OutTimeTxt = NULL,
           UpdatedDate = NOW(),
@@ -256,7 +263,7 @@ class GatePassModel {
     const sql = `
       UPDATE VisitorMaster 
       SET OutTime = NOW(), 
-          OutTimeTxt = TO_CHAR(NOW(), 'HH12:MI AM'),
+          OutTimeTxt = TO_CHAR(NOW(), '${DateFormatter.PG_DATETIME_FORMAT}'),
           UpdatedDate = NOW(),
           UpdatedBy = $3
       WHERE VisitorID = $1 AND TenantID = $2 AND VisitorCatID = 6

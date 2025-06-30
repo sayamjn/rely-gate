@@ -41,7 +41,7 @@ class StudentService {
             const date = new Date(dateTime);
             return {
               date: date.toISOString().split("T")[0], // YYYY-MM-DD
-              time: date.toLocaleTimeString("en-US", {
+              time: date.toLocaleTimeString("en-IN", {
                 hour: "2-digit",
                 minute: "2-digit",
                 hour12: true,
@@ -344,7 +344,7 @@ class StudentService {
           historyId: visitHistory.regvisitorhistoryid,
           studentName: student.vistorname,
           studentCode: student.visitorregno,
-          checkOutTime: new Date().toLocaleTimeString("en-US", {
+          checkOutTime: new Date().toLocaleTimeString("en-IN", {
             hour: "2-digit",
             minute: "2-digit",
             hour12: true,
@@ -406,7 +406,7 @@ class StudentService {
           responseMessage: "Student checked in successfully",
           data: {
             historyId: result.regvisitorhistoryid,
-            checkInTime: new Date().toLocaleTimeString("en-US", {
+            checkInTime: new Date().toLocaleTimeString("en-IN", {
               hour: "2-digit",
               minute: "2-digit",
               hour12: true,

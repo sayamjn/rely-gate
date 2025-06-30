@@ -1,9 +1,9 @@
 const ResponseFormatter = require("../utils/response");
 const MessagingService = require("./messaging.service");
 const GatePassModel = require("../models/gatepass.model");
+const DateFormatter = require("../utils/dateFormatter");
 
 class GatepassService {
-  // Generate random 6-digit security code
   static generateSecurityCode() {
     return Math.floor(100000 + Math.random() * 900000).toString();
   }
@@ -25,9 +25,8 @@ class GatepassService {
 
       const securityCode = this.generateSecurityCode();
       const statusName = statusId === 2 ? "Approved" : "Pending";
-      const visitDateTxt = new Date(visitDate).toLocaleDateString("en-US");
+      const visitDateTxt = new Date(visitDate).toLocaleDateString("en-IN");
 
-      // Use model method instead of direct query
       const result = await GatePassModel.createGatePass({
         tenantId,
         statusId,
@@ -46,9 +45,15 @@ class GatepassService {
       if (result) {
         const visitorId = result.visitorid || result.VisitorID;
 
-        // Send SMS if status is approved (statusId = 2)
         if (statusId === 2) {
           await this.sendApprovalSMS(mobile, fname, securityCode);
+        }
+
+        let responseMessage;
+        if (statusId === 2) {
+          responseMessage = `Your gate pass has been approved! Your security code is ${securityCode}. Please present this code to the security at the gate.`;
+        } else {
+          responseMessage = "Gate pass request submitted successfully. You will receive your security code once approved by the administrator.";
         }
 
         return ResponseFormatter.success(
@@ -64,7 +69,7 @@ class GatepassService {
             visitDateTxt,
             remark,
           },
-          "Gate pass created successfully"
+          responseMessage
         );
       } else {
         return ResponseFormatter.error("Failed to create gate pass");
@@ -80,7 +85,6 @@ class GatepassService {
     try {
       const { page = 1, pageSize = 20 } = filters;
 
-      // Use model method instead of direct query
       const result = await GatePassModel.getGatePassesWithFilters(tenantId, filters);
 
       return ResponseFormatter.success({
@@ -104,7 +108,6 @@ class GatepassService {
   // 3. APPROVE GATEPASS - CRITICAL: Only changes status, NO INTime set!
   static async approveGatepass(visitorId, tenantId, updatedBy) {
     try {
-      // Use model method to check gate pass
       const gatepass = await GatePassModel.checkGatePassForApproval(visitorId, tenantId);
 
       if (!gatepass) {
@@ -117,11 +120,9 @@ class GatepassService {
         );
       }
 
-      // Use model method to approve
       const result = await GatePassModel.approveGatePass(visitorId, tenantId, updatedBy);
 
       if (result) {
-        // Send approval SMS
         await this.sendApprovalSMS(
           gatepass.mobile,
           gatepass.fname,
@@ -151,26 +152,22 @@ class GatepassService {
   // 4. CHECK-IN GATEPASS - Sets INTime
   static async checkinGatepass(visitorId, tenantId, updatedBy) {
     try {
-      // Use model method to check current state
       const gatepass = await GatePassModel.checkGatePassForCheckin(visitorId, tenantId);
 
       if (!gatepass) {
         return ResponseFormatter.error("Gate pass not found");
       }
 
-      // Validation: Must be approved first
       if (gatepass.statusId !== 2) {
         return ResponseFormatter.error(
           "Gate pass must be approved before check-in"
         );
       }
 
-      // Validation: Cannot check-in if already checked in
       if (gatepass.inTime && !gatepass.outTime) {
         return ResponseFormatter.error("Gate pass is already checked in");
       }
 
-      // Use model method to checkin
       const result = await GatePassModel.checkinGatePass(visitorId, tenantId, updatedBy);
 
       if (result) {
@@ -179,11 +176,7 @@ class GatepassService {
             visitorId: result.visitorid || result.VisitorID,
             visitorName: gatepass.fname,
             mobile: gatepass.mobile,
-            checkInTime: new Date().toLocaleTimeString("en-US", {
-              hour: "2-digit",
-              minute: "2-digit",
-              hour12: true,
-            }),
+            checkInTime: DateFormatter.formatDateTime(new Date()),
             status: "Checked In",
             currentState: "CHECKED_IN",
           },
@@ -201,7 +194,6 @@ class GatepassService {
   // 5. CHECK-OUT GATEPASS - Sets OUTTime
   static async checkoutGatepass(visitorId, tenantId, updatedBy) {
     try {
-      // Use model method to check current state
       const gatepass = await GatePassModel.checkGatePassForCheckout(visitorId, tenantId);
 
       if (!gatepass) {
@@ -213,19 +205,16 @@ class GatepassService {
         return ResponseFormatter.error("Gate pass must be approved");
       }
 
-      // Validation: Must be checked in first (NO direct checkout!)
       if (!gatepass.inTime) {
         return ResponseFormatter.error(
           "Gate pass must be checked in before check-out"
         );
       }
 
-      // Validation: Cannot check-out if already checked out
       if (gatepass.outTime) {
         return ResponseFormatter.error("Gate pass is already checked out");
       }
 
-      // Use model method to checkout
       const result = await GatePassModel.checkoutGatePass(visitorId, tenantId, updatedBy);
 
       if (result) {
@@ -234,11 +223,7 @@ class GatepassService {
             visitorId: result.visitorid || result.VisitorID,
             visitorName: gatepass.fname,
             mobile: gatepass.mobile,
-            checkOutTime: new Date().toLocaleTimeString("en-US", {
-              hour: "2-digit",
-              minute: "2-digit",
-              hour12: true,
-            }),
+            checkOutTime: DateFormatter.formatDateTime(new Date()),
             status: "Checked Out",
             currentState: "CHECKED_OUT",
           },
@@ -256,7 +241,6 @@ class GatepassService {
   // 6. GET GATEPASS STATUS
   static async getGatepassStatus(visitorId, tenantId) {
     try {
-      // Use model method instead of direct query
       const result = await GatePassModel.getGatePassStatus(visitorId, tenantId);
 
       if (result) {
@@ -276,7 +260,6 @@ class GatepassService {
   // 7. GET PENDING CHECK-IN - Approved gatepasses ready for check-in OR re-entry
   static async getPendingCheckin(tenantId) {
     try {
-      // Use model method instead of direct query
       const result = await GatePassModel.getPendingCheckins(tenantId);
 
       return ResponseFormatter.success({
@@ -292,7 +275,6 @@ class GatepassService {
   // 8. GET PENDING CHECK-OUT - Gatepasses currently checked in
   static async getPendingCheckout(tenantId) {
     try {
-      // Use model method instead of direct query
       const result = await GatePassModel.getPendingCheckouts(tenantId);
 
       return ResponseFormatter.success({
@@ -324,10 +306,8 @@ class GatepassService {
   // 10. EXPORT GATEPASSES TO CSV
   static async exportGatepasses(tenantId, filters) {
     try {
-      // Use model method instead of direct query
       const result = await GatePassModel.exportGatePasses(tenantId, filters);
 
-      // Convert to CSV
       const headers = [
         "ID",
         "Name",
@@ -486,7 +466,6 @@ class GatepassService {
   // Delete purpose
   static async deleteGatePassPurpose(purposeId, tenantId, updatedBy) {
     try {
-      // Check if purpose exists and its current status
       const purpose = await GatePassModel.checkPurposeStatus(purposeId, tenantId);
 
       if (!purpose) {
@@ -497,7 +476,6 @@ class GatepassService {
         return ResponseFormatter.error("Purpose is already deleted");
       }
 
-      // Now perform the delete
       const deletedPurpose = await GatePassModel.deleteGatePassPurpose(
         purposeId,
         tenantId,

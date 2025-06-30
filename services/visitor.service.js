@@ -535,7 +535,7 @@ class VisitorService {
         data: {
           historyId: visitHistory.regvisitorhistoryid,
           visitorName: visitor.vistorname,
-          checkInTime: new Date().toLocaleTimeString("en-US", {
+          checkInTime: new Date().toLocaleTimeString("en-IN", {
             hour: "2-digit",
             minute: "2-digit",
             hour12: true,
@@ -586,7 +586,7 @@ class VisitorService {
           responseMessage: "Visitor checked out successfully",
           data: {
             historyId: result.regvisitorhistoryid,
-            checkOutTime: new Date().toLocaleTimeString("en-US", {
+            checkOutTime: new Date().toLocaleTimeString("en-IN", {
               hour: "2-digit",
               minute: "2-digit",
               hour12: true,

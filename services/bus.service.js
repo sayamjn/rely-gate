@@ -39,7 +39,7 @@ class BusService {
             const date = new Date(dateTime);
             return {
               date: date.toISOString().split('T')[0],
-              time: date.toLocaleTimeString('en-US', { 
+              time: date.toLocaleTimeString('en-IN', { 
                 hour: '2-digit', 
                 minute: '2-digit', 
                 hour12: true 
@@ -287,7 +287,7 @@ class BusService {
           busNumber: bus.busnumber || 'N/A',
           registrationNumber: bus.registrationnumber || 'N/A',
           driverName: bus.drivername || 'N/A',
-          checkOutTime: new Date().toLocaleTimeString('en-US', { 
+          checkOutTime: new Date().toLocaleTimeString('en-IN', { 
             hour: '2-digit', 
             minute: '2-digit', 
             hour12: true 
@@ -343,7 +343,7 @@ class BusService {
           responseMessage: 'Bus checked in successfully',
           data: {
             historyId: result.regvisitorhistoryid,
-            checkInTime: new Date().toLocaleTimeString('en-US', { 
+            checkInTime: new Date().toLocaleTimeString('en-IN', { 
               hour: '2-digit', 
               minute: '2-digit', 
               hour12: true 
