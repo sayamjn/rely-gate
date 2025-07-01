@@ -38,4 +38,22 @@ router.get('/recent-activity', [
   query('limit').optional().isNumeric().withMessage('Limit must be numeric')
 ], handleValidationErrors, AnalyticsController.getRecentActivity);
 
+// GET /api/analytics/gatepass - Get gate pass analytics
+router.get('/gatepass', [
+  query('tenantId').optional().isNumeric().withMessage('TenantId must be numeric'),
+  query('days').optional().isNumeric().withMessage('Days must be numeric')
+], handleValidationErrors, AnalyticsController.getGatePassAnalytics);
+
+// // GET /api/analytics/gatepass/trends - Get gate pass trends
+// router.get('/gatepass/trends', [
+//   query('tenantId').optional().isNumeric().withMessage('TenantId must be numeric'),
+//   query('days').optional().isNumeric().withMessage('Days must be numeric')
+// ], handleValidationErrors, AnalyticsController.getGatePassTrends);
+
+// // GET /api/analytics/gatepass/purposes - Get gate pass purpose stats
+// router.get('/gatepass/purposes', [
+//   query('tenantId').optional().isNumeric().withMessage('TenantId must be numeric'),
+//   query('days').optional().isNumeric().withMessage('Days must be numeric')
+// ], handleValidationErrors, AnalyticsController.getGatePassPurposeStats);
+
 module.exports = router;

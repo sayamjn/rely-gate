@@ -1,4 +1,5 @@
 const VisitorModel = require('../models/visitor.model');
+const AnalyticsModel = require('../models/analytics.model');
 const FileService = require('./file.service');
 const responseUtils = require('../utils/constants');
 
@@ -184,6 +185,93 @@ class AnalyticsService {
       return null;
     }
   }
+
+  // Get gate pass analytics (counts for dashboard)
+  static async getGatePassAnalytics(tenantId, days = 7) {
+    try {
+      const analytics = await AnalyticsModel.getGatePassAnalytics(tenantId, days);
+      
+      return {
+        responseCode: responseUtils.RESPONSE_CODES.SUCCESS,
+        data: {
+          pendingApproval: parseInt(analytics.pending_approval) || 0,
+          pendingCheckin: parseInt(analytics.pending_checkin) || 0,
+          pendingCheckout: parseInt(analytics.pending_checkout) || 0,
+          completed: parseInt(analytics.completed) || 0,
+          totalGatePasses: parseInt(analytics.total_gatepasses) || 0,
+          todayTotal: parseInt(analytics.today_total) || 0
+        },
+        responseMessage: 'Gate pass analytics retrieved successfully'
+      };
+    } catch (error) {
+      console.error('Error getting gate pass analytics:', error);
+      return {
+        responseCode: responseUtils.RESPONSE_CODES.ERROR,
+        responseMessage: 'Internal server error',
+        error: process.env.NODE_ENV === 'development' ? error.message : undefined
+      };
+    }
+  }
+
+  // // Get gate pass trend data for charts
+  // static async getGatePassTrends(tenantId, days = 7) {
+  //   try {
+  //     const trends = await AnalyticsModel.getGatePassTrendData(tenantId, days);
+      
+  //     const formattedTrends = trends.map(trend => ({
+  //       date: trend.date,
+  //       totalCreated: parseInt(trend.total_created) || 0,
+  //       approved: parseInt(trend.approved) || 0,
+  //       checkedIn: parseInt(trend.checked_in) || 0,
+  //       completed: parseInt(trend.completed) || 0
+  //     }));
+
+  //     return {
+  //       responseCode: responseUtils.RESPONSE_CODES.SUCCESS,
+  //       data: formattedTrends,
+  //       responseMessage: 'Gate pass trends retrieved successfully'
+  //     };
+  //   } catch (error) {
+  //     console.error('Error getting gate pass trends:', error);
+  //     return {
+  //       responseCode: responseUtils.RESPONSE_CODES.ERROR,
+  //       responseMessage: 'Internal server error',
+  //       error: process.env.NODE_ENV === 'development' ? error.message : undefined
+  //     };
+  //   }
+  // }
+
+  // // Get gate pass purpose statistics
+  // static async getGatePassPurposeStats(tenantId, days = 7) {
+  //   try {
+  //     const purposeStats = await AnalyticsModel.getGatePassPurposeStats(tenantId, days);
+      
+  //     const formattedStats = purposeStats.map(stat => ({
+  //       purposeId: parseInt(stat.purpose_id),
+  //       purposeName: stat.purpose_name,
+  //       totalCount: parseInt(stat.total_count) || 0,
+  //       pendingCount: parseInt(stat.pending_count) || 0,
+  //       approvedCount: parseInt(stat.approved_count) || 0,
+  //       checkedInCount: parseInt(stat.checkedin_count) || 0,
+  //       completedCount: parseInt(stat.completed_count) || 0,
+  //       completionRate: stat.total_count > 0 ? 
+  //         ((parseInt(stat.completed_count) / parseInt(stat.total_count)) * 100).toFixed(1) : 0
+  //     }));
+
+  //     return {
+  //       responseCode: responseUtils.RESPONSE_CODES.SUCCESS,
+  //       data: formattedStats,
+  //       responseMessage: 'Gate pass purpose statistics retrieved successfully'
+  //     };
+  //   } catch (error) {
+  //     console.error('Error getting gate pass purpose stats:', error);
+  //     return {
+  //       responseCode: responseUtils.RESPONSE_CODES.ERROR,
+  //       responseMessage: 'Internal server error',
+  //       error: process.env.NODE_ENV === 'development' ? error.message : undefined
+  //     };
+  //   }
+  // }
 }
 
 module.exports = AnalyticsService;

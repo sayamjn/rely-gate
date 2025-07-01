@@ -132,6 +132,87 @@ class AnalyticsController {
       });
     }
   }
+
+  // GET /api/analytics/gatepass - Get gate pass analytics
+  static async getGatePassAnalytics(req, res) {
+    try {
+      const { tenantId, days = 7 } = req.query;
+      const userTenantId = req.user.tenantId;
+
+      if (tenantId && parseInt(tenantId) !== userTenantId) {
+        return res.status(403).json({
+          responseCode: 'E',
+          responseMessage: 'Access denied for this tenant'
+        });
+      }
+
+      const result = await AnalyticsService.getGatePassAnalytics(
+        userTenantId, 
+        parseInt(days)
+      );
+      res.json(result);
+    } catch (error) {
+      console.error('Error in getGatePassAnalytics:', error);
+      res.status(500).json({
+        responseCode: 'E',
+        responseMessage: 'Internal server error'
+      });
+    }
+  }
+
+  // // GET /api/analytics/gatepass/trends - Get gate pass trends
+  // static async getGatePassTrends(req, res) {
+  //   try {
+  //     const { tenantId, days = 7 } = req.query;
+  //     const userTenantId = req.user.tenantId;
+
+  //     if (tenantId && parseInt(tenantId) !== userTenantId) {
+  //       return res.status(403).json({
+  //         responseCode: 'E',
+  //         responseMessage: 'Access denied for this tenant'
+  //       });
+  //     }
+
+  //     const result = await AnalyticsService.getGatePassTrends(
+  //       userTenantId, 
+  //       parseInt(days)
+  //     );
+  //     res.json(result);
+  //   } catch (error) {
+  //     console.error('Error in getGatePassTrends:', error);
+  //     res.status(500).json({
+  //       responseCode: 'E',
+  //       responseMessage: 'Internal server error'
+  //     });
+  //   }
+  // }
+
+  // // GET /api/analytics/gatepass/purposes - Get gate pass purpose stats
+  // static async getGatePassPurposeStats(req, res) {
+  //   try {
+  //     const { tenantId, days = 7 } = req.query;
+  //     const userTenantId = req.user.tenantId;
+
+  //     if (tenantId && parseInt(tenantId) !== userTenantId) {
+  //       return res.status(403).json({
+  //         responseCode: 'E',
+  //         responseMessage: 'Access denied for this tenant'
+  //       });
+  //     }
+
+  //     const result = await AnalyticsService.getGatePassPurposeStats(
+  //       userTenantId, 
+  //       parseInt(days)
+  //     );
+  //     res.json(result);
+  //   } catch (error) {
+  //     console.error('Error in getGatePassPurposeStats:', error);
+  //     res.status(500).json({
+  //       responseCode: 'E',
+  //       responseMessage: 'Internal server error'
+  //     });
+  //   }
+  // }
 }
 
 module.exports = AnalyticsController;

@@ -25,7 +25,7 @@ class GatepassService {
 
       const securityCode = this.generateSecurityCode();
       const statusName = statusId === 2 ? "Approved" : "Pending";
-      const visitDateTxt = new Date(visitDate).toLocaleDateString("en-IN");
+      const visitDateTxt = DateFormatter.formatDate(visitDate);
 
       const result = await GatePassModel.createGatePass({
         tenantId,
