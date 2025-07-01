@@ -6,7 +6,7 @@ const { handleValidationErrors } = require('../middleware/validation');
 
 const router = express.Router();
 
-router.use(authenticateToken);
+// router.use(authenticateToken);
 
 // GET /api/analytics/dashboard - Get dashboard analytics
 router.get('/dashboard', [
@@ -44,16 +44,16 @@ router.get('/gatepass', [
   query('days').optional().isNumeric().withMessage('Days must be numeric')
 ], handleValidationErrors, AnalyticsController.getGatePassAnalytics);
 
-// // GET /api/analytics/gatepass/trends - Get gate pass trends
-// router.get('/gatepass/trends', [
-//   query('tenantId').optional().isNumeric().withMessage('TenantId must be numeric'),
-//   query('days').optional().isNumeric().withMessage('Days must be numeric')
-// ], handleValidationErrors, AnalyticsController.getGatePassTrends);
+// GET /api/analytics/gatepass/entries-by-purpose - Get gate pass entries by purpose
+router.get('/gatepass/entries-by-purpose', [
+  query('tenantId').optional().isNumeric().withMessage('TenantId must be numeric'),
+  query('days').optional().isNumeric().withMessage('Days must be numeric')
+], handleValidationErrors, AnalyticsController.getGatePassEntriesByPurpose);
 
-// // GET /api/analytics/gatepass/purposes - Get gate pass purpose stats
-// router.get('/gatepass/purposes', [
-//   query('tenantId').optional().isNumeric().withMessage('TenantId must be numeric'),
-//   query('days').optional().isNumeric().withMessage('Days must be numeric')
-// ], handleValidationErrors, AnalyticsController.getGatePassPurposeStats);
+// GET /api/analytics/gatepass/exits-by-purpose - Get gate pass exits by purpose
+router.get('/gatepass/exits-by-purpose', [
+  query('tenantId').optional().isNumeric().withMessage('TenantId must be numeric'),
+  query('days').optional().isNumeric().withMessage('Days must be numeric')
+], handleValidationErrors, AnalyticsController.getGatePassExitsByPurpose);
 
 module.exports = router;

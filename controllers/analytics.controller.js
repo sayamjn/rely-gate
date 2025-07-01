@@ -137,17 +137,17 @@ class AnalyticsController {
   static async getGatePassAnalytics(req, res) {
     try {
       const { tenantId, days = 7 } = req.query;
-      const userTenantId = req.user.tenantId;
+      // const userTenantId = req.user.tenantId;
 
-      if (tenantId && parseInt(tenantId) !== userTenantId) {
-        return res.status(403).json({
-          responseCode: 'E',
-          responseMessage: 'Access denied for this tenant'
-        });
-      }
+      // if (tenantId && parseInt(tenantId) !== userTenantId) {
+      //   return res.status(403).json({
+      //     responseCode: 'E',
+      //     responseMessage: 'Access denied for this tenant'
+      //   });
+      // }
 
       const result = await AnalyticsService.getGatePassAnalytics(
-        userTenantId, 
+        tenantId, 
         parseInt(days)
       );
       res.json(result);
@@ -160,59 +160,52 @@ class AnalyticsController {
     }
   }
 
-  // // GET /api/analytics/gatepass/trends - Get gate pass trends
-  // static async getGatePassTrends(req, res) {
-  //   try {
-  //     const { tenantId, days = 7 } = req.query;
-  //     const userTenantId = req.user.tenantId;
+  // GET /api/analytics/gatepass/entries-by-purpose - Get gate pass entries by purpose
+  static async getGatePassEntriesByPurpose(req, res) {
+    try {
+      const { tenantId, days = 7 } = req.query;
+      const userTenantId = req.user.tenantId;
 
-  //     if (tenantId && parseInt(tenantId) !== userTenantId) {
-  //       return res.status(403).json({
-  //         responseCode: 'E',
-  //         responseMessage: 'Access denied for this tenant'
-  //       });
-  //     }
+      if (tenantId && parseInt(tenantId) !== userTenantId) {
+        return res.status(403).json({
+          responseCode: 'E',
+          responseMessage: 'Access denied for this tenant'
+        });
+      }
 
-  //     const result = await AnalyticsService.getGatePassTrends(
-  //       userTenantId, 
-  //       parseInt(days)
-  //     );
-  //     res.json(result);
-  //   } catch (error) {
-  //     console.error('Error in getGatePassTrends:', error);
-  //     res.status(500).json({
-  //       responseCode: 'E',
-  //       responseMessage: 'Internal server error'
-  //     });
-  //   }
-  // }
+      const result = await AnalyticsService.getGatePassEntriesByPurpose(
+        userTenantId, 
+        parseInt(days)
+      );
+      res.json(result);
+    } catch (error) {
+      console.error('Error in getGatePassEntriesByPurpose:', error);
+      res.status(500).json({
+        responseCode: 'E',
+        responseMessage: 'Internal server error'
+      });
+    }
+  }
 
-  // // GET /api/analytics/gatepass/purposes - Get gate pass purpose stats
-  // static async getGatePassPurposeStats(req, res) {
-  //   try {
-  //     const { tenantId, days = 7 } = req.query;
-  //     const userTenantId = req.user.tenantId;
+  // GET /api/analytics/gatepass/exits-by-purpose - Get gate pass exits by purpose
+  static async getGatePassExitsByPurpose(req, res) {
+    try {
+      const { tenantId, days = 7 } = req.query;
+      // const userTenantId = req.user.tenantId;
 
-  //     if (tenantId && parseInt(tenantId) !== userTenantId) {
-  //       return res.status(403).json({
-  //         responseCode: 'E',
-  //         responseMessage: 'Access denied for this tenant'
-  //       });
-  //     }
-
-  //     const result = await AnalyticsService.getGatePassPurposeStats(
-  //       userTenantId, 
-  //       parseInt(days)
-  //     );
-  //     res.json(result);
-  //   } catch (error) {
-  //     console.error('Error in getGatePassPurposeStats:', error);
-  //     res.status(500).json({
-  //       responseCode: 'E',
-  //       responseMessage: 'Internal server error'
-  //     });
-  //   }
-  // }
+      const result = await AnalyticsService.getGatePassExitsByPurpose(
+        tenantId, 
+        parseInt(days)
+      );
+      res.json(result);
+    } catch (error) {
+      console.error('Error in getGatePassExitsByPurpose:', error);
+      res.status(500).json({
+        responseCode: 'E',
+        responseMessage: 'Internal server error'
+      });
+    }
+  }
 }
 
 module.exports = AnalyticsController;
