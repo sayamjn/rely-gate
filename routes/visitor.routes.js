@@ -2,20 +2,11 @@ const express = require('express');
 const { body, query, param, validationResult } = require('express-validator');
 const VisitorController = require('../controllers/visitor.controller');
 const { authenticateToken, validateTenantAccess } = require('../middleware/auth');
+const { handleValidationErrors } = require('../middleware/validation');
 
 const router = express.Router();
 
-const handleValidationErrors = (req, res, next) => {
-  const errors = validationResult(req);
-  if (!errors.isEmpty()) {
-    return res.status(400).json({
-      responseCode: 'E',
-      responseMessage: 'Validation failed',
-      errors: errors.array()
-    });
-  }
-  next();
-};
+
 
 router.use(authenticateToken);
 
@@ -136,6 +127,16 @@ router.put('/:visitorId/checkout', [
   body('tenantId').optional().isNumeric().withMessage('TenantId must be numeric')
 ], handleValidationErrors, VisitorController.checkoutVisitor);
 
+// GET /api/visitors/:visitorId/status - Get visitor's current status
+router.get('/:visitorId/status', [
+  param('visitorId')
+    .notEmpty()
+    .withMessage('Visitor ID is required')
+    .isNumeric()
+    .withMessage('Visitor ID must be numeric'),
+  query('tenantId').optional().isNumeric().withMessage('TenantId must be numeric')
+], handleValidationErrors, VisitorController.getVisitorStatus);
+
 // POST /api/visitors/checkin - Check in registered visitor
 router.post('/checkin', [
   body('visitorRegId')
@@ -200,5 +201,73 @@ router.get('/search', [
   query('visitorCatId').optional().isNumeric().withMessage('VisitorCatId must be numeric'),
   query('visitorSubCatId').optional().isNumeric().withMessage('VisitorSubCatId must be numeric')
 ], handleValidationErrors, VisitorController.searchVisitors);
+
+
+router.get('/history/comprehensive', [
+  query('tenantId').optional().isNumeric().withMessage('TenantId must be numeric'),
+  query('page').optional().isNumeric().withMessage('Page must be numeric'),
+  query('pageSize').optional().isNumeric().withMessage('Page size must be numeric'),
+  query('visitorCatId').optional().isNumeric().withMessage('VisitorCatId must be numeric'),
+  query('visitorSubCatId').optional().isNumeric().withMessage('VisitorSubCatId must be numeric'),
+  query('fromDate').optional().isDate().withMessage('FromDate must be valid date'),
+  query('toDate').optional().isDate().withMessage('ToDate must be valid date')
+], handleValidationErrors, VisitorController.getComprehensiveHistory);
+
+
+router.post('/list', [
+  body('page').optional().isInt({ min: 1 }).withMessage('Page must be a positive integer'),
+  body('pageSize').optional().isInt({ min: 1, max: 100 }).withMessage('PageSize must be between 1 and 100'),
+  body('search').optional().isString().trim().withMessage('Search must be a string'),
+  body('visitorCatId').optional().isInt().withMessage('VisitorCatId must be an integer'),
+  body('visitorSubCatId').optional().isInt().withMessage('VisitorSubCatId must be an integer'),
+  body('purposeId').optional().isInt().withMessage('PurposeId must be an integer'),
+  body('flatName').optional().isString().trim().withMessage('FlatName must be a string'),
+  body('mobile').optional().isString().trim().withMessage('Mobile must be a string'),
+  body('fromDate').optional().isISO8601().withMessage('FromDate must be a valid date'),
+  body('toDate').optional().isISO8601().withMessage('ToDate must be a valid date'),
+  body('status').optional().isIn(['ACTIVE', 'INACTIVE', 'CHECKED_IN', 'AVAILABLE']).withMessage('Invalid status'),
+  body('tenantId').optional().isNumeric().withMessage('TenantId must be numeric')
+], handleValidationErrors, VisitorController.listVisitors);
+
+// GET /api/visitors - List visitors with pagination and search (legacy)
+router.get('/', [
+  query('page').optional().isInt({ min: 1 }).withMessage('Page must be a positive integer'),
+  query('pageSize').optional().isInt({ min: 1, max: 100 }).withMessage('PageSize must be between 1 and 100'),
+  query('search').optional().isString().trim().withMessage('Search must be a string'),
+  query('tenantId').optional().isNumeric().withMessage('TenantId must be numeric')
+], handleValidationErrors, VisitorController.getVisitors);
+
+// GET /api/visitors/export - Export visitors
+router.get('/export', [
+  query('visitorCatId').optional().isInt().withMessage('VisitorCatId must be an integer'),
+  query('visitorSubCatId').optional().isInt().withMessage('VisitorSubCatId must be an integer'),
+  query('status').optional().isIn(['CHECKED_IN', 'AVAILABLE']).withMessage('Invalid status'),
+  query('fromDate').optional().isISO8601().withMessage('FromDate must be a valid date'),
+  query('toDate').optional().isISO8601().withMessage('ToDate must be a valid date'),
+  query('format').optional().isIn(['csv']).withMessage('Invalid format'),
+  query('tenantId').optional().isNumeric().withMessage('TenantId must be numeric')
+], handleValidationErrors, VisitorController.exportVisitors);
+
+// GET /api/visitors/pending-checkout - Get visitors currently checked in
+router.get('/pending-checkout', [
+  query('tenantId').optional().isNumeric().withMessage('TenantId must be numeric'),
+  query('visitorCatId').optional().isInt().withMessage('VisitorCatId must be an integer')
+], handleValidationErrors, VisitorController.getPendingCheckout);
+
+// GET /api/visitors/template - Download CSV template
+router.get('/template', [
+  query('visitorCatId').optional().isInt({ min: 1, max: 5 }).withMessage('VisitorCatId must be between 1 and 5')
+], handleValidationErrors, VisitorController.downloadTemplate);
+
+
+router.get('/export', [
+  query('visitorCatId').optional().isInt().withMessage('VisitorCatId must be an integer'),
+  query('visitorSubCatId').optional().isInt().withMessage('VisitorSubCatId must be an integer'),
+  query('status').optional().isIn(['CHECKED_IN', 'AVAILABLE']).withMessage('Invalid status'),
+  query('fromDate').optional().isISO8601().withMessage('FromDate must be a valid date'),
+  query('toDate').optional().isISO8601().withMessage('ToDate must be a valid date'),
+  query('format').optional().isIn(['csv']).withMessage('Invalid format'),
+  query('tenantId').optional().isNumeric().withMessage('TenantId must be numeric')
+], handleValidationErrors, VisitorController.exportVisitors);
 
 module.exports = router;

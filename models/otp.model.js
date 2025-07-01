@@ -1,9 +1,7 @@
 const { query } = require('../config/database');
 
 class OTPModel {
-  // Generate and store OTP
   static async generateOTP(tenantId, mobile, createdBy) {
-    // Generate 6-digit OTP
     const otpNumber = Math.floor(100000 + Math.random() * 900000).toString();
     
     const sql = `
@@ -41,7 +39,6 @@ class OTPModel {
     const result = await query(sql, [refId, otpNumber, mobile]);
     
     if (result.rows.length > 0) {
-      // Mark OTP as used
       await this.markOTPAsUsed(refId);
       return {
         verified: true,
