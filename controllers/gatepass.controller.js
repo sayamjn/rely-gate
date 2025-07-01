@@ -90,6 +90,8 @@ class GatepassController {
         search = "", 
         statusId = null,
         purposeId = null,
+        StartDate = null,
+        EndDate = null,
         tenantId 
       } = req.query;
 
@@ -102,12 +104,40 @@ class GatepassController {
         });
       }
 
+      // Convert DD/MM/YYYY format to ISO format for database query
+      let fromDate = null;
+      let toDate = null;
+      
+      if (StartDate) {
+        try {
+          const [day, month, year] = StartDate.split('/');
+          if (day && month && year) {
+            fromDate = `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+          }
+        } catch (error) {
+          console.warn('Invalid StartDate format:', StartDate);
+        }
+      }
+      
+      if (EndDate) {
+        try {
+          const [day, month, year] = EndDate.split('/');
+          if (day && month && year) {
+            toDate = `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+          }
+        } catch (error) {
+          console.warn('Invalid EndDate format:', EndDate);
+        }
+      }
+
       const filters = {
         page: parseInt(page),
         pageSize: parseInt(pageSize),
         search: search.trim(),
         statusId: statusId ? parseInt(statusId) : null,
         purposeId: purposeId ? parseInt(purposeId) : null,
+        fromDate,
+        toDate,
       };
 
       const result = await GatepassService.getGatepassesWithFilters(

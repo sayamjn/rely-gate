@@ -74,6 +74,22 @@ router.get(
       .isString()
       .trim()
       .withMessage("Search must be a string"),
+    query("purposeId")
+      .optional()
+      .isInt()
+      .withMessage("PurposeId must be an integer"),
+    query("statusId")
+      .optional()
+      .isInt()
+      .withMessage("StatusId must be an integer"),
+    query("StartDate")
+      .optional()
+      .matches(/^\d{2}\/\d{2}\/\d{4}$/)
+      .withMessage("StartDate must be in DD/MM/YYYY format"),
+    query("EndDate")
+      .optional()
+      .matches(/^\d{2}\/\d{2}\/\d{4}$/)
+      .withMessage("EndDate must be in DD/MM/YYYY format"),
     query("tenantId")
       .notEmpty()
       .isNumeric()
