@@ -53,7 +53,8 @@ router.get('/gatepass/entries-by-purpose', [
 // GET /api/analytics/gatepass/exits-by-purpose - Get gate pass exits by purpose
 router.get('/gatepass/exits-by-purpose', [
   query('tenantId').optional().isNumeric().withMessage('TenantId must be numeric'),
-  query('days').optional().isNumeric().withMessage('Days must be numeric')
+  query('fromDate').optional().matches(/^\d{2}\/\d{2}\/\d{4}$/).withMessage('FromDate must be in DD/MM/YYYY format'),
+  query('toDate').optional().matches(/^\d{2}\/\d{2}\/\d{4}$/).withMessage('ToDate must be in DD/MM/YYYY format')
 ], handleValidationErrors, AnalyticsController.getGatePassExitsByPurpose);
 
 module.exports = router;

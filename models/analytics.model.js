@@ -92,7 +92,21 @@ const AnalyticsModel = {
     return result.rows;
   },
 
-  async getGatePassExitsByPurpose(tenantId, days = 7) {
+  async getGatePassExitsByPurpose(tenantId, fromDate = null, toDate = null) {
+    let dateFilter = '';
+    let params = [tenantId];
+    
+    if (fromDate && toDate) {
+      dateFilter = `AND DATE(CreatedDate) BETWEEN $2 AND $3`;
+      params.push(fromDate, toDate);
+    } else if (fromDate) {
+      dateFilter = `AND DATE(CreatedDate) >= $2`;
+      params.push(fromDate);
+    } else if (toDate) {
+      dateFilter = `AND DATE(CreatedDate) <= $2`;
+      params.push(toDate);
+    }
+
     const sql = `
       SELECT 
         CASE 
@@ -105,7 +119,7 @@ const AnalyticsModel = {
         AND VisitorCatID = 6 
         AND IsActive = 'Y'
         AND OutTime IS NOT NULL
-        AND CreatedDate >= CURRENT_DATE - INTERVAL '${days} days'
+        ${dateFilter}
       GROUP BY 
         CASE 
           WHEN VisitPurposeID = -1 THEN 'Others'
@@ -114,7 +128,7 @@ const AnalyticsModel = {
       ORDER BY exit_count DESC
     `;
 
-    const result = await query(sql, [tenantId]);
+    const result = await query(sql, params);
     return result.rows;
   }
 };

@@ -190,12 +190,23 @@ class AnalyticsController {
   // GET /api/analytics/gatepass/exits-by-purpose - Get gate pass exits by purpose
   static async getGatePassExitsByPurpose(req, res) {
     try {
-      const { tenantId, days = 7 } = req.query;
+      const { tenantId, fromDate, toDate } = req.query;
       // const userTenantId = req.user.tenantId;
+
+      // Convert DD/MM/YYYY format to YYYY-MM-DD for PostgreSQL
+      const convertToPostgresDate = (dateStr) => {
+        if (!dateStr) return null;
+        const [day, month, year] = dateStr.split('/');
+        return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+      };
+
+      const pgFromDate = convertToPostgresDate(fromDate);
+      const pgToDate = convertToPostgresDate(toDate);
 
       const result = await AnalyticsService.getGatePassExitsByPurpose(
         tenantId, 
-        parseInt(days)
+        pgFromDate,
+        pgToDate
       );
       res.json(result);
     } catch (error) {

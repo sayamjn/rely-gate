@@ -241,9 +241,9 @@ class AnalyticsService {
   }
 
   // Get gate pass exits by purpose for charts
-  static async getGatePassExitsByPurpose(tenantId, days = 7) {
+  static async getGatePassExitsByPurpose(tenantId, fromDate = null, toDate = null) {
     try {
-      const exitsData = await AnalyticsModel.getGatePassExitsByPurpose(tenantId, days);
+      const exitsData = await AnalyticsModel.getGatePassExitsByPurpose(tenantId, fromDate, toDate);
       
       const formattedData = exitsData.map(exit => ({
         purposeName: exit.purpose_name,
