@@ -1,4 +1,5 @@
 const StudentService = require('../services/student.service');
+const MealService = require('../services/meal.service');
 const responseUtils = require("../utils/constants");
 
 class StudentController {
@@ -405,6 +406,176 @@ static async getPendingCheckout(req, res) {
     });
   }
 }
+
+  // POST /api/students/meal-checkin - Meal check-in for students via QR code
+  static async mealCheckIn(req, res) {
+    try {
+      const { student_id, tenant_id, confirmed = false } = req.body;
+      const userTenantId = req.user.tenantId;
+
+      // Validate tenant access
+      if (tenant_id && parseInt(tenant_id) !== userTenantId) {
+        return res.status(403).json({
+          responseCode: responseUtils.RESPONSE_CODES.ERROR,
+          responseMessage: 'Access denied for this tenant'
+        });
+      }
+
+      // Validate required fields
+      if (!student_id) {
+        return res.status(400).json({
+          responseCode: responseUtils.RESPONSE_CODES.ERROR,
+          responseMessage: 'Student ID is required'
+        });
+      }
+
+      // Validate QR data structure
+      const qrValidation = MealService.validateQRData({ student_id, tenant_id });
+      if (!qrValidation.valid) {
+        return res.status(400).json({
+          responseCode: responseUtils.RESPONSE_CODES.ERROR,
+          responseMessage: qrValidation.message
+        });
+      }
+
+      // Process meal check-in
+      const result = await MealService.processMealCheckIn(
+        parseInt(student_id),
+        userTenantId,
+        confirmed
+      );
+
+      // Set appropriate HTTP status code
+      const statusCode = result.responseCode === responseUtils.RESPONSE_CODES.SUCCESS ? 200 : 400;
+      
+      res.status(statusCode).json(result);
+    } catch (error) {
+      console.error('Error in mealCheckIn:', error);
+      res.status(500).json({
+        responseCode: responseUtils.RESPONSE_CODES.ERROR,
+        responseMessage: 'Internal server error',
+        error: process.env.NODE_ENV === 'development' ? error.message : undefined
+      });
+    }
+  }
+
+  // GET /api/students/:studentId/meal-history - Get student's meal history
+  static async getStudentMealHistory(req, res) {
+    try {
+      const { studentId } = req.params;
+      const { tenantId, limit = 10 } = req.query;
+      const userTenantId = req.user.tenantId;
+
+      if (tenantId && parseInt(tenantId) !== userTenantId) {
+        return res.status(403).json({
+          responseCode: responseUtils.RESPONSE_CODES.ERROR,
+          responseMessage: 'Access denied for this tenant'
+        });
+      }
+
+      if (!studentId) {
+        return res.status(400).json({
+          responseCode: responseUtils.RESPONSE_CODES.ERROR,
+          responseMessage: 'Student ID is required'
+        });
+      }
+
+      const result = await MealService.getStudentMealHistory(
+        parseInt(studentId),
+        userTenantId,
+        parseInt(limit)
+      );
+
+      res.json(result);
+    } catch (error) {
+      console.error('Error in getStudentMealHistory:', error);
+      res.status(500).json({
+        responseCode: responseUtils.RESPONSE_CODES.ERROR,
+        responseMessage: 'Internal server error',
+        error: process.env.NODE_ENV === 'development' ? error.message : undefined
+      });
+    }
+  }
+
+  // GET /api/students/meal-queue - Get current meal queue
+  static async getCurrentMealQueue(req, res) {
+    try {
+      const { tenantId, mealType } = req.query;
+      const userTenantId = req.user.tenantId;
+
+      if (tenantId && parseInt(tenantId) !== userTenantId) {
+        return res.status(403).json({
+          responseCode: responseUtils.RESPONSE_CODES.ERROR,
+          responseMessage: 'Access denied for this tenant'
+        });
+      }
+
+      const result = await MealService.getCurrentMealQueue(userTenantId, mealType);
+      res.json(result);
+    } catch (error) {
+      console.error('Error in getCurrentMealQueue:', error);
+      res.status(500).json({
+        responseCode: responseUtils.RESPONSE_CODES.ERROR,
+        responseMessage: 'Internal server error',
+        error: process.env.NODE_ENV === 'development' ? error.message : undefined
+      });
+    }
+  }
+
+  // GET /api/students/meal-statistics - Get meal statistics for date range
+  static async getMealStatistics(req, res) {
+    try {
+      const { tenantId, fromDate, toDate } = req.query;
+      const userTenantId = req.user.tenantId;
+
+      if (tenantId && parseInt(tenantId) !== userTenantId) {
+        return res.status(403).json({
+          responseCode: responseUtils.RESPONSE_CODES.ERROR,
+          responseMessage: 'Access denied for this tenant'
+        });
+      }
+
+      // Helper function to convert DD/MM/YYYY to YYYY-MM-DD
+      const convertDateFormat = (dateStr) => {
+        if (!dateStr) return null;
+        const [day, month, year] = dateStr.split('/');
+        return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+      };
+
+      // Default to last 7 days if no dates provided
+      let startDate, endDate;
+      
+      if (fromDate) {
+        startDate = convertDateFormat(fromDate);
+      } else {
+        startDate = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+      }
+
+      if (toDate) {
+        endDate = convertDateFormat(toDate);
+      } else {
+        endDate = new Date().toISOString().split('T')[0];
+      }
+
+      // Validate converted dates
+      if ((fromDate && !startDate) || (toDate && !endDate)) {
+        return res.status(400).json({
+          responseCode: responseUtils.RESPONSE_CODES.ERROR,
+          responseMessage: 'Invalid date format. Please use DD/MM/YYYY format'
+        });
+      }
+
+      const result = await MealService.getMealStatistics(userTenantId, startDate, endDate);
+      res.json(result);
+    } catch (error) {
+      console.error('Error in getMealStatistics:', error);
+      res.status(500).json({
+        responseCode: responseUtils.RESPONSE_CODES.ERROR,
+        responseMessage: 'Internal server error',
+        error: process.env.NODE_ENV === 'development' ? error.message : undefined
+      });
+    }
+  }
 }
 
 module.exports = StudentController;

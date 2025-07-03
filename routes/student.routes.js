@@ -110,4 +110,31 @@ router.get('/pending-checkout', [
   query('tenantId').optional().isNumeric().withMessage('TenantId must be numeric')
 ], handleValidationErrors, StudentController.getPendingCheckout);
 
+// POST /api/students/meal-checkin - Meal check-in via QR code
+router.post('/meal-checkin', [
+  body('student_id').isInt({ min: 1 }).withMessage('Student ID must be a positive integer'),
+  body('tenant_id').optional().isNumeric().withMessage('Tenant ID must be numeric'),
+  body('confirmed').optional().isBoolean().withMessage('Confirmed must be a boolean')
+], handleValidationErrors, StudentController.mealCheckIn);
+
+// GET /api/students/:studentId/meal-history - Get student's meal history
+router.get('/:studentId/meal-history', [
+  param('studentId').isInt({ min: 1 }).withMessage('Student ID must be a positive integer'),
+  query('tenantId').optional().isNumeric().withMessage('TenantId must be numeric'),
+  query('limit').optional().isInt({ min: 1, max: 50 }).withMessage('Limit must be between 1 and 50')
+], handleValidationErrors, StudentController.getStudentMealHistory);
+
+// GET /api/students/meal-queue - Get current meal queue
+router.get('/meal-queue', [
+  query('tenantId').optional().isNumeric().withMessage('TenantId must be numeric'),
+  query('mealType').optional().isIn(['breakfast', 'lunch', 'dinner']).withMessage('Meal type must be breakfast, lunch, or dinner')
+], handleValidationErrors, StudentController.getCurrentMealQueue);
+
+// GET /api/students/meal-statistics - Get meal statistics
+router.get('/meal-statistics', [
+  query('tenantId').optional().isNumeric().withMessage('TenantId must be numeric'),
+  query('fromDate').optional().matches(/^\d{2}\/\d{2}\/\d{4}$/).withMessage('FromDate must be in DD/MM/YYYY format'),
+  query('toDate').optional().matches(/^\d{2}\/\d{2}\/\d{4}$/).withMessage('ToDate must be in DD/MM/YYYY format')
+], handleValidationErrors, StudentController.getMealStatistics);
+
 module.exports = router;
