@@ -3,6 +3,7 @@ const { query, param, body, validationResult } = require('express-validator');
 const StaffController = require('../controllers/staff.controller');
 const { authenticateToken } = require('../middleware/auth');
 const { handleValidationErrors } = require('../middleware/validation');
+const { uploadPurposeImage, handleUploadError } = require('../middleware/upload');
 
 const router = express.Router();
 
@@ -66,6 +67,14 @@ router.get('/designations', [
   query('tenantId').optional().isNumeric().withMessage('TenantId must be numeric')
 ], handleValidationErrors, StaffController.getDesignations);
 
+// GET /api/staff/purposes - Get available staff purposes
+router.get('/purposes', [
+  query('tenantId')
+    .notEmpty()
+    .isNumeric()
+    .withMessage('TenantId is required and must be numeric'),
+], handleValidationErrors, StaffController.getStaffPurposes);
+
 // POST /api/staff/register - Staff registration (OTP-based)
 router.post('/register', [
   body('mobile').notEmpty().matches(/^\d{10}$/).withMessage('Mobile must be 10 digits'),
@@ -97,5 +106,54 @@ router.get('/export', [
 // GET /api/staff/template - Download CSV template for bulk upload
 router.get('/template', handleValidationErrors, StaffController.downloadTemplate);
 
+// ===== DESIGNATION (PURPOSE) MANAGEMENT ROUTES =====
+
+// POST /api/staff/designations - Add new designation
+router.post('/designations', uploadPurposeImage, handleUploadError, [
+  body('purposeName')
+    .notEmpty()
+    .withMessage('Designation name is required')
+    .isString()
+    .trim()
+    .isLength({ min: 1, max: 250 })
+    .withMessage('Designation name must be between 1 and 250 characters'),
+  body('tenantId')
+    .optional()
+    .isNumeric()
+    .withMessage('TenantId must be numeric'),
+], handleValidationErrors, StaffController.addStaffPurpose);
+
+// PUT /api/staff/designations/:purposeId - Update designation
+router.put('/designations/:purposeId', [
+  param('purposeId')
+    .notEmpty()
+    .withMessage('Designation ID is required')
+    .isNumeric()
+    .withMessage('Designation ID must be numeric'),
+  body('purposeName')
+    .notEmpty()
+    .withMessage('Designation name is required')
+    .isString()
+    .trim()
+    .isLength({ min: 1, max: 250 })
+    .withMessage('Designation name must be between 1 and 250 characters'),
+  body('tenantId')
+    .optional()
+    .isNumeric()
+    .withMessage('TenantId must be numeric'),
+], handleValidationErrors, StaffController.updateStaffPurpose);
+
+// DELETE /api/staff/designations/:purposeId - Delete designation
+router.delete('/designations/:purposeId', [
+  param('purposeId')
+    .notEmpty()
+    .withMessage('Designation ID is required')
+    .isNumeric()
+    .withMessage('Designation ID must be numeric'),
+  body('tenantId')
+    .optional()
+    .isNumeric()
+    .withMessage('TenantId must be numeric'),
+], handleValidationErrors, StaffController.deleteStaffPurpose);
 
 module.exports = router;

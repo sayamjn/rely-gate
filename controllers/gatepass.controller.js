@@ -1,4 +1,5 @@
 const GatepassService = require("../services/gatepass.service");
+const StaffService = require("../services/staff.service");
 const responseUtils = require("../utils/constants");
 
 class GatepassController {
@@ -515,6 +516,7 @@ class GatepassController {
         tenantId: userTenantId,
         purposeName: purposeName.trim(),
         createdBy,
+        imageFile: req.file || null
       };
 
       const result = await GatepassService.addGatePassPurpose(purposeData);
@@ -522,14 +524,13 @@ class GatepassController {
       const statusCode = result.responseCode === "S" ? 201 : 400;
       res.status(statusCode).json(result);
     } catch (error) {
-      console.error("Error in addGatePassPurpose:", error);
+      console.error("Error in addBusPurpose:", error);
       res.status(500).json({
         responseCode: responseUtils.RESPONSE_CODES.ERROR,
         responseMessage: "Internal server error",
       });
     }
   }
-
   // PUT /api/gatepass/purposes/:purposeId - Update purpose
   static async updateGatePassPurpose(req, res) {
     try {

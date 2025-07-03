@@ -3,6 +3,7 @@ const { query, param, body, validationResult } = require('express-validator');
 const StudentController = require('../controllers/student.controller');
 const { authenticateToken } = require('../middleware/auth');
 const { handleValidationErrors } = require('../middleware/validation');
+const { uploadPurposeImage, handleUploadError } = require('../middleware/upload');
 
 const router = express.Router();
 
@@ -109,6 +110,56 @@ router.get('/template', handleValidationErrors, StudentController.downloadTempla
 router.get('/pending-checkout', [
   query('tenantId').optional().isNumeric().withMessage('TenantId must be numeric')
 ], handleValidationErrors, StudentController.getPendingCheckout);
+
+// ===== PURPOSE MANAGEMENT ROUTES =====
+
+// POST /api/students/purposes - Add new purpose
+router.post('/purposes', uploadPurposeImage, handleUploadError, [
+  body('purposeName')
+    .notEmpty()
+    .withMessage('Purpose name is required')
+    .isString()
+    .trim()
+    .isLength({ min: 1, max: 250 })
+    .withMessage('Purpose name must be between 1 and 250 characters'),
+  body('tenantId')
+    .optional()
+    .isNumeric()
+    .withMessage('TenantId must be numeric'),
+], handleValidationErrors, StudentController.addStudentPurpose);
+
+// PUT /api/students/purposes/:purposeId - Update purpose
+router.put('/purposes/:purposeId', [
+  param('purposeId')
+    .notEmpty()
+    .withMessage('Purpose ID is required')
+    .isNumeric()
+    .withMessage('Purpose ID must be numeric'),
+  body('purposeName')
+    .notEmpty()
+    .withMessage('Purpose name is required')
+    .isString()
+    .trim()
+    .isLength({ min: 1, max: 250 })
+    .withMessage('Purpose name must be between 1 and 250 characters'),
+  body('tenantId')
+    .optional()
+    .isNumeric()
+    .withMessage('TenantId must be numeric'),
+], handleValidationErrors, StudentController.updateStudentPurpose);
+
+// DELETE /api/students/purposes/:purposeId - Delete purpose
+router.delete('/purposes/:purposeId', [
+  param('purposeId')
+    .notEmpty()
+    .withMessage('Purpose ID is required')
+    .isNumeric()
+    .withMessage('Purpose ID must be numeric'),
+  body('tenantId')
+    .optional()
+    .isNumeric()
+    .withMessage('TenantId must be numeric'),
+], handleValidationErrors, StudentController.deleteStudentPurpose);
 
 // POST /api/students/meal-checkin - Meal check-in via QR code
 router.post('/meal-checkin', [

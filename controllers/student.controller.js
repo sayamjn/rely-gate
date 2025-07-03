@@ -91,57 +91,6 @@ class StudentController {
     }
   }
 
-  // GET /api/students/purposes - Get available purposes for students
-  static async getStudentPurposes(req, res) {
-    try {
-      const { tenantId, purposeCatId = 3 } = req.query;
-      const userTenantId = req.user.tenantId;
-
-      if (tenantId && parseInt(tenantId) !== userTenantId) {
-        return res.status(403).json({
-          responseCode: responseUtils.RESPONSE_CODES.ERROR,
-          responseMessage: 'Access denied for this tenant'
-        });
-      }
-
-      const result = await StudentService.getStudentPurposes(
-        userTenantId, 
-        parseInt(purposeCatId)
-      );
-      res.json(result);
-    } catch (error) {
-      console.error('Error in getStudentPurposes:', error);
-      res.status(500).json({
-        responseCode: responseUtils.RESPONSE_CODES.ERROR,
-        responseMessage: 'Internal server error'
-      });
-    }
-  }
-
-  // GET /api/students/purpose-categories - Get purpose categories
-  static async getPurposeCategories(req, res) {
-    try {
-      const { tenantId } = req.query;
-      const userTenantId = req.user.tenantId;
-
-      if (tenantId && parseInt(tenantId) !== userTenantId) {
-        return res.status(403).json({
-          responseCode: responseUtils.RESPONSE_CODES.ERROR,
-          responseMessage: 'Access denied for this tenant'
-        });
-      }
-
-      const result = await StudentService.getPurposeCategories(userTenantId);
-      res.json(result);
-    } catch (error) {
-      console.error('Error in getPurposeCategories:', error);
-      res.status(500).json({
-        responseCode: responseUtils.RESPONSE_CODES.ERROR,
-        responseMessage: 'Internal server error'
-      });
-    }
-  }
-
   // GET /api/students/:studentId/status - Check student's current check-in/out status
   static async getStudentStatus(req, res) {
     try {
@@ -573,6 +522,155 @@ static async getPendingCheckout(req, res) {
         responseCode: responseUtils.RESPONSE_CODES.ERROR,
         responseMessage: 'Internal server error',
         error: process.env.NODE_ENV === 'development' ? error.message : undefined
+      });
+    }
+  }
+
+    // GET /api/students/purposes - Get available purposes for students
+  static async getStudentPurposes(req, res) {
+    try {
+      const { tenantId, purposeCatId = 3 } = req.query;
+      const userTenantId = req.user.tenantId;
+
+      if (tenantId && parseInt(tenantId) !== userTenantId) {
+        return res.status(403).json({
+          responseCode: responseUtils.RESPONSE_CODES.ERROR,
+          responseMessage: 'Access denied for this tenant'
+        });
+      }
+
+      const result = await StudentService.getStudentPurposes(
+        userTenantId, 
+        parseInt(purposeCatId)
+      );
+      res.json(result);
+    } catch (error) {
+      console.error('Error in getStudentPurposes:', error);
+      res.status(500).json({
+        responseCode: responseUtils.RESPONSE_CODES.ERROR,
+        responseMessage: 'Internal server error'
+      });
+    }
+  }
+
+  // GET /api/students/purpose-categories - Get purpose categories
+  static async getPurposeCategories(req, res) {
+    try {
+      const { tenantId } = req.query;
+      const userTenantId = req.user.tenantId;
+
+      if (tenantId && parseInt(tenantId) !== userTenantId) {
+        return res.status(403).json({
+          responseCode: responseUtils.RESPONSE_CODES.ERROR,
+          responseMessage: 'Access denied for this tenant'
+        });
+      }
+
+      const result = await StudentService.getPurposeCategories(userTenantId);
+      res.json(result);
+    } catch (error) {
+      console.error('Error in getPurposeCategories:', error);
+      res.status(500).json({
+        responseCode: responseUtils.RESPONSE_CODES.ERROR,
+        responseMessage: 'Internal server error'
+      });
+    }
+  }
+  
+  // POST /api/students/purposes - Add new purpose
+  static async addStudentPurpose(req, res) {
+    try {
+      const { purposeName, tenantId } = req.body;
+      const userTenantId = tenantId || (req.user ? req.user.tenantId : null);
+      const createdBy = (req.user ? req.user.username : null) || "System";
+
+      if (!userTenantId) {
+        return res.status(400).json({
+          responseCode: responseUtils.RESPONSE_CODES.ERROR,
+          responseMessage: "TenantId is required",
+        });
+      }
+
+      const purposeData = {
+        tenantId: userTenantId,
+        purposeName: purposeName.trim(),
+        createdBy,
+        imageFile: req.file || null
+      };
+
+      const result = await StudentService.addStudentPurpose(purposeData);
+
+      const statusCode = result.responseCode === "S" ? 201 : 400;
+      res.status(statusCode).json(result);
+    } catch (error) {
+      console.error("Error in addStudentPurpose:", error);
+      res.status(500).json({
+        responseCode: responseUtils.RESPONSE_CODES.ERROR,
+        responseMessage: "Internal server error",
+      });
+    }
+  }
+
+  // PUT /api/students/purposes/:purposeId - Update purpose
+  static async updateStudentPurpose(req, res) {
+    try {
+      const { purposeId } = req.params;
+      const { purposeName, tenantId } = req.body;
+      const userTenantId = tenantId || (req.user ? req.user.tenantId : null);
+      const updatedBy = (req.user ? req.user.username : null) || "System";
+
+      if (!userTenantId) {
+        return res.status(400).json({
+          responseCode: responseUtils.RESPONSE_CODES.ERROR,
+          responseMessage: "TenantId is required",
+        });
+      }
+
+      const result = await StudentService.updateStudentPurpose(
+        parseInt(purposeId),
+        userTenantId,
+        purposeName.trim(),
+        updatedBy
+      );
+
+      const statusCode = result.responseCode === "S" ? 200 : 400;
+      res.status(statusCode).json(result);
+    } catch (error) {
+      console.error("Error in updateStudentPurpose:", error);
+      res.status(500).json({
+        responseCode: responseUtils.RESPONSE_CODES.ERROR,
+        responseMessage: "Internal server error",
+      });
+    }
+  }
+
+  // DELETE /api/students/purposes/:purposeId - Delete purpose
+  static async deleteStudentPurpose(req, res) {
+    try {
+      const { purposeId } = req.params;
+      const userTenantId = req.user.tenantId;
+      const updatedBy = req.user.username || "System";
+
+      if (!purposeId) {
+        return res.status(400).json({
+          responseCode: responseUtils.RESPONSE_CODES.ERROR,
+          responseMessage: "Purpose ID is required",
+        });
+      }
+
+      const result = await StudentService.deleteStudentPurpose(
+        parseInt(purposeId),
+        userTenantId,
+        updatedBy
+      );
+
+      const statusCode = result.responseCode === "S" ? 200 : 400;
+      res.status(statusCode).json(result);
+    } catch (error) {
+      console.error("Error in deleteStudentPurpose:", error);
+      res.status(500).json({
+        responseCode: responseUtils.RESPONSE_CODES.ERROR,
+        responseMessage: "Internal server error",
       });
     }
   }

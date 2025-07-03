@@ -804,7 +804,126 @@ class VisitorModel {
     const result = await query(sql, [tenantId, limit]);
     return result.rows;
   }
-  
+
+  // Add new visitor purpose
+  static async addVisitorPurpose(purposeData) {
+    const { tenantId, purposeName, createdBy, imageData } = purposeData;
+    
+    const sql = `
+      INSERT INTO VisitorPuposeMaster (
+        TenantID, 
+        PurposeCatID, 
+        PurposeCatName, 
+        VisitPurpose, 
+        IsActive,
+        CreatedBy,
+        CreatedDate,
+        ImageFlag,
+        ImagePath,
+        ImageName,
+        ImageUrl
+      ) VALUES ($1, $2, $3, $4, $5, $6, NOW(), $7, $8, $9, $10)
+      RETURNING 
+        VisitPurposeID as "purposeId",
+        VisitPurpose as "purposeName",
+        PurposeCatID as "purposeCatId",
+        PurposeCatName as "purposeCatName",
+        ImageFlag as "imageFlag",
+        ImagePath as "imagePath",
+        ImageName as "imageName",
+        ImageUrl as "imageUrl"
+    `;
+
+    const result = await query(sql, [
+      tenantId,
+      1, // Visitor category ID
+      'Visitor',
+      purposeName,
+      'Y',
+      createdBy,
+      imageData ? imageData.flag : 'N',
+      imageData ? imageData.path : null,
+      imageData ? imageData.name : null,
+      imageData ? imageData.url : null
+    ]);
+
+    return result.rows[0];
+  }
+
+  // Update visitor purpose
+  static async updateVisitorPurpose(purposeId, tenantId, purposeName, updatedBy) {
+    const sql = `
+      UPDATE VisitorPuposeMaster 
+      SET VisitPurpose = $1,
+          UpdatedBy = $2,
+          UpdatedDate = NOW()
+      WHERE VisitPurposeID = $3 
+        AND TenantID = $4 
+        AND PurposeCatID = 1
+      RETURNING 
+        VisitPurposeID as "purposeId",
+        VisitPurpose as "purposeName",
+        PurposeCatID as "purposeCatId",
+        PurposeCatName as "purposeCatName"
+    `;
+
+    const result = await query(sql, [purposeName, updatedBy, purposeId, tenantId]);
+    return result.rows[0];
+  }
+
+  // Delete visitor purpose (soft delete)
+  static async deleteVisitorPurpose(purposeId, tenantId, updatedBy) {
+    const sql = `
+      UPDATE VisitorPuposeMaster 
+      SET IsActive = 'N',
+          UpdatedBy = $1,
+          UpdatedDate = NOW()
+      WHERE VisitPurposeID = $2 
+        AND TenantID = $3 
+        AND PurposeCatID = 1
+        AND IsActive = 'Y'
+      RETURNING VisitPurposeID as "purposeId"
+    `;
+
+    const result = await query(sql, [updatedBy, purposeId, tenantId]);
+    return result.rows[0];
+  }
+
+  // Check if purpose exists (for validation)
+  static async checkPurposeExists(tenantId, purposeName, excludeId = null) {
+    let sql = `
+      SELECT VisitPurposeID
+      FROM VisitorPuposeMaster
+      WHERE TenantID = $1 
+        AND LOWER(TRIM(VisitPurpose)) = LOWER(TRIM($2))
+        AND PurposeCatID = 1
+        AND IsActive = 'Y'
+    `;
+    
+    const params = [tenantId, purposeName];
+    
+    if (excludeId) {
+      sql += ` AND VisitPurposeID != $3`;
+      params.push(excludeId);
+    }
+
+    const result = await query(sql, params);
+    return result.rows.length > 0;
+  }
+
+  // Check purpose status before operations
+  static async checkPurposeStatus(purposeId, tenantId) {
+    const sql = `
+      SELECT VisitPurposeID, IsActive
+      FROM VisitorPuposeMaster
+      WHERE VisitPurposeID = $1 
+        AND TenantID = $2
+        AND PurposeCatID = 1
+    `;
+
+    const result = await query(sql, [purposeId, tenantId]);
+    return result.rows[0];
+  }
 }
 
 module.exports = VisitorModel;

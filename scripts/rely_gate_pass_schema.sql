@@ -8,38 +8,71 @@
 
 -- Drop existing tables if they exist (for clean installation)
 DROP TABLE IF EXISTS VisitorRegVisitHistory CASCADE;
+
 DROP TABLE IF EXISTS VisitorRegistration CASCADE;
+
 DROP TABLE IF EXISTS VisitorMaster CASCADE;
+
 DROP TABLE IF EXISTS VisitorSubCategory CASCADE;
+
 DROP TABLE IF EXISTS VisitorCategory CASCADE;
+
 DROP TABLE IF EXISTS VisitorPuposeMaster CASCADE;
+
 DROP TABLE IF EXISTS LoginUser CASCADE;
+
 DROP TABLE IF EXISTS FuncRoleAccess CASCADE;
+
 DROP TABLE IF EXISTS RoleMenuMapping CASCADE;
+
 DROP TABLE IF EXISTS ModuleMaster CASCADE;
+
 DROP TABLE IF EXISTS RoleMaster CASCADE;
+
 DROP TABLE IF EXISTS FlatMaster CASCADE;
+
 DROP TABLE IF EXISTS FloorMaster CASCADE;
+
 DROP TABLE IF EXISTS BlockMaster CASCADE;
+
 DROP TABLE IF EXISTS TenantSetting CASCADE;
+
 DROP TABLE IF EXISTS Tenant CASCADE;
+
 DROP TABLE IF EXISTS StatusCodeMaster CASCADE;
+
 DROP TABLE IF EXISTS DepartmentMaster CASCADE;
+
 DROP TABLE IF EXISTS IDMaster CASCADE;
+
 DROP TABLE IF EXISTS PortalOTP CASCADE;
+
 DROP TABLE IF EXISTS FCM CASCADE;
+
 DROP TABLE IF EXISTS ImportantContact CASCADE;
+
 DROP TABLE IF EXISTS NoticeCategoryMaster CASCADE;
+
 DROP TABLE IF EXISTS Notice CASCADE;
+
 DROP TABLE IF EXISTS SMSGatewayMaster CASCADE;
+
 DROP TABLE IF EXISTS Photo CASCADE;
+
 DROP TABLE IF EXISTS ReportProblem CASCADE;
+
 DROP TABLE IF EXISTS RelationMaster CASCADE;
+
 DROP TABLE IF EXISTS ImportanceMaster CASCADE;
+
 DROP TABLE IF EXISTS IncidentEntry CASCADE;
+
 DROP TABLE IF EXISTS IncidentCatMaster CASCADE;
+
 DROP TABLE IF EXISTS FuctionalityMaster CASCADE;
+
 DROP TABLE IF EXISTS TenantPaymentHistory CASCADE;
+
 DROP TABLE IF EXISTS BulkVisitorUpload CASCADE;
 
 -- ============================================================
@@ -174,10 +207,10 @@ CREATE TABLE FlatMaster (
     RenterMName varchar(50),
     RenterLName varchar(50),
     RenterMobile varchar(50),
-    Area decimal(18,2),
+    Area decimal(18, 2),
     FlatRemark varchar(750),
-    RentPerMonth decimal(18,2),
-    SocietyFeePerMonth decimal(18,2),
+    RentPerMonth decimal(18, 2),
+    SocietyFeePerMonth decimal(18, 2),
     IsVacant char(1) DEFAULT 'N',
     OwnerPhotoFlag char(1) DEFAULT 'N',
     OwnerPhotoPath varchar(750),
@@ -310,7 +343,6 @@ CREATE TABLE LoginUser (
     UpdatedDate timestamp DEFAULT CURRENT_TIMESTAMP,
     CreatedBy varchar(250),
     UpdatedBy varchar(250),
-    
     CONSTRAINT UK_LoginUser_UserName UNIQUE (UserName)
 );
 
@@ -778,11 +810,11 @@ CREATE TABLE TenantPaymentHistory (
     PayNo varchar(50),
     PayDate timestamp,
     PayDateTxt varchar(50),
-    BillAmt decimal(18,2),
-    DiscountAmt decimal(18,2),
-    NetAmount decimal(18,2),
-    RecAmt decimal(18,2),
-    DueAmt decimal(18,2),
+    BillAmt decimal(18, 2),
+    DiscountAmt decimal(18, 2),
+    NetAmount decimal(18, 2),
+    RecAmt decimal(18, 2),
+    DueAmt decimal(18, 2),
     PayModeID int,
     PayMode varchar(50),
     BankID int,
@@ -858,175 +890,847 @@ CREATE TABLE TenantSetting (
 -- FOREIGN KEY CONSTRAINTS
 -- ============================================================
 
-ALTER TABLE FuncRoleAccess 
-    ADD CONSTRAINT FK_FuncRoleAccess_RoleMaster 
-    FOREIGN KEY (RoleAccessID) REFERENCES RoleMaster(RoleID);
+ALTER TABLE FuncRoleAccess
+ADD CONSTRAINT FK_FuncRoleAccess_RoleMaster FOREIGN KEY (RoleAccessID) REFERENCES RoleMaster (RoleID);
 
-ALTER TABLE RoleMenuMapping 
-    ADD CONSTRAINT FK_RoleMenuMapping_RoleMaster 
-    FOREIGN KEY (RoleMasterID) REFERENCES RoleMaster(RoleID);
+ALTER TABLE RoleMenuMapping
+ADD CONSTRAINT FK_RoleMenuMapping_RoleMaster FOREIGN KEY (RoleMasterID) REFERENCES RoleMaster (RoleID);
 
-ALTER TABLE VisitorSubCategory 
-    ADD CONSTRAINT FK_VisitorSubCategory_VisitorCategory 
-    FOREIGN KEY (VisitorCatID) REFERENCES VisitorCategory(VisitorCatID);
+ALTER TABLE VisitorSubCategory
+ADD CONSTRAINT FK_VisitorSubCategory_VisitorCategory FOREIGN KEY (VisitorCatID) REFERENCES VisitorCategory (VisitorCatID);
 
-ALTER TABLE Notice 
-    ADD CONSTRAINT FK_Notice_NoticeCategoryMaster 
-    FOREIGN KEY (NoticeCatID) REFERENCES NoticeCategoryMaster(NoticeCatID);
+ALTER TABLE Notice
+ADD CONSTRAINT FK_Notice_NoticeCategoryMaster FOREIGN KEY (NoticeCatID) REFERENCES NoticeCategoryMaster (NoticeCatID);
+
+ALTER TABLE VisitorPuposeMaster
+ADD COLUMN IF NOT EXISTS ImageFlag char(1) DEFAULT 'N',
+ADD COLUMN IF NOT EXISTS ImagePath varchar(750),
+ADD COLUMN IF NOT EXISTS ImageName varchar(250),
+ADD COLUMN IF NOT EXISTS ImageUrl varchar(750);
+
+-- Add comments to explain the new columns
+COMMENT ON COLUMN VisitorPuposeMaster.ImageFlag IS 'Y if purpose has an image, N otherwise';
+
+COMMENT ON COLUMN VisitorPuposeMaster.ImagePath IS 'Relative path to the purpose image file';
+
+COMMENT ON COLUMN VisitorPuposeMaster.ImageName IS 'Original filename of the purpose image';
+
+COMMENT ON COLUMN VisitorPuposeMaster.ImageUrl IS 'Full URL to access the purpose image';
+
+-- Create index for better performance on image queries
+CREATE INDEX IF NOT EXISTS idx_visitor_purpose_image_flag ON VisitorPuposeMaster (ImageFlag)
+WHERE
+    ImageFlag = 'Y';
 
 -- ============================================================
 -- INDEXES FOR PERFORMANCE
 -- ============================================================
 
-CREATE INDEX idx_tenant_id ON DepartmentMaster(TenantID);
-CREATE INDEX idx_fcm_tenant_login ON FCM(TenantID, LoginUserID);
-CREATE INDEX idx_flat_tenant ON FlatMaster(TenantID);
-CREATE INDEX idx_login_user_tenant ON LoginUser(TenantID, UserName);
-CREATE INDEX idx_visitor_tenant_status ON VisitorMaster(TenantID, StatusID);
-CREATE INDEX idx_visitor_reg_tenant ON VisitorRegistration(TenantID);
-CREATE INDEX idx_loginuser_tenant ON LoginUser(TenantID);
-CREATE INDEX idx_loginuser_username ON LoginUser(UserName);
-CREATE INDEX idx_loginuser_email ON LoginUser(Email);
-CREATE INDEX idx_loginuser_role ON LoginUser(RoleAccessID);
-CREATE INDEX idx_visitor_mobile ON VisitorMaster(TenantID, Mobile);
-CREATE INDEX idx_visitor_intime ON VisitorMaster(TenantID, INTime);
-CREATE INDEX idx_visitor_outtime ON VisitorMaster(TenantID, OutTime);
-CREATE INDEX idx_visitor_reg_mobile ON VisitorRegistration(TenantID, Mobile);
-CREATE INDEX idx_portal_otp_mobile ON PortalOTP(TenantID, MobileNo);
-CREATE INDEX idx_incident_tenant_status ON IncidentEntry(TenantID, StatusID);
-CREATE INDEX idx_visitor_master_tenant_mobile ON VisitorMaster(TenantID, Mobile);
-CREATE INDEX idx_visitor_registration_tenant_mobile ON VisitorRegistration(TenantID, Mobile);
-CREATE INDEX idx_visitor_registration_tenant_category ON VisitorRegistration(TenantID, VisitorCatID);
-CREATE INDEX idx_portal_otp_mobile_active ON PortalOTP(MobileNo, IsActive);
-CREATE INDEX idx_portal_otp_created_date ON PortalOTP(CreatedDate);
-CREATE INDEX idx_visitor_subcategory_tenant_category ON VisitorSubCategory(TenantID, VisitorCatID);
-CREATE INDEX idx_visitor_purpose_tenant_category ON VisitorPuposeMaster(TenantID, PurposeCatID);
-CREATE INDEX idx_visitor_regvisit_tenant_visitor ON VisitorRegVisitHistory(TenantID, VisitorRegID);
-CREATE INDEX idx_visitor_regvisit_mobile ON VisitorRegVisitHistory(TenantID, Mobile);
-CREATE INDEX idx_visitor_regvisit_intime ON VisitorRegVisitHistory(TenantID, INTime);
-CREATE INDEX idx_visitor_regvisit_outtime ON VisitorRegVisitHistory(TenantID, OutTime);
-CREATE INDEX idx_visitor_regvisit_category ON VisitorRegVisitHistory(TenantID, VisitorCatID);
+CREATE INDEX idx_tenant_id ON DepartmentMaster (TenantID);
+
+CREATE INDEX idx_fcm_tenant_login ON FCM (TenantID, LoginUserID);
+
+CREATE INDEX idx_flat_tenant ON FlatMaster (TenantID);
+
+CREATE INDEX idx_login_user_tenant ON LoginUser (TenantID, UserName);
+
+CREATE INDEX idx_visitor_tenant_status ON VisitorMaster (TenantID, StatusID);
+
+CREATE INDEX idx_visitor_reg_tenant ON VisitorRegistration (TenantID);
+
+CREATE INDEX idx_loginuser_tenant ON LoginUser (TenantID);
+
+CREATE INDEX idx_loginuser_username ON LoginUser (UserName);
+
+CREATE INDEX idx_loginuser_email ON LoginUser (Email);
+
+CREATE INDEX idx_loginuser_role ON LoginUser (RoleAccessID);
+
+CREATE INDEX idx_visitor_mobile ON VisitorMaster (TenantID, Mobile);
+
+CREATE INDEX idx_visitor_intime ON VisitorMaster (TenantID, INTime);
+
+CREATE INDEX idx_visitor_outtime ON VisitorMaster (TenantID, OutTime);
+
+CREATE INDEX idx_visitor_reg_mobile ON VisitorRegistration (TenantID, Mobile);
+
+CREATE INDEX idx_portal_otp_mobile ON PortalOTP (TenantID, MobileNo);
+
+CREATE INDEX idx_incident_tenant_status ON IncidentEntry (TenantID, StatusID);
+
+CREATE INDEX idx_visitor_master_tenant_mobile ON VisitorMaster (TenantID, Mobile);
+
+CREATE INDEX idx_visitor_registration_tenant_mobile ON VisitorRegistration (TenantID, Mobile);
+
+CREATE INDEX idx_visitor_registration_tenant_category ON VisitorRegistration (TenantID, VisitorCatID);
+
+CREATE INDEX idx_portal_otp_mobile_active ON PortalOTP (MobileNo, IsActive);
+
+CREATE INDEX idx_portal_otp_created_date ON PortalOTP (CreatedDate);
+
+CREATE INDEX idx_visitor_subcategory_tenant_category ON VisitorSubCategory (TenantID, VisitorCatID);
+
+CREATE INDEX idx_visitor_purpose_tenant_category ON VisitorPuposeMaster (TenantID, PurposeCatID);
+
+CREATE INDEX idx_visitor_regvisit_tenant_visitor ON VisitorRegVisitHistory (TenantID, VisitorRegID);
+
+CREATE INDEX idx_visitor_regvisit_mobile ON VisitorRegVisitHistory (TenantID, Mobile);
+
+CREATE INDEX idx_visitor_regvisit_intime ON VisitorRegVisitHistory (TenantID, INTime);
+
+CREATE INDEX idx_visitor_regvisit_outtime ON VisitorRegVisitHistory (TenantID, OutTime);
+
+CREATE INDEX idx_visitor_regvisit_category ON VisitorRegVisitHistory (TenantID, VisitorCatID);
 
 -- ============================================================
 -- INITIAL DATA SETUP
 -- ============================================================
 
 -- Insert default tenant
-INSERT INTO Tenant (
-    TenantID, TenantName, TenantCode, ShortName, Email, Mobile, Address1,
-    IsActive, StatusID, SuscriptionStartDate, SuscriptionEndDate, 
-    FinancialYear, EntityLogoFlag, KeyActivateFlag, CreatedDate, UpdatedDate
-) VALUES (
-    1001, 'Rely Gate Pass System', 'RELY1001', 'RGPS', 
-    'admin@relygate.com', '+91-9876543210', 'Technology Center, Innovation Hub',
-    'Y', 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP + INTERVAL '1 year', 
-    2025, 'N', 'Y', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
-);
+INSERT INTO
+    Tenant (
+        TenantID,
+        TenantName,
+        TenantCode,
+        ShortName,
+        Email,
+        Mobile,
+        Address1,
+        IsActive,
+        StatusID,
+        SuscriptionStartDate,
+        SuscriptionEndDate,
+        FinancialYear,
+        EntityLogoFlag,
+        KeyActivateFlag,
+        CreatedDate,
+        UpdatedDate
+    )
+VALUES (
+        1001,
+        'Rely Gate Pass System',
+        'RELY1001',
+        'RGPS',
+        'admin@relygate.com',
+        '+91-9876543210',
+        'Technology Center, Innovation Hub',
+        'Y',
+        1,
+        CURRENT_TIMESTAMP,
+        CURRENT_TIMESTAMP + INTERVAL '1 year',
+        2025,
+        'N',
+        'Y',
+        CURRENT_TIMESTAMP,
+        CURRENT_TIMESTAMP
+    );
 
 -- Insert default status codes
-INSERT INTO StatusCodeMaster (StatusID, TenantID, StatusCode, StatusShortName, StatusLongName, IsActive, Process) VALUES
-(1, 1001, 'ACTIVE', 'Active', 'Active Status', 'Y', 'General'),
-(2, 1001, 'INACTIVE', 'Inactive', 'Inactive Status', 'Y', 'General'),
-(3, 1001, 'PENDING', 'Pending', 'Pending Approval', 'Y', 'Visitor'),
-(4, 1001, 'APPROVED', 'Approved', 'Approved Entry', 'Y', 'Visitor'),
-(5, 1001, 'CHECKEDIN', 'Checked In', 'Visitor Checked In', 'Y', 'Visitor'),
-(6, 1001, 'CHECKEDOUT', 'Checked Out', 'Visitor Checked Out', 'Y', 'Visitor'),
-(7, 1001, 'REJECTED', 'Rejected', 'Entry Rejected', 'Y', 'Visitor');
+INSERT INTO
+    StatusCodeMaster (
+        StatusID,
+        TenantID,
+        StatusCode,
+        StatusShortName,
+        StatusLongName,
+        IsActive,
+        Process
+    )
+VALUES (
+        1,
+        1001,
+        'ACTIVE',
+        'Active',
+        'Active Status',
+        'Y',
+        'General'
+    ),
+    (
+        2,
+        1001,
+        'INACTIVE',
+        'Inactive',
+        'Inactive Status',
+        'Y',
+        'General'
+    ),
+    (
+        3,
+        1001,
+        'PENDING',
+        'Pending',
+        'Pending Approval',
+        'Y',
+        'Visitor'
+    ),
+    (
+        4,
+        1001,
+        'APPROVED',
+        'Approved',
+        'Approved Entry',
+        'Y',
+        'Visitor'
+    ),
+    (
+        5,
+        1001,
+        'CHECKEDIN',
+        'Checked In',
+        'Visitor Checked In',
+        'Y',
+        'Visitor'
+    ),
+    (
+        6,
+        1001,
+        'CHECKEDOUT',
+        'Checked Out',
+        'Visitor Checked Out',
+        'Y',
+        'Visitor'
+    ),
+    (
+        7,
+        1001,
+        'REJECTED',
+        'Rejected',
+        'Entry Rejected',
+        'Y',
+        'Visitor'
+    );
 
 -- Insert default roles
-INSERT INTO RoleMaster (TenantID, IsActive, RoleCode, RoleName, RoleRemark, CreatedBy, UpdatedBy) VALUES
-(1001, 'Y', 'ADMIN', 'Administrator', 'System Administrator', 'SYSTEM', 'SYSTEM'),
-(1001, 'Y', 'GUARD', 'Security Guard', 'Security Personnel', 'SYSTEM', 'SYSTEM'),
-(1001, 'Y', 'RESIDENT', 'Resident', 'Resident User', 'SYSTEM', 'SYSTEM'),
-(1001, 'Y', 'MANAGER', 'Manager', 'Property Manager', 'SYSTEM', 'SYSTEM');
+INSERT INTO
+    RoleMaster (
+        TenantID,
+        IsActive,
+        RoleCode,
+        RoleName,
+        RoleRemark,
+        CreatedBy,
+        UpdatedBy
+    )
+VALUES (
+        1001,
+        'Y',
+        'ADMIN',
+        'Administrator',
+        'System Administrator',
+        'SYSTEM',
+        'SYSTEM'
+    ),
+    (
+        1001,
+        'Y',
+        'GUARD',
+        'Security Guard',
+        'Security Personnel',
+        'SYSTEM',
+        'SYSTEM'
+    ),
+    (
+        1001,
+        'Y',
+        'RESIDENT',
+        'Resident',
+        'Resident User',
+        'SYSTEM',
+        'SYSTEM'
+    ),
+    (
+        1001,
+        'Y',
+        'MANAGER',
+        'Manager',
+        'Property Manager',
+        'SYSTEM',
+        'SYSTEM'
+    );
 
 -- Insert default admin user
-INSERT INTO LoginUser (
-    TenantID, IsActive, RoleAccessID, RoleName, FirstN, LastN, 
-    UserName, Passwrd, DisplayN, Email, Mobile, CreatedBy, UpdatedBy
-) VALUES (
-    1001, 'Y', 1, 'Administrator', 'System', 'Admin', 
-    'admin', '$2b$10$rWyWJGE4qx4j8XhTx5OKf.PcEKKZZWjVKZF8nQ8Hx3vJ2qx3xWy1K', 
-    'System Administrator', 'admin@relygate.com', '9876543210', 'SYSTEM', 'SYSTEM'
-);
+INSERT INTO
+    LoginUser (
+        TenantID,
+        IsActive,
+        RoleAccessID,
+        RoleName,
+        FirstN,
+        LastN,
+        UserName,
+        Passwrd,
+        DisplayN,
+        Email,
+        Mobile,
+        CreatedBy,
+        UpdatedBy
+    )
+VALUES (
+        1001,
+        'Y',
+        1,
+        'Administrator',
+        'System',
+        'Admin',
+        'admin',
+        '$2b$10$rWyWJGE4qx4j8XhTx5OKf.PcEKKZZWjVKZF8nQ8Hx3vJ2qx3xWy1K',
+        'System Administrator',
+        'admin@relygate.com',
+        '9876543210',
+        'SYSTEM',
+        'SYSTEM'
+    );
 
 -- Insert default visitor categories
-INSERT INTO VisitorCategory (VisitorCatID, TenantID, IsActive, VisitorCatName, CreatedBy, UpdatedBy) VALUES
-(1, 1001, 'Y', 'Staff', 'SYSTEM', 'SYSTEM'),
-(2, 1001, 'Y', 'Unregistered', 'SYSTEM', 'SYSTEM'),
-(3, 1001, 'Y', 'Student', 'SYSTEM', 'SYSTEM'),
-(4, 1001, 'Y', 'Guest', 'SYSTEM', 'SYSTEM'),
-(5, 1001, 'Y', 'Bus', 'SYSTEM', 'SYSTEM');
+INSERT INTO
+    VisitorCategory (
+        VisitorCatID,
+        TenantID,
+        IsActive,
+        VisitorCatName,
+        CreatedBy,
+        UpdatedBy
+    )
+VALUES (
+        1,
+        1001,
+        'Y',
+        'Staff',
+        'SYSTEM',
+        'SYSTEM'
+    ),
+    (
+        2,
+        1001,
+        'Y',
+        'Unregistered',
+        'SYSTEM',
+        'SYSTEM'
+    ),
+    (
+        3,
+        1001,
+        'Y',
+        'Student',
+        'SYSTEM',
+        'SYSTEM'
+    ),
+    (
+        4,
+        1001,
+        'Y',
+        'Guest',
+        'SYSTEM',
+        'SYSTEM'
+    ),
+    (
+        5,
+        1001,
+        'Y',
+        'Bus',
+        'SYSTEM',
+        'SYSTEM'
+    );
 
 -- Insert default visitor subcategories
-INSERT INTO VisitorSubCategory (TenantID, VisitorCatID, VisitorCatName, VisitorSubCatName, IsActive, CreatedBy, UpdatedBy) VALUES
-(1001, 1, 'Staff', 'Security', 'Y', 'SYSTEM', 'SYSTEM'),
-(1001, 1, 'Staff', 'Maintenance', 'Y', 'SYSTEM', 'SYSTEM'),
-(1001, 1, 'Staff', 'Cleaning', 'Y', 'SYSTEM', 'SYSTEM'),
-(1001, 2, 'Unregistered', 'Walk-in Visitor', 'Y', 'SYSTEM', 'SYSTEM'),
-(1001, 2, 'Unregistered', 'Emergency', 'Y', 'SYSTEM', 'SYSTEM'),
-(1001, 3, 'Student', 'Regular Student', 'Y', 'SYSTEM', 'SYSTEM'),
-(1001, 3, 'Student', 'New Admission', 'Y', 'SYSTEM', 'SYSTEM'),
-(1001, 4, 'Guest', 'Family Member', 'Y', 'SYSTEM', 'SYSTEM'),
-(1001, 4, 'Guest', 'Friend', 'Y', 'SYSTEM', 'SYSTEM'),
-(1001, 5, 'Bus', 'Delivery', 'Y', 'SYSTEM', 'SYSTEM'),
-(1001, 5, 'Bus', 'Service Provider', 'Y', 'SYSTEM', 'SYSTEM');
+INSERT INTO
+    VisitorSubCategory (
+        TenantID,
+        VisitorCatID,
+        VisitorCatName,
+        VisitorSubCatName,
+        IsActive,
+        CreatedBy,
+        UpdatedBy
+    )
+VALUES (
+        1001,
+        1,
+        'Staff',
+        'Security',
+        'Y',
+        'SYSTEM',
+        'SYSTEM'
+    ),
+    (
+        1001,
+        1,
+        'Staff',
+        'Maintenance',
+        'Y',
+        'SYSTEM',
+        'SYSTEM'
+    ),
+    (
+        1001,
+        1,
+        'Staff',
+        'Cleaning',
+        'Y',
+        'SYSTEM',
+        'SYSTEM'
+    ),
+    (
+        1001,
+        2,
+        'Unregistered',
+        'Walk-in Visitor',
+        'Y',
+        'SYSTEM',
+        'SYSTEM'
+    ),
+    (
+        1001,
+        2,
+        'Unregistered',
+        'Emergency',
+        'Y',
+        'SYSTEM',
+        'SYSTEM'
+    ),
+    (
+        1001,
+        3,
+        'Student',
+        'Regular Student',
+        'Y',
+        'SYSTEM',
+        'SYSTEM'
+    ),
+    (
+        1001,
+        3,
+        'Student',
+        'New Admission',
+        'Y',
+        'SYSTEM',
+        'SYSTEM'
+    ),
+    (
+        1001,
+        4,
+        'Guest',
+        'Family Member',
+        'Y',
+        'SYSTEM',
+        'SYSTEM'
+    ),
+    (
+        1001,
+        4,
+        'Guest',
+        'Friend',
+        'Y',
+        'SYSTEM',
+        'SYSTEM'
+    ),
+    (
+        1001,
+        5,
+        'Bus',
+        'Delivery',
+        'Y',
+        'SYSTEM',
+        'SYSTEM'
+    ),
+    (
+        1001,
+        5,
+        'Bus',
+        'Service Provider',
+        'Y',
+        'SYSTEM',
+        'SYSTEM'
+    );
 
 -- Insert default visit purposes
-INSERT INTO VisitorPuposeMaster (TenantID, IsActive, PurposeCatID, PurposeCatName, VisitPurpose, CreatedBy, UpdatedBy) VALUES
--- General purposes
-(1001, 'Y', 1, 'General', 'Personal Visit', 'SYSTEM', 'SYSTEM'),
-(1001, 'Y', 1, 'General', 'Business Meeting', 'SYSTEM', 'SYSTEM'),
-(1001, 'Y', 1, 'General', 'Maintenance Work', 'SYSTEM', 'SYSTEM'),
-(1001, 'Y', 1, 'General', 'Package Delivery', 'SYSTEM', 'SYSTEM'),
-(1001, 'Y', 1, 'General', 'Emergency Service', 'SYSTEM', 'SYSTEM'),
-(1001, 'Y', 1, 'General', 'Official Work', 'SYSTEM', 'SYSTEM'),
--- Bus purposes
-(1001, 'Y', 2, 'Bus', 'Passenger Transport', 'SYSTEM', 'SYSTEM'),
-(1001, 'Y', 2, 'Bus', 'Emergency Response', 'SYSTEM', 'SYSTEM'),
-(1001, 'Y', 2, 'Bus', 'Maintenance Work', 'SYSTEM', 'SYSTEM'),
-(1001, 'Y', 2, 'Bus', 'Security Patrol', 'SYSTEM', 'SYSTEM'),
-(1001, 'Y', 2, 'Bus', 'Supply Delivery', 'SYSTEM', 'SYSTEM'),
--- Student purposes
-(1001, 'Y', 3, 'Student', 'Library Visit', 'SYSTEM', 'SYSTEM'),
-(1001, 'Y', 3, 'Student', 'Canteen/Mess', 'SYSTEM', 'SYSTEM'),
-(1001, 'Y', 3, 'Student', 'Sports Activity', 'SYSTEM', 'SYSTEM'),
-(1001, 'Y', 3, 'Student', 'Medical Visit', 'SYSTEM', 'SYSTEM'),
-(1001, 'Y', 3, 'Student', 'Shopping', 'SYSTEM', 'SYSTEM'),
-(1001, 'Y', 3, 'Student', 'Home Visit', 'SYSTEM', 'SYSTEM'),
-(1001, 'Y', 3, 'Student', 'Class/Study', 'SYSTEM', 'SYSTEM'),
-(1001, 'Y', 3, 'Student', 'Administrative Work', 'SYSTEM', 'SYSTEM'),
-(1001, 'Y', 3, 'Student', 'Recreation', 'SYSTEM', 'SYSTEM');
+INSERT INTO
+    VisitorPuposeMaster (
+        TenantID,
+        IsActive,
+        PurposeCatID,
+        PurposeCatName,
+        VisitPurpose,
+        CreatedBy,
+        UpdatedBy
+    )
+VALUES
+    -- General purposes
+    (
+        1001,
+        'Y',
+        1,
+        'General',
+        'Personal Visit',
+        'SYSTEM',
+        'SYSTEM'
+    ),
+    (
+        1001,
+        'Y',
+        1,
+        'General',
+        'Business Meeting',
+        'SYSTEM',
+        'SYSTEM'
+    ),
+    (
+        1001,
+        'Y',
+        1,
+        'General',
+        'Maintenance Work',
+        'SYSTEM',
+        'SYSTEM'
+    ),
+    (
+        1001,
+        'Y',
+        1,
+        'General',
+        'Package Delivery',
+        'SYSTEM',
+        'SYSTEM'
+    ),
+    (
+        1001,
+        'Y',
+        1,
+        'General',
+        'Emergency Service',
+        'SYSTEM',
+        'SYSTEM'
+    ),
+    (
+        1001,
+        'Y',
+        1,
+        'General',
+        'Official Work',
+        'SYSTEM',
+        'SYSTEM'
+    ),
+    -- Bus purposes
+    (
+        1001,
+        'Y',
+        2,
+        'Bus',
+        'Passenger Transport',
+        'SYSTEM',
+        'SYSTEM'
+    ),
+    (
+        1001,
+        'Y',
+        2,
+        'Bus',
+        'Emergency Response',
+        'SYSTEM',
+        'SYSTEM'
+    ),
+    (
+        1001,
+        'Y',
+        2,
+        'Bus',
+        'Maintenance Work',
+        'SYSTEM',
+        'SYSTEM'
+    ),
+    (
+        1001,
+        'Y',
+        2,
+        'Bus',
+        'Security Patrol',
+        'SYSTEM',
+        'SYSTEM'
+    ),
+    (
+        1001,
+        'Y',
+        2,
+        'Bus',
+        'Supply Delivery',
+        'SYSTEM',
+        'SYSTEM'
+    ),
+    -- Student purposes
+    (
+        1001,
+        'Y',
+        3,
+        'Student',
+        'Library Visit',
+        'SYSTEM',
+        'SYSTEM'
+    ),
+    (
+        1001,
+        'Y',
+        3,
+        'Student',
+        'Canteen/Mess',
+        'SYSTEM',
+        'SYSTEM'
+    ),
+    (
+        1001,
+        'Y',
+        3,
+        'Student',
+        'Sports Activity',
+        'SYSTEM',
+        'SYSTEM'
+    ),
+    (
+        1001,
+        'Y',
+        3,
+        'Student',
+        'Medical Visit',
+        'SYSTEM',
+        'SYSTEM'
+    ),
+    (
+        1001,
+        'Y',
+        3,
+        'Student',
+        'Shopping',
+        'SYSTEM',
+        'SYSTEM'
+    ),
+    (
+        1001,
+        'Y',
+        3,
+        'Student',
+        'Home Visit',
+        'SYSTEM',
+        'SYSTEM'
+    ),
+    (
+        1001,
+        'Y',
+        3,
+        'Student',
+        'Class/Study',
+        'SYSTEM',
+        'SYSTEM'
+    ),
+    (
+        1001,
+        'Y',
+        3,
+        'Student',
+        'Administrative Work',
+        'SYSTEM',
+        'SYSTEM'
+    ),
+    (
+        1001,
+        'Y',
+        3,
+        'Student',
+        'Recreation',
+        'SYSTEM',
+        'SYSTEM'
+    );
 
-(1001, 'Y', 6, 'Gate Pass', 'Library Visit', 'SYSTEM', 'SYSTEM'),
-(1001, 'Y', 6, 'Gate Pass', 'Canteen/Mess', 'SYSTEM', 'SYSTEM'),
-(1001, 'Y', 6, 'Gate Pass', 'Sports Activity', 'SYSTEM', 'SYSTEM'),
-(1001, 'Y', 6, 'Gate Pass', 'Medical Visit', 'SYSTEM', 'SYSTEM'),
-(1001, 'Y', 6, 'Gate Pass', 'Shopping', 'SYSTEM', 'SYSTEM'),
-(1001, 'Y', 6, 'Gate Pass', 'Home Visit', 'SYSTEM', 'SYSTEM'),
-(1001, 'Y', 6, 'Gate Pass', 'Class/Study', 'SYSTEM', 'SYSTEM'),
-(1001, 'Y', 6, 'Gate Pass', 'Administrative Work', 'SYSTEM', 'SYSTEM'),
-(1001, 'Y', 6, 'Gate Pass', 'Recreation', 'SYSTEM', 'SYSTEM');
-
+(
+    1001,
+    'Y',
+    6,
+    'Gate Pass',
+    'Library Visit',
+    'SYSTEM',
+    'SYSTEM'
+),
+(
+    1001,
+    'Y',
+    6,
+    'Gate Pass',
+    'Canteen/Mess',
+    'SYSTEM',
+    'SYSTEM'
+),
+(
+    1001,
+    'Y',
+    6,
+    'Gate Pass',
+    'Sports Activity',
+    'SYSTEM',
+    'SYSTEM'
+),
+(
+    1001,
+    'Y',
+    6,
+    'Gate Pass',
+    'Medical Visit',
+    'SYSTEM',
+    'SYSTEM'
+),
+(
+    1001,
+    'Y',
+    6,
+    'Gate Pass',
+    'Shopping',
+    'SYSTEM',
+    'SYSTEM'
+),
+(
+    1001,
+    'Y',
+    6,
+    'Gate Pass',
+    'Home Visit',
+    'SYSTEM',
+    'SYSTEM'
+),
+(
+    1001,
+    'Y',
+    6,
+    'Gate Pass',
+    'Class/Study',
+    'SYSTEM',
+    'SYSTEM'
+),
+(
+    1001,
+    'Y',
+    6,
+    'Gate Pass',
+    'Administrative Work',
+    'SYSTEM',
+    'SYSTEM'
+),
+(
+    1001,
+    'Y',
+    6,
+    'Gate Pass',
+    'Recreation',
+    'SYSTEM',
+    'SYSTEM'
+);
 
 -- Insert default ID types
-INSERT INTO IDMaster (TenantID, IsActive, IDName, CreatedBy, UpdatedBy) VALUES
-(1001, 'Y', 'Aadhaar Card', 'SYSTEM', 'SYSTEM'),
-(1001, 'Y', 'Driving License', 'SYSTEM', 'SYSTEM'),
-(1001, 'Y', 'Passport', 'SYSTEM', 'SYSTEM'),
-(1001, 'Y', 'Voter ID', 'SYSTEM', 'SYSTEM'),
-(1001, 'Y', 'PAN Card', 'SYSTEM', 'SYSTEM'),
-(1001, 'Y', 'Employee ID', 'SYSTEM', 'SYSTEM'),
-(1001, 'Y', 'Student ID', 'SYSTEM', 'SYSTEM');
+INSERT INTO
+    IDMaster (
+        TenantID,
+        IsActive,
+        IDName,
+        CreatedBy,
+        UpdatedBy
+    )
+VALUES (
+        1001,
+        'Y',
+        'Aadhaar Card',
+        'SYSTEM',
+        'SYSTEM'
+    ),
+    (
+        1001,
+        'Y',
+        'Driving License',
+        'SYSTEM',
+        'SYSTEM'
+    ),
+    (
+        1001,
+        'Y',
+        'Passport',
+        'SYSTEM',
+        'SYSTEM'
+    ),
+    (
+        1001,
+        'Y',
+        'Voter ID',
+        'SYSTEM',
+        'SYSTEM'
+    ),
+    (
+        1001,
+        'Y',
+        'PAN Card',
+        'SYSTEM',
+        'SYSTEM'
+    ),
+    (
+        1001,
+        'Y',
+        'Employee ID',
+        'SYSTEM',
+        'SYSTEM'
+    ),
+    (
+        1001,
+        'Y',
+        'Student ID',
+        'SYSTEM',
+        'SYSTEM'
+    );
 
 -- Insert sample flats
-INSERT INTO FlatMaster (TenantID, IsActive, FlatName, CreatedBy, UpdatedBy) VALUES
-(1001, 'Y', 'A-101', 'SYSTEM', 'SYSTEM'),
-(1001, 'Y', 'A-102', 'SYSTEM', 'SYSTEM'),
-(1001, 'Y', 'A-201', 'SYSTEM', 'SYSTEM'),
-(1001, 'Y', 'A-202', 'SYSTEM', 'SYSTEM'),
-(1001, 'Y', 'B-101', 'SYSTEM', 'SYSTEM'),
-(1001, 'Y', 'B-102', 'SYSTEM', 'SYSTEM');
+INSERT INTO
+    FlatMaster (
+        TenantID,
+        IsActive,
+        FlatName,
+        CreatedBy,
+        UpdatedBy
+    )
+VALUES (
+        1001,
+        'Y',
+        'A-101',
+        'SYSTEM',
+        'SYSTEM'
+    ),
+    (
+        1001,
+        'Y',
+        'A-102',
+        'SYSTEM',
+        'SYSTEM'
+    ),
+    (
+        1001,
+        'Y',
+        'A-201',
+        'SYSTEM',
+        'SYSTEM'
+    ),
+    (
+        1001,
+        'Y',
+        'A-202',
+        'SYSTEM',
+        'SYSTEM'
+    ),
+    (
+        1001,
+        'Y',
+        'B-101',
+        'SYSTEM',
+        'SYSTEM'
+    ),
+    (
+        1001,
+        'Y',
+        'B-102',
+        'SYSTEM',
+        'SYSTEM'
+    );
 
 -- ============================================================
 -- SAMPLE DATA FOR TESTING - Students
@@ -1052,30 +1756,146 @@ INSERT INTO BulkVisitorUpload (StudentID, Name, Mobile, Course, Hostel, TenantID
 -- ============================================================
 
 -- Insert Staff Bulk Upload Data
-INSERT INTO BulkVisitorUpload (StudentID, Name, Mobile, Course, Hostel, TenantID, Type) VALUES
--- Security Staff
-('SEC001', 'Rajesh Kumar', '9876540001', 'Senior Security Officer', 'Main Gate', '1001', 'staff'),
-('SEC002', 'Suresh Sharma', '9876540002', 'Security Guard', 'North Gate', '1001', 'staff'),
-('SEC003', 'Mahesh Gupta', '9876540003', 'Security Guard', 'East Gate', '1001', 'staff'),
--- Maintenance Staff  
-('MNT001', 'Anil Verma', '9876540006', 'Maintenance Supervisor', 'Block A', '1001', 'staff'),
-('MNT002', 'Vijay Singh', '9876540007', 'Electrician', 'Block B', '1001', 'staff'),
-('MNT003', 'Sanjay Mishra', '9876540008', 'Plumber', 'Block C', '1001', 'staff');
+INSERT INTO
+    BulkVisitorUpload (
+        StudentID,
+        Name,
+        Mobile,
+        Course,
+        Hostel,
+        TenantID,
+        Type
+    )
+VALUES
+    -- Security Staff
+    (
+        'SEC001',
+        'Rajesh Kumar',
+        '9876540001',
+        'Senior Security Officer',
+        'Main Gate',
+        '1001',
+        'staff'
+    ),
+    (
+        'SEC002',
+        'Suresh Sharma',
+        '9876540002',
+        'Security Guard',
+        'North Gate',
+        '1001',
+        'staff'
+    ),
+    (
+        'SEC003',
+        'Mahesh Gupta',
+        '9876540003',
+        'Security Guard',
+        'East Gate',
+        '1001',
+        'staff'
+    ),
+    -- Maintenance Staff  
+    (
+        'MNT001',
+        'Anil Verma',
+        '9876540006',
+        'Maintenance Supervisor',
+        'Block A',
+        '1001',
+        'staff'
+    ),
+    (
+        'MNT002',
+        'Vijay Singh',
+        '9876540007',
+        'Electrician',
+        'Block B',
+        '1001',
+        'staff'
+    ),
+    (
+        'MNT003',
+        'Sanjay Mishra',
+        '9876540008',
+        'Plumber',
+        'Block C',
+        '1001',
+        'staff'
+    );
 
 -- ============================================================
 -- SAMPLE DATA FOR TESTING - Buses
 -- ============================================================
 
 -- Insert Bus Bulk Upload Data
-INSERT INTO BulkVisitorUpload (StudentID, Name, Mobile, Course, Hostel, TenantID, Type) VALUES
--- School Buses
-('REG001', 'School Bus 01', '9876540001', 'Rajesh Kumar', 'Route A - Main Gate', '1001', 'bus'),
-('REG002', 'School Bus 02', '9876540002', 'Suresh Sharma', 'Route B - North Gate', '1001', 'bus'),
-('REG003', 'School Bus 03', '9876540003', 'Mahesh Gupta', 'Route C - East Gate', '1001', 'bus'),
--- College Buses  
-('REG006', 'College Express 01', '9876540006', 'Anil Verma', 'City Route 1', '1001', 'bus'),
-('REG007', 'College Express 02', '9876540007', 'Vijay Singh', 'City Route 2', '1001', 'bus'),
-('REG008', 'College Express 03', '9876540008', 'Sanjay Mishra', 'Highway Route', '1001', 'bus');
+INSERT INTO
+    BulkVisitorUpload (
+        StudentID,
+        Name,
+        Mobile,
+        Course,
+        Hostel,
+        TenantID,
+        Type
+    )
+VALUES
+    -- School Buses
+    (
+        'REG001',
+        'School Bus 01',
+        '9876540001',
+        'Rajesh Kumar',
+        'Route A - Main Gate',
+        '1001',
+        'bus'
+    ),
+    (
+        'REG002',
+        'School Bus 02',
+        '9876540002',
+        'Suresh Sharma',
+        'Route B - North Gate',
+        '1001',
+        'bus'
+    ),
+    (
+        'REG003',
+        'School Bus 03',
+        '9876540003',
+        'Mahesh Gupta',
+        'Route C - East Gate',
+        '1001',
+        'bus'
+    ),
+    -- College Buses  
+    (
+        'REG006',
+        'College Express 01',
+        '9876540006',
+        'Anil Verma',
+        'City Route 1',
+        '1001',
+        'bus'
+    ),
+    (
+        'REG007',
+        'College Express 02',
+        '9876540007',
+        'Vijay Singh',
+        'City Route 2',
+        '1001',
+        'bus'
+    ),
+    (
+        'REG008',
+        'College Express 03',
+        '9876540008',
+        'Sanjay Mishra',
+        'Highway Route',
+        '1001',
+        'bus'
+    );
 
 -- ============================================================
 -- SCHEMA SETUP COMPLETE

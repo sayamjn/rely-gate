@@ -3,6 +3,7 @@ const { body, query, param, validationResult } = require('express-validator');
 const VisitorController = require('../controllers/visitor.controller');
 const { authenticateToken, validateTenantAccess } = require('../middleware/auth');
 const { handleValidationErrors } = require('../middleware/validation');
+const { uploadPurposeImage, handleUploadError } = require('../middleware/upload');
 
 const router = express.Router();
 
@@ -269,5 +270,55 @@ router.get('/export', [
   query('format').optional().isIn(['csv']).withMessage('Invalid format'),
   query('tenantId').optional().isNumeric().withMessage('TenantId must be numeric')
 ], handleValidationErrors, VisitorController.exportVisitors);
+
+// ===== PURPOSE MANAGEMENT ROUTES =====
+
+// POST /api/visitors/purposes - Add new purpose
+router.post('/purposes', uploadPurposeImage, handleUploadError, [
+  body('purposeName')
+    .notEmpty()
+    .withMessage('Purpose name is required')
+    .isString()
+    .trim()
+    .isLength({ min: 1, max: 250 })
+    .withMessage('Purpose name must be between 1 and 250 characters'),
+  body('tenantId')
+    .optional()
+    .isNumeric()
+    .withMessage('TenantId must be numeric'),
+], handleValidationErrors, VisitorController.addVisitorPurpose);
+
+// PUT /api/visitors/purposes/:purposeId - Update purpose
+router.put('/purposes/:purposeId', [
+  param('purposeId')
+    .notEmpty()
+    .withMessage('Purpose ID is required')
+    .isNumeric()
+    .withMessage('Purpose ID must be numeric'),
+  body('purposeName')
+    .notEmpty()
+    .withMessage('Purpose name is required')
+    .isString()
+    .trim()
+    .isLength({ min: 1, max: 250 })
+    .withMessage('Purpose name must be between 1 and 250 characters'),
+  body('tenantId')
+    .optional()
+    .isNumeric()
+    .withMessage('TenantId must be numeric'),
+], handleValidationErrors, VisitorController.updateVisitorPurpose);
+
+// DELETE /api/visitors/purposes/:purposeId - Delete purpose
+router.delete('/purposes/:purposeId', [
+  param('purposeId')
+    .notEmpty()
+    .withMessage('Purpose ID is required')
+    .isNumeric()
+    .withMessage('Purpose ID must be numeric'),
+  body('tenantId')
+    .optional()
+    .isNumeric()
+    .withMessage('TenantId must be numeric'),
+], handleValidationErrors, VisitorController.deleteVisitorPurpose);
 
 module.exports = router;

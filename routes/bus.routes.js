@@ -3,6 +3,7 @@ const { query, param, body, validationResult } = require('express-validator');
 const BusController = require('../controllers/bus.controller');
 const { authenticateToken } = require('../middleware/auth');
 const { handleValidationErrors } = require('../middleware/validation');
+const { uploadPurposeImage, handleUploadError } = require('../middleware/upload');
 
 const router = express.Router();
 
@@ -103,5 +104,53 @@ router.get('/template', handleValidationErrors, BusController.downloadTemplate);
 router.get('/pending-checkout', [
   query('tenantId').optional().isNumeric().withMessage('TenantId must be numeric')
 ], handleValidationErrors, BusController.getPendingCheckout);
+
+// POST /api/buses/purposes - Add new purpose
+router.post('/purposes', uploadPurposeImage, handleUploadError, [
+  body('purposeName')
+    .notEmpty()
+    .withMessage('Purpose name is required')
+    .isString()
+    .trim()
+    .isLength({ min: 1, max: 250 })
+    .withMessage('Purpose name must be between 1 and 250 characters'),
+  body('tenantId')
+    .optional()
+    .isNumeric()
+    .withMessage('TenantId must be numeric'),
+], handleValidationErrors, BusController.addBusPurpose);
+
+// PUT /api/buses/purposes/:purposeId - Update purpose
+router.put('/purposes/:purposeId', [
+  param('purposeId')
+    .notEmpty()
+    .withMessage('Purpose ID is required')
+    .isNumeric()
+    .withMessage('Purpose ID must be numeric'),
+  body('purposeName')
+    .notEmpty()
+    .withMessage('Purpose name is required')
+    .isString()
+    .trim()
+    .isLength({ min: 1, max: 250 })
+    .withMessage('Purpose name must be between 1 and 250 characters'),
+  body('tenantId')
+    .optional()
+    .isNumeric()
+    .withMessage('TenantId must be numeric'),
+], handleValidationErrors, BusController.updateBusPurpose);
+
+// DELETE /api/buses/purposes/:purposeId - Delete purpose
+router.delete('/purposes/:purposeId', [
+  param('purposeId')
+    .notEmpty()
+    .withMessage('Purpose ID is required')
+    .isNumeric()
+    .withMessage('Purpose ID must be numeric'),
+  body('tenantId')
+    .optional()
+    .isNumeric()
+    .withMessage('TenantId must be numeric'),
+], handleValidationErrors, BusController.deleteBusPurpose);
 
 module.exports = router;

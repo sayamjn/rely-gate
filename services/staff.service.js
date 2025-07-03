@@ -722,6 +722,179 @@ class StaffService {
     }
   }
 
+  // Add new designation (purpose)
+  static async addStaffPurpose(purposeData) {
+    try {
+      const { tenantId, purposeName, createdBy, imageFile } = purposeData;
+
+      if (!purposeName || purposeName.trim() === "") {
+        return {
+          responseCode: responseUtils.RESPONSE_CODES.ERROR,
+          responseMessage: "Designation name is required"
+        };
+      }
+
+      if (purposeName.length > 250) {
+        return {
+          responseCode: responseUtils.RESPONSE_CODES.ERROR,
+          responseMessage: "Designation name too long (max 250 characters)"
+        };
+      }
+
+      const exists = await StaffModel.checkPurposeExists(
+        tenantId,
+        purposeName.trim()
+      );
+      if (exists) {
+        return {
+          responseCode: responseUtils.RESPONSE_CODES.ERROR,
+          responseMessage: "Designation already exists for this tenant"
+        };
+      }
+
+      // Handle image upload if provided
+      let imageData = null;
+      if (imageFile) {
+        const baseUrl = process.env.BASE_URL || `http://localhost:${process.env.PORT || 3000}`;
+        imageData = {
+          flag: 'Y',
+          path: `purposes/${imageFile.filename}`,
+          name: imageFile.filename,
+          url: `${baseUrl}/uploads/purposes/${imageFile.filename}`
+        };
+      }
+
+      const newPurpose = await StaffModel.addStaffPurpose({
+        tenantId,
+        purposeName: purposeName.trim(),
+        createdBy,
+        imageData
+      });
+
+      return {
+        responseCode: responseUtils.RESPONSE_CODES.SUCCESS,
+        responseMessage: "Designation added successfully",
+        data: newPurpose
+      };
+    } catch (error) {
+      console.error("Error in addStaffPurpose service:", error);
+      return {
+        responseCode: responseUtils.RESPONSE_CODES.ERROR,
+        responseMessage: responseUtils.RESPONSE_MESSAGES.ERROR,
+        error: process.env.NODE_ENV === "development" ? error.message : undefined,
+      };
+    }
+  }
+
+  // Update designation (purpose)
+  static async updateStaffPurpose(
+    purposeId,
+    tenantId,
+    purposeName,
+    updatedBy
+  ) {
+    try {
+      if (!purposeName || purposeName.trim() === "") {
+        return {
+          responseCode: responseUtils.RESPONSE_CODES.ERROR,
+          responseMessage: "Designation name is required"
+        };
+      }
+
+      if (purposeName.length > 250) {
+        return {
+          responseCode: responseUtils.RESPONSE_CODES.ERROR,
+          responseMessage: "Designation name too long (max 250 characters)"
+        };
+      }
+
+      const exists = await StaffModel.checkPurposeExists(
+        tenantId,
+        purposeName.trim()
+      );
+      if (exists) {
+        return {
+          responseCode: responseUtils.RESPONSE_CODES.ERROR,
+          responseMessage: "Designation name already exists"
+        };
+      }
+
+      const updatedPurpose = await StaffModel.updateStaffPurpose(
+        purposeId,
+        tenantId,
+        purposeName.trim(),
+        updatedBy
+      );
+
+      if (!updatedPurpose) {
+        return {
+          responseCode: responseUtils.RESPONSE_CODES.ERROR,
+          responseMessage: "Designation not found or access denied"
+        };
+      }
+
+      return {
+        responseCode: responseUtils.RESPONSE_CODES.SUCCESS,
+        responseMessage: "Designation updated successfully",
+        data: updatedPurpose
+      };
+    } catch (error) {
+      console.error("Error in updateStaffPurpose service:", error);
+      return {
+        responseCode: responseUtils.RESPONSE_CODES.ERROR,
+        responseMessage: responseUtils.RESPONSE_MESSAGES.ERROR,
+        error: process.env.NODE_ENV === "development" ? error.message : undefined,
+      };
+    }
+  }
+
+  // Delete designation (purpose)
+  static async deleteStaffPurpose(purposeId, tenantId, updatedBy) {
+    try {
+      const purpose = await StaffModel.checkPurposeStatus(purposeId, tenantId);
+
+      if (!purpose) {
+        return {
+          responseCode: responseUtils.RESPONSE_CODES.ERROR,
+          responseMessage: "Designation not found or access denied"
+        };
+      }
+
+      if (purpose.isactive === "N" || purpose.IsActive === "N") {
+        return {
+          responseCode: responseUtils.RESPONSE_CODES.ERROR,
+          responseMessage: "Designation is already deleted"
+        };
+      }
+
+      const deletedPurpose = await StaffModel.deleteStaffPurpose(
+        purposeId,
+        tenantId,
+        updatedBy
+      );
+
+      if (!deletedPurpose) {
+        return {
+          responseCode: responseUtils.RESPONSE_CODES.ERROR,
+          responseMessage: "Failed to delete designation"
+        };
+      }
+
+      return {
+        responseCode: responseUtils.RESPONSE_CODES.SUCCESS,
+        responseMessage: "Designation deleted successfully",
+        data: { purposeId: deletedPurpose.purposeId }
+      };
+    } catch (error) {
+      console.error("Error in deleteStaffPurpose service:", error);
+      return {
+        responseCode: responseUtils.RESPONSE_CODES.ERROR,
+        responseMessage: responseUtils.RESPONSE_MESSAGES.ERROR,
+        error: process.env.NODE_ENV === "development" ? error.message : undefined,
+      };
+    }
+  }
+
   // Export staff data to CSV
   static async exportStaff(tenantId, filters = {}) {
     try {
@@ -805,6 +978,27 @@ class StaffService {
         responseMessage: responseUtils.RESPONSE_MESSAGES.ERROR,
         error:
           process.env.NODE_ENV === "development" ? error.message : undefined,
+      };
+    }
+  }
+
+  // Get staff purposes
+  static async getStaffPurposes(tenantId) {
+    try {
+      const purposes = await StaffModel.getStaffPurposes(tenantId);
+
+      return {
+        responseCode: responseUtils.RESPONSE_CODES.SUCCESS,
+        responseMessage: "Staff purposes retrieved successfully",
+        data: purposes,
+        count: purposes.length
+      };
+    } catch (error) {
+      console.error("Error in getStaffPurposes service:", error);
+      return {
+        responseCode: responseUtils.RESPONSE_CODES.ERROR,
+        responseMessage: responseUtils.RESPONSE_MESSAGES.ERROR,
+        error: process.env.NODE_ENV === "development" ? error.message : undefined,
       };
     }
   }

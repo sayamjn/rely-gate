@@ -244,30 +244,6 @@ class StaffController {
     }
   }
 
-    // GET /api/staff/designations - Get available designations
-  static async getDesignations(req, res) {
-    try {
-      const { tenantId } = req.query;
-      const userTenantId = req.user.tenantId;
-
-      if (tenantId && parseInt(tenantId) !== userTenantId) {
-        return res.status(403).json({
-          responseCode: responseUtils.RESPONSE_CODES.ERROR,
-          responseMessage: 'Access denied for this tenant'
-        });
-      }
-
-      const result = await StaffService.getDesignations(userTenantId);
-      res.json(result);
-    } catch (error) {
-      console.error('Error in getDesignations:', error);
-      res.status(500).json({
-        responseCode: responseUtils.RESPONSE_CODES.ERROR,
-        responseMessage: 'Internal server error'
-      });
-    }
-  }
-
     // POST /api/staff/register - Staff registration (OTP-based)
   static async registerStaff(req, res) {
     try {
@@ -401,6 +377,149 @@ static async downloadTemplate(req, res) {
   }
 }
 
-}
+    // GET /api/staff/designations - Get available designations
+  static async getDesignations(req, res) {
+    try {
+      const { tenantId } = req.query;
+      const userTenantId = req.user.tenantId;
 
+      if (tenantId && parseInt(tenantId) !== userTenantId) {
+        return res.status(403).json({
+          responseCode: responseUtils.RESPONSE_CODES.ERROR,
+          responseMessage: 'Access denied for this tenant'
+        });
+      }
+
+      const result = await StaffService.getDesignations(userTenantId);
+      res.json(result);
+    } catch (error) {
+      console.error('Error in getDesignations:', error);
+      res.status(500).json({
+        responseCode: responseUtils.RESPONSE_CODES.ERROR,
+        responseMessage: 'Internal server error'
+      });
+    }
+  }
+
+  // GET /api/staff/purposes - Get available staff purposes
+  static async getStaffPurposes(req, res) {
+    try {
+      const { tenantId } = req.query;
+
+      if (!tenantId) {
+        return res.status(400).json({
+          responseCode: responseUtils.RESPONSE_CODES.ERROR,
+          responseMessage: "TenantId is required",
+        });
+      }
+
+      const result = await StaffService.getStaffPurposes(tenantId);
+      res.json(result);
+    } catch (error) {
+      console.error("Error in getStaffPurposes:", error);
+      res.status(500).json({
+        responseCode: responseUtils.RESPONSE_CODES.ERROR,
+        responseMessage: "Internal server error",
+      });
+    }
+  }
+  
+  // POST /api/staff/designations - Add new designation (purpose)
+  static async addStaffPurpose(req, res) {
+    try {
+      const { purposeName, tenantId } = req.body;
+      const userTenantId = tenantId || (req.user ? req.user.tenantId : null);
+      const createdBy = (req.user ? req.user.username : null) || "System";
+
+      if (!userTenantId) {
+        return res.status(400).json({
+          responseCode: responseUtils.RESPONSE_CODES.ERROR,
+          responseMessage: "TenantId is required",
+        });
+      }
+
+      const purposeData = {
+        tenantId: userTenantId,
+        purposeName: purposeName.trim(),
+        createdBy,
+        imageFile: req.file || null
+      };
+
+      const result = await StaffService.addStaffPurpose(purposeData);
+
+      const statusCode = result.responseCode === "S" ? 201 : 400;
+      res.status(statusCode).json(result);
+    } catch (error) {
+      console.error("Error in addStaffPurpose:", error);
+      res.status(500).json({
+        responseCode: responseUtils.RESPONSE_CODES.ERROR,
+        responseMessage: "Internal server error",
+      });
+    }
+  }
+
+  // PUT /api/staff/designations/:purposeId - Update designation (purpose)
+  static async updateStaffPurpose(req, res) {
+    try {
+      const { purposeId } = req.params;
+      const { purposeName, tenantId } = req.body;
+      const userTenantId = tenantId || (req.user ? req.user.tenantId : null);
+      const updatedBy = (req.user ? req.user.username : null) || "System";
+
+      if (!userTenantId) {
+        return res.status(400).json({
+          responseCode: responseUtils.RESPONSE_CODES.ERROR,
+          responseMessage: "TenantId is required",
+        });
+      }
+
+      const result = await StaffService.updateStaffPurpose(
+        parseInt(purposeId),
+        userTenantId,
+        purposeName.trim(),
+        updatedBy
+      );
+
+      const statusCode = result.responseCode === "S" ? 200 : 400;
+      res.status(statusCode).json(result);
+    } catch (error) {
+      console.error("Error in updateStaffPurpose:", error);
+      res.status(500).json({
+        responseCode: responseUtils.RESPONSE_CODES.ERROR,
+        responseMessage: "Internal server error",
+      });
+    }
+  }
+
+  // DELETE /api/staff/designations/:purposeId - Delete designation (purpose)
+  static async deleteStaffPurpose(req, res) {
+    try {
+      const { purposeId } = req.params;
+      const userTenantId = req.user.tenantId;
+      const updatedBy = req.user.username || "System";
+
+      if (!purposeId) {
+        return res.status(400).json({
+          responseCode: responseUtils.RESPONSE_CODES.ERROR,
+          responseMessage: "Designation ID is required",
+        });
+      }
+
+      const result = await StaffService.deleteStaffPurpose(
+        parseInt(purposeId),
+        userTenantId,
+        updatedBy
+      );
+
+      const statusCode = result.responseCode === "S" ? 200 : 400;
+      res.status(statusCode).json(result);
+    } catch (error) {
+      console.error("Error in deleteStaffPurpose:", error);
+      res.status(500).json({
+        responseCode: responseUtils.RESPONSE_CODES.ERROR,
+        responseMessage: "Internal server error",
+      });
+    }
+  }
+}
 module.exports = StaffController;

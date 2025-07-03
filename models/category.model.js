@@ -41,8 +41,14 @@ class CategoryModel {
   static async getVisitorPurposes(tenantId, purposeCatId = null) {
     let sql = `
       SELECT 
-        VisitPurposeID, PurposeCatID, PurposeCatName,
-        VisitPurpose, IsActive
+        VisitPurposeID as "purposeId",
+        VisitPurpose as "purposeName",
+        PurposeCatID as "purposeCatId",
+        PurposeCatName as "purposeCatName",
+        ImageFlag as "imageFlag",
+        ImagePath as "imagePath",
+        ImageName as "imageName",
+        ImageUrl as "imageUrl"
       FROM VisitorPuposeMaster
       WHERE TenantID = $1 AND IsActive = 'Y'
     `;
@@ -54,7 +60,7 @@ class CategoryModel {
       params.push(purposeCatId);
     }
 
-    sql += ` ORDER BY VisitPurpose`;
+    sql += ` ORDER BY VisitPurpose ASC`;
 
     const result = await query(sql, params);
     return result.rows;

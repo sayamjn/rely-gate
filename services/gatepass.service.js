@@ -2,6 +2,7 @@ const ResponseFormatter = require("../utils/response");
 const MessagingService = require("./messaging.service");
 const GatePassModel = require("../models/gatepass.model");
 const DateFormatter = require("../utils/dateFormatter");
+const responseUtils = require("../utils/constants");
 
 class GatepassService {
   static generateSecurityCode() {
@@ -376,18 +377,22 @@ class GatepassService {
   }
 
   // Add new purpose
-  static async addGatePassPurpose(purposeData) {
+    static async addGatePassPurpose(purposeData) {
     try {
-      const { tenantId, purposeName, createdBy } = purposeData;
+      const { tenantId, purposeName, createdBy, imageFile } = purposeData;
 
       if (!purposeName || purposeName.trim() === "") {
-        return ResponseFormatter.error("Purpose name is required");
+        return {
+          responseCode: responseUtils.RESPONSE_CODES.ERROR,
+          responseMessage: "Purpose name is required"
+        };
       }
 
       if (purposeName.length > 250) {
-        return ResponseFormatter.error(
-          "Purpose name too long (max 250 characters)"
-        );
+        return {
+          responseCode: responseUtils.RESPONSE_CODES.ERROR,
+          responseMessage: "Purpose name too long (max 250 characters)"
+        };
       }
 
       const exists = await GatePassModel.checkPurposeExists(
@@ -395,24 +400,43 @@ class GatepassService {
         purposeName.trim()
       );
       if (exists) {
-        return ResponseFormatter.error(
-          "Purpose already exists for this tenant"
-        );
+        return {
+          responseCode: responseUtils.RESPONSE_CODES.ERROR,
+          responseMessage: "Purpose already exists for this tenant"
+        };
+      }
+
+      // Handle image upload if provided
+      let imageData = null;
+      if (imageFile) {
+        const baseUrl = process.env.BASE_URL || `http://localhost:${process.env.PORT || 3000}`;
+        imageData = {
+          flag: 'Y',
+          path: `purposes/${imageFile.filename}`,
+          name: imageFile.filename,
+          url: `${baseUrl}/uploads/purposes/${imageFile.filename}`
+        };
       }
 
       const newPurpose = await GatePassModel.addGatePassPurpose({
         tenantId,
         purposeName: purposeName.trim(),
         createdBy,
+        imageData
       });
 
-      return ResponseFormatter.success(
-        newPurpose,
-        "Purpose added successfully"
-      );
+      return {
+        responseCode: responseUtils.RESPONSE_CODES.SUCCESS,
+        responseMessage: "Purpose added successfully",
+        data: newPurpose
+      };
     } catch (error) {
-      console.error("Error in addGatePassPurpose service:", error);
-      return ResponseFormatter.error("Internal server error");
+      console.error("Error in addBusPurpose service:", error);
+      return {
+        responseCode: responseUtils.RESPONSE_CODES.ERROR,
+        responseMessage: responseUtils.RESPONSE_MESSAGES.ERROR,
+        error: process.env.NODE_ENV === "development" ? error.message : undefined,
+      };
     }
   }
 

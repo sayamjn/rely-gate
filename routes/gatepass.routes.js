@@ -3,6 +3,7 @@ const { body, query, param } = require("express-validator");
 const GatepassController = require("../controllers/gatepass.controller");
 const { authenticateToken } = require("../middleware/auth");
 const { handleValidationErrors } = require("../middleware/validation");
+const { uploadPurposeImage, handleUploadError } = require("../middleware/upload");
 
 const router = express.Router();
 
@@ -255,25 +256,19 @@ router.get(
 // ===== PURPOSE MANAGEMENT ROUTES (WITH AUTHENTICATION) =====
 
 // POST /api/gatepass/purposes - Add new purpose
-router.post(
-  "/purposes",
-  [
-    body("purposeName")
-      .notEmpty()
-      .withMessage("Purpose name is required")
-      .isString()
-      .trim()
-      .isLength({ min: 1, max: 250 })
-      .withMessage("Purpose name must be between 1 and 250 characters"),
-    body("tenantId")
-      .optional()
-      .isNumeric()
-      .withMessage("TenantId must be numeric"),
-  ],
-  handleValidationErrors,
-  
-  GatepassController.addGatePassPurpose
-);
+router.post('/purposes', uploadPurposeImage, handleUploadError, [
+  body('purposeName')
+    .notEmpty()
+    .withMessage('Purpose name is required')
+    .isString()
+    .trim()
+    .isLength({ min: 1, max: 250 })
+    .withMessage('Purpose name must be between 1 and 250 characters'),
+  body('tenantId')
+    .optional()
+    .isNumeric()
+    .withMessage('TenantId must be numeric'),
+], handleValidationErrors, GatepassController.addGatePassPurpose);
 
 // PUT /api/gatepass/purposes/:purposeId - Update purpose
 router.put(

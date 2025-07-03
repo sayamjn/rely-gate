@@ -541,6 +541,179 @@ class BusService {
     }
   }
 
+  // Add new purpose
+  static async addBusPurpose(purposeData) {
+    try {
+      const { tenantId, purposeName, createdBy, imageFile } = purposeData;
+
+      if (!purposeName || purposeName.trim() === "") {
+        return {
+          responseCode: responseUtils.RESPONSE_CODES.ERROR,
+          responseMessage: "Purpose name is required"
+        };
+      }
+
+      if (purposeName.length > 250) {
+        return {
+          responseCode: responseUtils.RESPONSE_CODES.ERROR,
+          responseMessage: "Purpose name too long (max 250 characters)"
+        };
+      }
+
+      const exists = await BusModel.checkPurposeExists(
+        tenantId,
+        purposeName.trim()
+      );
+      if (exists) {
+        return {
+          responseCode: responseUtils.RESPONSE_CODES.ERROR,
+          responseMessage: "Purpose already exists for this tenant"
+        };
+      }
+
+      // Handle image upload if provided
+      let imageData = null;
+      if (imageFile) {
+        const baseUrl = process.env.BASE_URL || `http://localhost:${process.env.PORT || 3000}`;
+        imageData = {
+          flag: 'Y',
+          path: `purposes/${imageFile.filename}`,
+          name: imageFile.filename,
+          url: `${baseUrl}/uploads/purposes/${imageFile.filename}`
+        };
+      }
+
+      const newPurpose = await BusModel.addBusPurpose({
+        tenantId,
+        purposeName: purposeName.trim(),
+        createdBy,
+        imageData
+      });
+
+      return {
+        responseCode: responseUtils.RESPONSE_CODES.SUCCESS,
+        responseMessage: "Purpose added successfully",
+        data: newPurpose
+      };
+    } catch (error) {
+      console.error("Error in addBusPurpose service:", error);
+      return {
+        responseCode: responseUtils.RESPONSE_CODES.ERROR,
+        responseMessage: responseUtils.RESPONSE_MESSAGES.ERROR,
+        error: process.env.NODE_ENV === "development" ? error.message : undefined,
+      };
+    }
+  }
+
+  // Update purpose
+  static async updateBusPurpose(
+    purposeId,
+    tenantId,
+    purposeName,
+    updatedBy
+  ) {
+    try {
+      if (!purposeName || purposeName.trim() === "") {
+        return {
+          responseCode: responseUtils.RESPONSE_CODES.ERROR,
+          responseMessage: "Purpose name is required"
+        };
+      }
+
+      if (purposeName.length > 250) {
+        return {
+          responseCode: responseUtils.RESPONSE_CODES.ERROR,
+          responseMessage: "Purpose name too long (max 250 characters)"
+        };
+      }
+
+      const exists = await BusModel.checkPurposeExists(
+        tenantId,
+        purposeName.trim()
+      );
+      if (exists) {
+        return {
+          responseCode: responseUtils.RESPONSE_CODES.ERROR,
+          responseMessage: "Purpose name already exists"
+        };
+      }
+
+      const updatedPurpose = await BusModel.updateBusPurpose(
+        purposeId,
+        tenantId,
+        purposeName.trim(),
+        updatedBy
+      );
+
+      if (!updatedPurpose) {
+        return {
+          responseCode: responseUtils.RESPONSE_CODES.ERROR,
+          responseMessage: "Purpose not found or access denied"
+        };
+      }
+
+      return {
+        responseCode: responseUtils.RESPONSE_CODES.SUCCESS,
+        responseMessage: "Purpose updated successfully",
+        data: updatedPurpose
+      };
+    } catch (error) {
+      console.error("Error in updateBusPurpose service:", error);
+      return {
+        responseCode: responseUtils.RESPONSE_CODES.ERROR,
+        responseMessage: responseUtils.RESPONSE_MESSAGES.ERROR,
+        error: process.env.NODE_ENV === "development" ? error.message : undefined,
+      };
+    }
+  }
+
+  // Delete purpose
+  static async deleteBusPurpose(purposeId, tenantId, updatedBy) {
+    try {
+      const purpose = await BusModel.checkPurposeStatus(purposeId, tenantId);
+
+      if (!purpose) {
+        return {
+          responseCode: responseUtils.RESPONSE_CODES.ERROR,
+          responseMessage: "Purpose not found or access denied"
+        };
+      }
+
+      if (purpose.isactive === "N" || purpose.IsActive === "N") {
+        return {
+          responseCode: responseUtils.RESPONSE_CODES.ERROR,
+          responseMessage: "Purpose is already deleted"
+        };
+      }
+
+      const deletedPurpose = await BusModel.deleteBusPurpose(
+        purposeId,
+        tenantId,
+        updatedBy
+      );
+
+      if (!deletedPurpose) {
+        return {
+          responseCode: responseUtils.RESPONSE_CODES.ERROR,
+          responseMessage: "Failed to delete purpose"
+        };
+      }
+
+      return {
+        responseCode: responseUtils.RESPONSE_CODES.SUCCESS,
+        responseMessage: "Purpose deleted successfully",
+        data: { purposeId: deletedPurpose.purposeId }
+      };
+    } catch (error) {
+      console.error("Error in deleteBusPurpose service:", error);
+      return {
+        responseCode: responseUtils.RESPONSE_CODES.ERROR,
+        responseMessage: responseUtils.RESPONSE_MESSAGES.ERROR,
+        error: process.env.NODE_ENV === "development" ? error.message : undefined,
+      };
+    }
+  }
+
   // Get buses with pagination and search (legacy)
 static async getBuses(tenantId, page = 1, pageSize = 20, search = '') {
   try {

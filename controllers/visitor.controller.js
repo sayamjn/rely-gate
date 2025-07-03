@@ -5,33 +5,6 @@ const MessagingService = require("../services/messaging.service");
 const responseUtils = require("../utils/constants");
 
 class VisitorController {
-  // GET /api/visitors/purposes
-  static async getVisitorPurposes(req, res) {
-    try {
-      const { tenantId, purposeCatId = 0 } = req.query;
-      const userTenantId = req.user.tenantId;
-
-      if (tenantId && parseInt(tenantId) !== userTenantId) {
-        return res.status(403).json({
-          responseCode: "E",
-          responseMessage: "Access denied for this tenant",
-        });
-      }
-
-      const result = await VisitorService.getVisitorPurposes(
-        userTenantId,
-        parseInt(purposeCatId)
-      );
-
-      res.json(result);
-    } catch (error) {
-      console.error("Error in getVisitorPurposes:", error);
-      res.status(500).json({
-        responseCode: "E",
-        responseMessage: "Internal server error",
-      });
-    }
-  }
 
   // GET /api/visitors/subcategories
   static async getVisitorSubCategories(req, res) {
@@ -908,6 +881,132 @@ class VisitorController {
         responseMessage: "Internal server error",
         error:
           process.env.NODE_ENV === "development" ? error.message : undefined,
+      });
+    }
+  }
+
+    // GET /api/visitors/purposes
+  static async getVisitorPurposes(req, res) {
+    try {
+      const { tenantId, purposeCatId = 0 } = req.query;
+      const userTenantId = req.user.tenantId;
+
+      if (tenantId && parseInt(tenantId) !== userTenantId) {
+        return res.status(403).json({
+          responseCode: "E",
+          responseMessage: "Access denied for this tenant",
+        });
+      }
+
+      const result = await VisitorService.getVisitorPurposes(
+        userTenantId,
+        parseInt(purposeCatId)
+      );
+
+      res.json(result);
+    } catch (error) {
+      console.error("Error in getVisitorPurposes:", error);
+      res.status(500).json({
+        responseCode: "E",
+        responseMessage: "Internal server error",
+      });
+    }
+  }
+
+  // POST /api/visitors/purposes - Add new purpose
+  static async addVisitorPurpose(req, res) {
+    try {
+      const { purposeName, tenantId } = req.body;
+      const userTenantId = tenantId || (req.user ? req.user.tenantId : null);
+      const createdBy = (req.user ? req.user.username : null) || "System";
+
+      if (!userTenantId) {
+        return res.status(400).json({
+          responseCode: responseUtils.RESPONSE_CODES.ERROR,
+          responseMessage: "TenantId is required",
+        });
+      }
+
+      const purposeData = {
+        tenantId: userTenantId,
+        purposeName: purposeName.trim(),
+        createdBy,
+        imageFile: req.file || null
+      };
+
+      const result = await VisitorService.addVisitorPurpose(purposeData);
+
+      const statusCode = result.responseCode === "S" ? 201 : 400;
+      res.status(statusCode).json(result);
+    } catch (error) {
+      console.error("Error in addVisitorPurpose:", error);
+      res.status(500).json({
+        responseCode: responseUtils.RESPONSE_CODES.ERROR,
+        responseMessage: "Internal server error",
+      });
+    }
+  }
+
+  // PUT /api/visitors/purposes/:purposeId - Update purpose
+  static async updateVisitorPurpose(req, res) {
+    try {
+      const { purposeId } = req.params;
+      const { purposeName, tenantId } = req.body;
+      const userTenantId = tenantId || (req.user ? req.user.tenantId : null);
+      const updatedBy = (req.user ? req.user.username : null) || "System";
+
+      if (!userTenantId) {
+        return res.status(400).json({
+          responseCode: responseUtils.RESPONSE_CODES.ERROR,
+          responseMessage: "TenantId is required",
+        });
+      }
+
+      const result = await VisitorService.updateVisitorPurpose(
+        parseInt(purposeId),
+        userTenantId,
+        purposeName.trim(),
+        updatedBy
+      );
+
+      const statusCode = result.responseCode === "S" ? 200 : 400;
+      res.status(statusCode).json(result);
+    } catch (error) {
+      console.error("Error in updateVisitorPurpose:", error);
+      res.status(500).json({
+        responseCode: responseUtils.RESPONSE_CODES.ERROR,
+        responseMessage: "Internal server error",
+      });
+    }
+  }
+
+  // DELETE /api/visitors/purposes/:purposeId - Delete purpose
+  static async deleteVisitorPurpose(req, res) {
+    try {
+      const { purposeId } = req.params;
+      const userTenantId = req.user.tenantId;
+      const updatedBy = req.user.username || "System";
+
+      if (!purposeId) {
+        return res.status(400).json({
+          responseCode: responseUtils.RESPONSE_CODES.ERROR,
+          responseMessage: "Purpose ID is required",
+        });
+      }
+
+      const result = await VisitorService.deleteVisitorPurpose(
+        parseInt(purposeId),
+        userTenantId,
+        updatedBy
+      );
+
+      const statusCode = result.responseCode === "S" ? 200 : 400;
+      res.status(statusCode).json(result);
+    } catch (error) {
+      console.error("Error in deleteVisitorPurpose:", error);
+      res.status(500).json({
+        responseCode: responseUtils.RESPONSE_CODES.ERROR,
+        responseMessage: "Internal server error",
       });
     }
   }

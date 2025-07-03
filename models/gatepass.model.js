@@ -440,7 +440,11 @@ class GatePassModel {
         VisitPurposeID as "purposeId",
         VisitPurpose as "purposeName",
         PurposeCatID as "purposeCatId",
-        PurposeCatName as "purposeCatName"
+        PurposeCatName as "purposeCatName",
+        ImageFlag as "imageFlag",
+        ImagePath as "imagePath",
+        ImageName as "imageName",
+        ImageUrl as "imageUrl"
       FROM VisitorPuposeMaster
       WHERE TenantID = $1 
         AND IsActive = 'Y' 
@@ -488,6 +492,7 @@ class GatePassModel {
 
   // Add new purpose for gate pass
   static async addGatePassPurpose(purposeData) {
+        const { tenantId, purposeName, createdBy, imageData } = purposeData;
     const sql = `
       INSERT INTO VisitorPuposeMaster (
         TenantID, 
@@ -496,25 +501,35 @@ class GatePassModel {
         VisitPurpose, 
         IsActive,
         CreatedBy,
-        CreatedDate
-      ) VALUES ($1, $2, $3, $4, $5, $6, NOW())
+        CreatedDate,
+        ImageFlag,
+        ImagePath,
+        ImageName,
+        ImageUrl
+      ) VALUES ($1, $2, $3, $4, $5, $6, NOW(), $7, $8, $9, $10)
       RETURNING 
         VisitPurposeID as "purposeId",
         VisitPurpose as "purposeName",
         PurposeCatID as "purposeCatId",
-        PurposeCatName as "purposeCatName"
+        PurposeCatName as "purposeCatName",
+        ImageFlag as "imageFlag",
+        ImagePath as "imagePath",
+        ImageName as "imageName",
+        ImageUrl as "imageUrl"
     `;
 
-    const values = [
-      purposeData.tenantId,
-      6, // Gate Pass category
+    const result = await query(sql, [
+      tenantId,
+      6, // Gate Pass category ID
       'Gate Pass',
-      purposeData.purposeName,
+      purposeName,
       'Y',
-      purposeData.createdBy
-    ];
-
-    const result = await query(sql, values);
+      createdBy,
+      imageData ? imageData.flag : 'N',
+      imageData ? imageData.path : null,
+      imageData ? imageData.name : null,
+      imageData ? imageData.url : null
+    ]);
     return result.rows[0];
   }
 

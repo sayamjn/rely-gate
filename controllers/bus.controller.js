@@ -51,33 +51,6 @@ class BusController {
     }
   }
 
-  // GET /api/buses/purposes - Get available purposes for buses
-  static async getBusPurposes(req, res) {
-    try {
-      const { tenantId, purposeCatId = 2 } = req.query; // Bus category = 2
-      const userTenantId = req.user.tenantId;
-
-      if (tenantId && parseInt(tenantId) !== userTenantId) {
-        return res.status(403).json({
-          responseCode: responseUtils.RESPONSE_CODES.ERROR,
-          responseMessage: 'Access denied for this tenant'
-        });
-      }
-
-      const result = await BusService.getBusPurposes(
-        userTenantId, 
-        parseInt(purposeCatId)
-      );
-      res.json(result);
-    } catch (error) {
-      console.error('Error in getBusPurposes:', error);
-      res.status(500).json({
-        responseCode: responseUtils.RESPONSE_CODES.ERROR,
-        responseMessage: 'Internal server error'
-      });
-    }
-  }
-
   // GET /api/buses/:busId/status - Check bus current check-in/out status
   static async getBusStatus(req, res) {
     try {
@@ -378,7 +351,133 @@ static async getPendingCheckout(req, res) {
       responseMessage: 'Internal server error'
     });
   }
-}
+  }
+
+
+    // GET /api/buses/purposes - Get available purposes for buses
+  static async getBusPurposes(req, res) {
+    try {
+      const { tenantId, purposeCatId = 2 } = req.query; // Bus category = 2
+      const userTenantId = req.user.tenantId;
+
+      if (tenantId && parseInt(tenantId) !== userTenantId) {
+        return res.status(403).json({
+          responseCode: responseUtils.RESPONSE_CODES.ERROR,
+          responseMessage: 'Access denied for this tenant'
+        });
+      }
+
+      const result = await BusService.getBusPurposes(
+        userTenantId, 
+        parseInt(purposeCatId)
+      );
+      res.json(result);
+    } catch (error) {
+      console.error('Error in getBusPurposes:', error);
+      res.status(500).json({
+        responseCode: responseUtils.RESPONSE_CODES.ERROR,
+        responseMessage: 'Internal server error'
+      });
+    }
+  }
+
+  // POST /api/buses/purposes - Add new purpose
+  static async addBusPurpose(req, res) {
+    try {
+      const { purposeName, tenantId } = req.body;
+      const userTenantId = tenantId || (req.user ? req.user.tenantId : null);
+      const createdBy = (req.user ? req.user.username : null) || "System";
+
+      if (!userTenantId) {
+        return res.status(400).json({
+          responseCode: responseUtils.RESPONSE_CODES.ERROR,
+          responseMessage: "TenantId is required",
+        });
+      }
+
+      const purposeData = {
+        tenantId: userTenantId,
+        purposeName: purposeName.trim(),
+        createdBy,
+        imageFile: req.file || null
+      };
+
+      const result = await BusService.addBusPurpose(purposeData);
+
+      const statusCode = result.responseCode === "S" ? 201 : 400;
+      res.status(statusCode).json(result);
+    } catch (error) {
+      console.error("Error in addBusPurpose:", error);
+      res.status(500).json({
+        responseCode: responseUtils.RESPONSE_CODES.ERROR,
+        responseMessage: "Internal server error",
+      });
+    }
+  }
+
+  // PUT /api/buses/purposes/:purposeId - Update purpose
+  static async updateBusPurpose(req, res) {
+    try {
+      const { purposeId } = req.params;
+      const { purposeName, tenantId } = req.body;
+      const userTenantId = tenantId || (req.user ? req.user.tenantId : null);
+      const updatedBy = (req.user ? req.user.username : null) || "System";
+
+      if (!userTenantId) {
+        return res.status(400).json({
+          responseCode: responseUtils.RESPONSE_CODES.ERROR,
+          responseMessage: "TenantId is required",
+        });
+      }
+
+      const result = await BusService.updateBusPurpose(
+        parseInt(purposeId),
+        userTenantId,
+        purposeName.trim(),
+        updatedBy
+      );
+
+      const statusCode = result.responseCode === "S" ? 200 : 400;
+      res.status(statusCode).json(result);
+    } catch (error) {
+      console.error("Error in updateBusPurpose:", error);
+      res.status(500).json({
+        responseCode: responseUtils.RESPONSE_CODES.ERROR,
+        responseMessage: "Internal server error",
+      });
+    }
+  }
+
+  // DELETE /api/buses/purposes/:purposeId - Delete purpose
+  static async deleteBusPurpose(req, res) {
+    try {
+      const { purposeId } = req.params;
+      const userTenantId = req.user.tenantId;
+      const updatedBy = req.user.username || "System";
+
+      if (!purposeId) {
+        return res.status(400).json({
+          responseCode: responseUtils.RESPONSE_CODES.ERROR,
+          responseMessage: "Purpose ID is required",
+        });
+      }
+
+      const result = await BusService.deleteBusPurpose(
+        parseInt(purposeId),
+        userTenantId,
+        updatedBy
+      );
+
+      const statusCode = result.responseCode === "S" ? 200 : 400;
+      res.status(statusCode).json(result);
+    } catch (error) {
+      console.error("Error in deleteBusPurpose:", error);
+      res.status(500).json({
+        responseCode: responseUtils.RESPONSE_CODES.ERROR,
+        responseMessage: "Internal server error",
+      });
+    }
+  }
 }
 
 module.exports = BusController;
