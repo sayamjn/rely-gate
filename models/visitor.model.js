@@ -5,16 +5,19 @@ class VisitorModel {
   static async getVisitorPurposeByCategory(tenantId, purposeCatId = 0) {
     const sql = `
       SELECT 
-        VisitPurposeID,
-        PurposeCatID,
-        PurposeCatName,
-        VisitPurpose,
-        IsActive
+        VisitPurposeID as "purposeId",
+        VisitPurpose as "purposeName",
+        PurposeCatID as "purposeCatId",
+        PurposeCatName as "purposeCatName",
+        ImageFlag as "imageFlag",
+        ImagePath as "imagePath",
+        ImageName as "imageName",
+        ImageUrl as "imageUrl"
       FROM VisitorPuposeMaster
       WHERE TenantID = $1 
         AND IsActive = 'Y'
         ${purposeCatId > 0 ? "AND PurposeCatID = $2" : ""}
-      ORDER BY VisitPurpose
+      ORDER BY VisitPurpose ASC
     `;
 
     const params = purposeCatId > 0 ? [tenantId, purposeCatId] : [tenantId];
