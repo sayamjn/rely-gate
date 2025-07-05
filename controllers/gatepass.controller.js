@@ -124,7 +124,7 @@ class GatepassController {
         try {
           const [day, month, year] = EndDate.split('/');
           if (day && month && year) {
-            toDate = `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+            toDate = `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')} 23:59:59`;
           }
         } catch (error) {
           console.warn('Invalid EndDate format:', EndDate);
@@ -568,8 +568,8 @@ class GatepassController {
   static async deleteGatePassPurpose(req, res) {
     try {
       const { purposeId } = req.params;
-      const userTenantId = req.user.tenantId;
-      const updatedBy = req.user.username || "System";
+      const { tenantId } = req.query;
+      const updatedBy = "System";
 
       if (!purposeId) {
         return res.status(400).json({
@@ -578,9 +578,16 @@ class GatepassController {
         });
       }
 
+      if (!tenantId) {
+        return res.status(400).json({
+          responseCode: responseUtils.RESPONSE_CODES.ERROR,
+          responseMessage: "TenantId is required",
+        });
+      }
+
       const result = await GatepassService.deleteGatePassPurpose(
         parseInt(purposeId),
-        userTenantId,
+        parseInt(tenantId),
         updatedBy
       );
 

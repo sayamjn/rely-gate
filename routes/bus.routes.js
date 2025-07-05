@@ -34,7 +34,7 @@ router.post('/list', [
 
 // GET /api/buses/purposes - Get available purposes for buses
 router.get('/purposes', [
-  query('tenantId').optional().isNumeric().withMessage('TenantId must be numeric'),
+  query('tenantId').notEmpty().isNumeric().withMessage('TenantId is required and must be numeric'),
   query('purposeCatId').optional().isInt({ min: 1 }).withMessage('PurposeCatId must be a positive integer')
 ], handleValidationErrors, BusController.getBusPurposes);
 
@@ -115,9 +115,9 @@ router.post('/purposes', uploadPurposeImage, handleUploadError, [
     .isLength({ min: 1, max: 250 })
     .withMessage('Purpose name must be between 1 and 250 characters'),
   body('tenantId')
-    .optional()
+    .notEmpty()
     .isNumeric()
-    .withMessage('TenantId must be numeric'),
+    .withMessage('TenantId is required and must be numeric'),
 ], handleValidationErrors, BusController.addBusPurpose);
 
 // PUT /api/buses/purposes/:purposeId - Update purpose
@@ -135,9 +135,9 @@ router.put('/purposes/:purposeId', [
     .isLength({ min: 1, max: 250 })
     .withMessage('Purpose name must be between 1 and 250 characters'),
   body('tenantId')
-    .optional()
+    .notEmpty()
     .isNumeric()
-    .withMessage('TenantId must be numeric'),
+    .withMessage('TenantId is required and must be numeric'),
 ], handleValidationErrors, BusController.updateBusPurpose);
 
 // DELETE /api/buses/purposes/:purposeId - Delete purpose
@@ -147,10 +147,10 @@ router.delete('/purposes/:purposeId', [
     .withMessage('Purpose ID is required')
     .isNumeric()
     .withMessage('Purpose ID must be numeric'),
-  body('tenantId')
-    .optional()
+  query('tenantId')
+    .notEmpty()
     .isNumeric()
-    .withMessage('TenantId must be numeric'),
+    .withMessage('TenantId is required and must be numeric'),
 ], handleValidationErrors, BusController.deleteBusPurpose);
 
 module.exports = router;

@@ -265,9 +265,9 @@ router.post('/purposes', uploadPurposeImage, handleUploadError, [
     .isLength({ min: 1, max: 250 })
     .withMessage('Purpose name must be between 1 and 250 characters'),
   body('tenantId')
-    .optional()
+    .notEmpty()
     .isNumeric()
-    .withMessage('TenantId must be numeric'),
+    .withMessage('TenantId is required and must be numeric'),
 ], handleValidationErrors, GatepassController.addGatePassPurpose);
 
 // PUT /api/gatepass/purposes/:purposeId - Update purpose
@@ -287,9 +287,9 @@ router.put(
       .isLength({ min: 1, max: 250 })
       .withMessage("Purpose name must be between 1 and 250 characters"),
     body("tenantId")
-      .optional()
+      .notEmpty()
       .isNumeric()
-      .withMessage("TenantId must be numeric"),
+      .withMessage("TenantId is required and must be numeric"),
   ],
   handleValidationErrors,
   
@@ -305,13 +305,12 @@ router.delete(
       .withMessage("Purpose ID is required")
       .isNumeric()
       .withMessage("Purpose ID must be numeric"),
-    body("tenantId")
-      .optional()
+    query("tenantId")
+      .notEmpty()
       .isNumeric()
-      .withMessage("TenantId must be numeric"),
+      .withMessage("TenantId is required and must be numeric"),
   ],
   handleValidationErrors,
-  
   GatepassController.deleteGatePassPurpose
 );
 

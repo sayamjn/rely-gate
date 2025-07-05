@@ -13,7 +13,7 @@ router.use(authenticateToken);
 
 // GET /api/visitors/purposes - Get visitor purposes by category
 router.get('/purposes', [
-  query('tenantId').optional().isNumeric().withMessage('TenantId must be numeric'),
+  query('tenantId').notEmpty().isNumeric().withMessage('TenantId is required and must be numeric'),
   query('purposeCatId').optional().isNumeric().withMessage('PurposeCatId must be numeric')
 ], handleValidationErrors, VisitorController.getVisitorPurposes);
 
@@ -283,9 +283,9 @@ router.post('/purposes', uploadPurposeImage, handleUploadError, [
     .isLength({ min: 1, max: 250 })
     .withMessage('Purpose name must be between 1 and 250 characters'),
   body('tenantId')
-    .optional()
+    .notEmpty()
     .isNumeric()
-    .withMessage('TenantId must be numeric'),
+    .withMessage('TenantId is required and must be numeric'),
 ], handleValidationErrors, VisitorController.addVisitorPurpose);
 
 // PUT /api/visitors/purposes/:purposeId - Update purpose
@@ -303,9 +303,9 @@ router.put('/purposes/:purposeId', [
     .isLength({ min: 1, max: 250 })
     .withMessage('Purpose name must be between 1 and 250 characters'),
   body('tenantId')
-    .optional()
+    .notEmpty()
     .isNumeric()
-    .withMessage('TenantId must be numeric'),
+    .withMessage('TenantId is required and must be numeric'),
 ], handleValidationErrors, VisitorController.updateVisitorPurpose);
 
 // DELETE /api/visitors/purposes/:purposeId - Delete purpose
@@ -315,10 +315,10 @@ router.delete('/purposes/:purposeId', [
     .withMessage('Purpose ID is required')
     .isNumeric()
     .withMessage('Purpose ID must be numeric'),
-  body('tenantId')
-    .optional()
+  query('tenantId')
+    .notEmpty()
     .isNumeric()
-    .withMessage('TenantId must be numeric'),
+    .withMessage('TenantId is required and must be numeric'),
 ], handleValidationErrors, VisitorController.deleteVisitorPurpose);
 
 module.exports = router;
