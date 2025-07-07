@@ -4,15 +4,8 @@ class AnalyticsController {
   // GET /api/analytics/dashboard
   static async getDashboard(req, res) {
     try {
-      const { tenantId, date } = req.query;
+      const { date } = req.query;
       const userTenantId = req.user.tenantId;
-
-      if (tenantId && parseInt(tenantId) !== userTenantId) {
-        return res.status(403).json({
-          responseCode: 'E',
-          responseMessage: 'Access denied for this tenant'
-        });
-      }
 
       const result = await AnalyticsService.getDashboardAnalytics(userTenantId, date);
       res.json(result);
@@ -28,15 +21,8 @@ class AnalyticsController {
   // GET /api/analytics/visitor-frequency
   static async getVisitorFrequency(req, res) {
     try {
-      const { tenantId, days = 30 } = req.query;
+      const { days = 30 } = req.query;
       const userTenantId = req.user.tenantId;
-
-      if (tenantId && parseInt(tenantId) !== userTenantId) {
-        return res.status(403).json({
-          responseCode: 'E',
-          responseMessage: 'Access denied for this tenant'
-        });
-      }
 
       const result = await AnalyticsService.getVisitorFrequencyAnalytics(
         userTenantId, 
@@ -55,15 +41,9 @@ class AnalyticsController {
   // GET /api/analytics/peak-hours
   static async getPeakHours(req, res) {
     try {
-      const { tenantId, days = 7 } = req.query;
+      const { days = 7 } = req.query;
       const userTenantId = req.user.tenantId;
 
-      if (tenantId && parseInt(tenantId) !== userTenantId) {
-        return res.status(403).json({
-          responseCode: 'E',
-          responseMessage: 'Access denied for this tenant'
-        });
-      }
 
       const result = await AnalyticsService.getPeakHoursAnalytics(
         userTenantId, 
@@ -82,15 +62,8 @@ class AnalyticsController {
   // GET /api/analytics/flat-wise
   static async getFlatWise(req, res) {
     try {
-      const { tenantId, days = 30 } = req.query;
+      const { days = 30 } = req.query;
       const userTenantId = req.user.tenantId;
-
-      if (tenantId && parseInt(tenantId) !== userTenantId) {
-        return res.status(403).json({
-          responseCode: 'E',
-          responseMessage: 'Access denied for this tenant'
-        });
-      }
 
       const result = await AnalyticsService.getFlatWiseAnalytics(
         userTenantId, 
@@ -109,15 +82,8 @@ class AnalyticsController {
   // GET /api/analytics/recent-activity
   static async getRecentActivity(req, res) {
     try {
-      const { tenantId, limit = 20 } = req.query;
+      const { limit = 20 } = req.query;
       const userTenantId = req.user.tenantId;
-
-      if (tenantId && parseInt(tenantId) !== userTenantId) {
-        return res.status(403).json({
-          responseCode: 'E',
-          responseMessage: 'Access denied for this tenant'
-        });
-      }
 
       const result = await AnalyticsService.getRecentActivity(
         userTenantId, 
@@ -136,18 +102,11 @@ class AnalyticsController {
   // GET /api/analytics/gatepass - Get gate pass analytics
   static async getGatePassAnalytics(req, res) {
     try {
-      const { tenantId, days = 7 } = req.query;
-      // const userTenantId = req.user.tenantId;
-
-      // if (tenantId && parseInt(tenantId) !== userTenantId) {
-      //   return res.status(403).json({
-      //     responseCode: 'E',
-      //     responseMessage: 'Access denied for this tenant'
-      //   });
-      // }
+      const { days = 7 } = req.query;
+      const userTenantId = req.user.tenantId;
 
       const result = await AnalyticsService.getGatePassAnalytics(
-        tenantId, 
+        userTenantId, 
         parseInt(days)
       );
       res.json(result);
@@ -163,15 +122,8 @@ class AnalyticsController {
   // GET /api/analytics/gatepass/entries-by-purpose - Get gate pass entries by purpose
   static async getGatePassEntriesByPurpose(req, res) {
     try {
-      const { tenantId, days = 7 } = req.query;
+      const { days = 7 } = req.query;
       const userTenantId = req.user.tenantId;
-
-      if (tenantId && parseInt(tenantId) !== userTenantId) {
-        return res.status(403).json({
-          responseCode: 'E',
-          responseMessage: 'Access denied for this tenant'
-        });
-      }
 
       const result = await AnalyticsService.getGatePassEntriesByPurpose(
         userTenantId, 
@@ -190,8 +142,8 @@ class AnalyticsController {
   // GET /api/analytics/gatepass/exits-by-purpose - Get gate pass exits by purpose
   static async getGatePassExitsByPurpose(req, res) {
     try {
-      const { tenantId, fromDate, toDate } = req.query;
-      // const userTenantId = req.user.tenantId;
+      const { fromDate, toDate } = req.query;
+      const userTenantId = req.user.tenantId;
 
       // Convert DD/MM/YYYY format to YYYY-MM-DD for PostgreSQL
       const convertToPostgresDate = (dateStr) => {
@@ -204,7 +156,7 @@ class AnalyticsController {
       const pgToDate = convertToPostgresDate(toDate);
 
       const result = await AnalyticsService.getGatePassExitsByPurpose(
-        tenantId, 
+        userTenantId, 
         pgFromDate,
         pgToDate
       );
@@ -221,10 +173,11 @@ class AnalyticsController {
   // GET /api/analytics/GetTrendByCategory - Get trend analytics by category
   static async getTrendByCategory(req, res) {
     try {
-      const { tenantID, fromDate, toDate } = req.query;
+      const { fromDate, toDate } = req.query;
+      const userTenantId = req.user.tenantId;
 
       const result = await AnalyticsService.getTrendByCategory(
-        parseInt(tenantID),
+        parseInt(userTenantId),
         fromDate,
         toDate
       );
@@ -241,10 +194,11 @@ class AnalyticsController {
   // GET /api/analytics/GetOverView - Get overview analytics by visitor subcategory
   static async getOverView(req, res) {
     try {
-      const { tenantID, fromDate, toDate } = req.query;
+      const { fromDate, toDate } = req.query;
+      const userTenantId = req.user.tenantId;
 
       const result = await AnalyticsService.getOverView(
-        parseInt(tenantID),
+        parseInt(userTenantId),
         fromDate,
         toDate
       );
@@ -261,10 +215,11 @@ class AnalyticsController {
   // GET /api/analytics/GetTrendByPurpose - Get trend analytics by purpose/subcategory
   static async getTrendByPurpose(req, res) {
     try {
-      const { tenantID, fromDate, toDate, subCatID } = req.query;
+      const { fromDate, toDate, subCatID } = req.query;
+      const userTenantId = req.user.tenantId;
 
       const result = await AnalyticsService.getTrendByPurpose(
-        parseInt(tenantID),
+        parseInt(userTenantId),
         fromDate,
         toDate,
         parseInt(subCatID)
