@@ -57,4 +57,26 @@ router.get('/gatepass/exits-by-purpose', [
   query('toDate').optional().matches(/^\d{2}\/\d{2}\/\d{4}$/).withMessage('ToDate must be in DD/MM/YYYY format')
 ], handleValidationErrors, AnalyticsController.getGatePassExitsByPurpose);
 
+// GET /api/analytics/GetTrendByCategory - Get trend analytics by category (Student, Bus, Visitor, Staff)
+router.get('/GetTrendByCategory', [
+  query('tenantID').notEmpty().isNumeric().withMessage('TenantID is required and must be numeric'),
+  query('fromDate').notEmpty().matches(/^\d{2}\/\d{2}\/\d{4}$/).withMessage('FromDate is required and must be in DD/MM/YYYY format'),
+  query('toDate').notEmpty().matches(/^\d{2}\/\d{2}\/\d{4}$/).withMessage('ToDate is required and must be in DD/MM/YYYY format')
+], handleValidationErrors, AnalyticsController.getTrendByCategory);
+
+// GET /api/analytics/GetOverView - Get overview analytics by visitor subcategory
+router.get('/GetOverView', [
+  query('tenantID').notEmpty().isNumeric().withMessage('TenantID is required and must be numeric'),
+  query('fromDate').notEmpty().matches(/^\d{2}\/\d{2}\/\d{4}$/).withMessage('FromDate is required and must be in DD/MM/YYYY format'),
+  query('toDate').notEmpty().matches(/^\d{2}\/\d{2}\/\d{4}$/).withMessage('ToDate is required and must be in DD/MM/YYYY format')
+], handleValidationErrors, AnalyticsController.getOverView);
+
+// GET /api/analytics/GetTrendByPurpose - Get trend analytics by purpose/subcategory
+router.get('/GetTrendByPurpose', [
+  query('tenantID').notEmpty().isNumeric().withMessage('TenantID is required and must be numeric'),
+  query('fromDate').notEmpty().matches(/^\d{2}\/\d{2}\/\d{4}$/).withMessage('FromDate is required and must be in DD/MM/YYYY format'),
+  query('toDate').notEmpty().matches(/^\d{2}\/\d{2}\/\d{4}$/).withMessage('ToDate is required and must be in DD/MM/YYYY format'),
+  query('subCatID').notEmpty().isNumeric().withMessage('SubCatID is required and must be numeric')
+], handleValidationErrors, AnalyticsController.getTrendByPurpose);
+
 module.exports = router;

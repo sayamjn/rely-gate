@@ -217,6 +217,67 @@ class AnalyticsController {
       });
     }
   }
+
+  // GET /api/analytics/GetTrendByCategory - Get trend analytics by category
+  static async getTrendByCategory(req, res) {
+    try {
+      const { tenantID, fromDate, toDate } = req.query;
+
+      const result = await AnalyticsService.getTrendByCategory(
+        parseInt(tenantID),
+        fromDate,
+        toDate
+      );
+      res.json(result);
+    } catch (error) {
+      console.error('Error in getTrendByCategory:', error);
+      res.status(500).json({
+        responseCode: 'E',
+        responseMessage: 'Internal server error'
+      });
+    }
+  }
+
+  // GET /api/analytics/GetOverView - Get overview analytics by visitor subcategory
+  static async getOverView(req, res) {
+    try {
+      const { tenantID, fromDate, toDate } = req.query;
+
+      const result = await AnalyticsService.getOverView(
+        parseInt(tenantID),
+        fromDate,
+        toDate
+      );
+      res.json(result);
+    } catch (error) {
+      console.error('Error in getOverView:', error);
+      res.status(500).json({
+        responseCode: 'E',
+        responseMessage: 'Internal server error'
+      });
+    }
+  }
+
+  // GET /api/analytics/GetTrendByPurpose - Get trend analytics by purpose/subcategory
+  static async getTrendByPurpose(req, res) {
+    try {
+      const { tenantID, fromDate, toDate, subCatID } = req.query;
+
+      const result = await AnalyticsService.getTrendByPurpose(
+        parseInt(tenantID),
+        fromDate,
+        toDate,
+        parseInt(subCatID)
+      );
+      res.json(result);
+    } catch (error) {
+      console.error('Error in getTrendByPurpose:', error);
+      res.status(500).json({
+        responseCode: 'E',
+        responseMessage: 'Internal server error'
+      });
+    }
+  }
 }
 
 module.exports = AnalyticsController;

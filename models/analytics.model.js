@@ -130,6 +130,140 @@ const AnalyticsModel = {
 
     const result = await query(sql, params);
     return result.rows;
+  },
+
+  // Get trend analytics by category (Student, Bus, Visitor, Staff)
+  async getTrendByCategory(tenantId, fromDate, toDate) {
+    // Convert DD/MM/YYYY to YYYY-MM-DD format
+    const convertDate = (dateStr) => {
+      const [day, month, year] = dateStr.split('/');
+      return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+    };
+
+    const startDate = convertDate(fromDate);
+    const endDate = convertDate(toDate) + ' 23:59:59';
+
+    const sql = `
+      WITH DateSeries AS (
+        SELECT GENERATE_SERIES(
+          $2::date,
+          $3::date,
+          '1 day'::interval
+        )::date as visit_date
+      ),
+      DailyStats AS (
+        SELECT 
+          DATE(VisitDate) as visit_date,
+          -- Student counts (Category = Student, PurposeCatID = 3)
+          COUNT(CASE WHEN VisitorCatName = 'Student' AND InTime IS NOT NULL THEN 1 END) as StudentIN,
+          COUNT(CASE WHEN VisitorCatName = 'Student' AND OutTime IS NOT NULL THEN 1 END) as StudentOUT,
+          -- Bus counts (Category = Bus, PurposeCatID = 2)  
+          COUNT(CASE WHEN VisitorCatName = 'Bus' AND InTime IS NOT NULL THEN 1 END) as BusIN,
+          COUNT(CASE WHEN VisitorCatName = 'Bus' AND OutTime IS NOT NULL THEN 1 END) as BusOUT,
+          -- Visitor counts (Category = Visitor, PurposeCatID = 1)
+          COUNT(CASE WHEN VisitorCatName = 'Visitor' AND InTime IS NOT NULL THEN 1 END) as VisitorsIN,
+          COUNT(CASE WHEN VisitorCatName = 'Visitor' AND OutTime IS NOT NULL THEN 1 END) as VisitorsOUT,
+          -- Staff counts (Category = Staff, PurposeCatID = 4)
+          COUNT(CASE WHEN VisitorCatName = 'Staff' AND InTime IS NOT NULL THEN 1 END) as StaffIN,
+          COUNT(CASE WHEN VisitorCatName = 'Staff' AND OutTime IS NOT NULL THEN 1 END) as StaffOUT
+        FROM VisitorMaster
+        WHERE TenantID = $1 
+          AND IsActive = 'Y'
+          AND VisitDate >= $2
+          AND VisitDate <= $4
+        GROUP BY DATE(VisitDate)
+      )
+      SELECT 
+        TO_CHAR(ds.visit_date, 'DD/MM/YYYY') as "VisitDate",
+        COALESCE(st.StudentIN, 0) as "StudentIN",
+        COALESCE(st.StudentOUT, 0) as "StudentOUT", 
+        COALESCE(st.BusIN, 0) as "BusIN",
+        COALESCE(st.BusOUT, 0) as "BusOUT",
+        COALESCE(st.VisitorsIN, 0) as "VisitorsIN",
+        COALESCE(st.VisitorsOUT, 0) as "VisitorsOUT",
+        COALESCE(st.StaffIN, 0) as "StaffIN",
+        COALESCE(st.StaffOUT, 0) as "StaffOUT"
+      FROM DateSeries ds
+      LEFT JOIN DailyStats st ON ds.visit_date = st.visit_date
+      WHERE (st.StudentIN > 0 OR st.StudentOUT > 0 OR st.BusIN > 0 OR st.BusOUT > 0 
+        OR st.VisitorsIN > 0 OR st.VisitorsOUT > 0 OR st.StaffIN > 0 OR st.StaffOUT > 0)
+      ORDER BY ds.visit_date
+    `;
+
+    const result = await query(sql, [tenantId, startDate, startDate, endDate]);
+    return result.rows;
+  },
+
+  // Get overview analytics by visitor subcategory
+  async getOverView(tenantId, fromDate, toDate) {
+    // Convert DD/MM/YYYY to YYYY-MM-DD format
+    const convertDate = (dateStr) => {
+      const [day, month, year] = dateStr.split('/');
+      return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+    };
+
+    const startDate = convertDate(fromDate);
+    const endDate = convertDate(toDate) + ' 23:59:59';
+
+    const sql = `
+      SELECT 
+        VisitorSubCatName,
+        COUNT(CASE WHEN InTime IS NOT NULL THEN 1 END) as "VisitorIN",
+        COUNT(CASE WHEN OutTime IS NOT NULL THEN 1 END) as "VisitorOUT"
+      FROM VisitorMaster
+      WHERE TenantID = $1 
+        AND IsActive = 'Y'
+        AND VisitorCatName = 'Visitor'
+        AND VisitDate >= $2
+        AND VisitDate <= $3
+        AND VisitorSubCatName IS NOT NULL
+      GROUP BY VisitorSubCatName
+      HAVING COUNT(CASE WHEN InTime IS NOT NULL THEN 1 END) > 0 
+        OR COUNT(CASE WHEN OutTime IS NOT NULL THEN 1 END) > 0
+      ORDER BY "VisitorIN" DESC, "VisitorOUT" DESC
+    `;
+
+    const result = await query(sql, [tenantId, startDate, endDate]);
+    return result.rows;
+  },
+
+  // Get trend analytics by purpose/subcategory
+  async getTrendByPurpose(tenantId, fromDate, toDate, subCatID) {
+    // Convert DD/MM/YYYY to YYYY-MM-DD format
+    const convertDate = (dateStr) => {
+      const [day, month, year] = dateStr.split('/');
+      return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+    };
+
+    const startDate = convertDate(fromDate);
+    const endDate = convertDate(toDate) + ' 23:59:59';
+
+    const sql = `
+      SELECT 
+        CASE 
+          WHEN VisitPurposeID = -1 OR VisitPurpose IS NULL THEN 'Other'
+          ELSE VisitPurpose
+        END as "GroupLabel",
+        COUNT(CASE WHEN InTime IS NOT NULL THEN 1 END) as "VisitorIN",
+        COUNT(CASE WHEN OutTime IS NOT NULL THEN 1 END) as "VisitorOUT"
+      FROM VisitorMaster
+      WHERE TenantID = $1 
+        AND IsActive = 'Y'
+        AND VisitorSubCatID = $4
+        AND VisitDate >= $2
+        AND VisitDate <= $3
+      GROUP BY 
+        CASE 
+          WHEN VisitPurposeID = -1 OR VisitPurpose IS NULL THEN 'Other'
+          ELSE VisitPurpose
+        END
+      HAVING COUNT(CASE WHEN InTime IS NOT NULL THEN 1 END) > 0 
+        OR COUNT(CASE WHEN OutTime IS NOT NULL THEN 1 END) > 0
+      ORDER BY "VisitorIN" DESC, "VisitorOUT" DESC
+    `;
+
+    const result = await query(sql, [tenantId, startDate, endDate, subCatID]);
+    return result.rows;
   }
 };
 

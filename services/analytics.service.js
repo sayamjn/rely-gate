@@ -264,6 +264,69 @@ class AnalyticsService {
       };
     }
   }
+
+  // Get trend analytics by category (Student, Bus, Visitor, Staff)
+  static async getTrendByCategory(tenantId, fromDate, toDate) {
+    try {
+      const analytics = await AnalyticsModel.getTrendByCategory(tenantId, fromDate, toDate);
+      
+      return {
+        responseCode: responseUtils.RESPONSE_CODES.SUCCESS,
+        data: analytics,
+        count: analytics.length,
+        responseMessage: 'Record(s) saved successfully'
+      };
+    } catch (error) {
+      console.error('Error getting trend by category:', error);
+      return {
+        responseCode: responseUtils.RESPONSE_CODES.ERROR,
+        responseMessage: 'Internal server error',
+        error: process.env.NODE_ENV === 'development' ? error.message : undefined
+      };
+    }
+  }
+
+  // Get overview analytics by visitor subcategory
+  static async getOverView(tenantId, fromDate, toDate) {
+    try {
+      const analytics = await AnalyticsModel.getOverView(tenantId, fromDate, toDate);
+      
+      return {
+        responseCode: responseUtils.RESPONSE_CODES.SUCCESS,
+        data: analytics,
+        count: analytics.length,
+        responseMessage: 'Record(s) saved successfully'
+      };
+    } catch (error) {
+      console.error('Error getting overview:', error);
+      return {
+        responseCode: responseUtils.RESPONSE_CODES.ERROR,
+        responseMessage: 'Internal server error',
+        error: process.env.NODE_ENV === 'development' ? error.message : undefined
+      };
+    }
+  }
+
+  // Get trend analytics by purpose/subcategory
+  static async getTrendByPurpose(tenantId, fromDate, toDate, subCatID) {
+    try {
+      const analytics = await AnalyticsModel.getTrendByPurpose(tenantId, fromDate, toDate, subCatID);
+      
+      return {
+        responseCode: responseUtils.RESPONSE_CODES.SUCCESS,
+        data: analytics,
+        count: analytics.length,
+        responseMessage: 'Record(s) saved successfully'
+      };
+    } catch (error) {
+      console.error('Error getting trend by purpose:', error);
+      return {
+        responseCode: responseUtils.RESPONSE_CODES.ERROR,
+        responseMessage: 'Internal server error',
+        error: process.env.NODE_ENV === 'development' ? error.message : undefined
+      };
+    }
+  }
 }
 
 module.exports = AnalyticsService;
