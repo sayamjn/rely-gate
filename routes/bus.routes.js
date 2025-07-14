@@ -13,7 +13,7 @@ router.use(authenticateToken);
 // GET /api/buses - List buses with pagination and search (legacy)
 router.get('/', [
   query('page').optional().isInt({ min: 1 }).withMessage('Page must be a positive integer'),
-  query('pageSize').optional().isInt({ min: 1, max: 100 }).withMessage('PageSize must be between 1 and 100'),
+  query('pageSize').optional().isInt({ min: 1, max: 100000 }).withMessage('PageSize must be between 1 and 100000'),
   query('search').optional().isString().trim().withMessage('Search must be a string'),
   query('category').optional().isString().trim().withMessage('Category must be a string'),
 ], handleValidationErrors, BusController.getBuses);
@@ -135,7 +135,7 @@ router.delete('/purposes/:purposeId', [
 // GET /api/buses/list - New comprehensive list endpoint with all filters
 router.get('/list', [
   query('page').optional().isInt({ min: 1 }).withMessage('Page must be a positive integer'),
-  query('pageSize').optional().isInt({ min: 1, max: 100 }).withMessage('PageSize must be between 1 and 100'),
+  query('pageSize').optional().isInt({ min: 1, max: 100000 }).withMessage('PageSize must be between 1 and 100000'),
   query('search').optional().isString().trim().withMessage('Search must be a string'),
   query('purposeId').optional().isInt({ min: 0 }).withMessage('PurposeId must be a non-negative integer'),
   query('busNumber').optional().isString().trim().withMessage('BusNumber must be a string'),

@@ -307,7 +307,7 @@ class StudentController {
     // GET /api/students/template - Download CSV template for bulk upload
   static async downloadTemplate(req, res) {
     try {
-      const template = 'Student_ID,Name,Mobile,Email,Course,Hostel,Vehicle_Number,Year,Semester';
+      const template = 'Student_ID,Name,Mobile,Course,Hostel\n';
       
       res.setHeader('Content-Type', 'text/csv');
       res.setHeader('Content-Disposition', 'attachment; filename="student_template.csv"');

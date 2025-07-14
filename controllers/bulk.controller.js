@@ -13,7 +13,6 @@ class BulkController {
         });
       }
 
-      const { tenantId } = req.body;
       const userTenantId = req.user.tenantId;
 
 

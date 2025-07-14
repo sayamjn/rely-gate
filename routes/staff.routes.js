@@ -16,7 +16,7 @@ router.get('/pending-checkout', [
 // GET /api/staff - List staff with pagination and search
 router.get('/', [
   query('page').optional().isInt({ min: 1 }).withMessage('Page must be a positive integer'),
-  query('pageSize').optional().isInt({ min: 1, max: 100 }).withMessage('PageSize must be between 1 and 100'),
+  query('pageSize').optional().isInt({ min: 1, max: 100000 }).withMessage('PageSize must be between 1 and 100000'),
   query('search').optional().isString().trim().withMessage('Search must be a string'),
   query('designation').optional().isString().trim().withMessage('Designation must be a string'),
 ], handleValidationErrors, StaffController.getStaff);
@@ -24,7 +24,7 @@ router.get('/', [
 // GET /api/staff/list - List staff with filters (query params, like students/buses)
 router.get('/list', [
   query('page').optional().isInt({ min: 1 }).withMessage('Page must be a positive integer'),
-  query('pageSize').optional().isInt({ min: 1, max: 100 }).withMessage('PageSize must be between 1 and 100'),
+  query('pageSize').optional().isInt({ min: 1, max: 100000 }).withMessage('PageSize must be between 1 and 100000'),
   query('search').optional().isString().trim().withMessage('Search must be a string'),
   query('designation').optional().isString().trim().withMessage('Designation must be a string'),
   query('staffId').optional().isString().trim().withMessage('StaffId must be a string'),

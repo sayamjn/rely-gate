@@ -24,16 +24,13 @@ class BulkService {
 
             const values = Object.values(row);
             
-            if (values.length >= 4) {
+            if (values.length >= 5) {
               buses.push({
                 busNumber: values[0]?.trim() || '',
-                registrationNumber: values[1]?.trim() || '',
-                driverName: values[2]?.trim() || '',
-                driverMobile: values[3]?.trim() || '',
-                route: values[4]?.trim() || '',
-                vehicleType: values[5]?.trim() || 'Bus',
-                capacity: values[6]?.trim() || '',
-                purpose: values[7]?.trim() || 'Bus Meeting',
+                busName: values[1]?.trim() || '',
+                driverMobile: values[2]?.trim() || '',
+                busType: values[3]?.trim() || 'School Bus',
+                driverName: values[4]?.trim() || '',
                 tenantId,
                 createdBy
               });
@@ -92,7 +89,7 @@ class BulkService {
         if (existingBus.rows.length > 0) {
           results.failed++;
           results.details.push({
-            item: `${bus.busNumber} - ${bus.driverName}`,
+            item: `${bus.busNumber} - ${bus.busName}`,
             status: 'Failed',
             reason: 'Bus already exists with same mobile or registration'
           });
@@ -120,19 +117,19 @@ class BulkService {
 
         await query(insertSql, [
           bus.tenantId,
-          bus.driverName,
+          bus.busName,
           bus.driverMobile,
-          bus.vehicleType || 'Delivery',
+          bus.busType || 'School Bus',
           visitorRegNo,
           securityCode,
           bus.createdBy,
-          bus.route,
+          bus.driverName,
           bus.busNumber
         ]);
 
         results.successful++;
         results.details.push({
-          item: `${bus.busNumber} - ${bus.driverName}`,
+          item: `${bus.busNumber} - ${bus.busName}`,
           status: 'Success',
           visitorRegNo,
           securityCode
@@ -141,7 +138,7 @@ class BulkService {
       } catch (error) {
         results.failed++;
         results.details.push({
-          item: `${bus.busNumber} - ${bus.driverName}`,
+          item: `${bus.busNumber} - ${bus.busName}`,
           status: 'Failed',
           reason: error.message
         });
@@ -367,13 +364,13 @@ class BulkService {
 
             const values = Object.values(row);
             
-            if (values.length >= 3) {
+            if (values.length >= 5) {
               staff.push({
-                name: values[0]?.trim() || '',
-                mobile: values[1]?.trim() || '',
-                email: values[2]?.trim() || '',
+                staffId: values[0]?.trim() || '',
+                name: values[1]?.trim() || '',
+                mobile: values[2]?.trim() || '',
                 designation: values[3]?.trim() || 'Security',
-                department: values[4]?.trim() || '',
+                address: values[4]?.trim() || '',
                 tenantId,
                 createdBy
               });
@@ -451,7 +448,7 @@ class BulkService {
             $1, $2, $3, 1, 'Staff',
             1, $4, $5, $6,
             1, 'ACTIVE', 'Y', NOW(), NOW(), 
-            $7, $7, $8, '', $9
+            $7, $7, '', $8, ''
           ) RETURNING VisitorRegID
         `;
 
@@ -463,8 +460,7 @@ class BulkService {
           visitorRegNo,
           securityCode,
           staff.createdBy,
-          staff.email,
-          staff.department
+          staff.address
         ]);
 
         results.successful++;

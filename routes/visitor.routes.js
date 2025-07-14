@@ -211,7 +211,7 @@ router.get('/history/comprehensive', [
 
 router.post('/list', [
   body('page').optional().isInt({ min: 1 }).withMessage('Page must be a positive integer'),
-  body('pageSize').optional().isInt({ min: 1, max: 100 }).withMessage('PageSize must be between 1 and 100'),
+  body('pageSize').optional().isInt({ min: 1, max: 100000 }).withMessage('PageSize must be between 1 and 100000'),
   body('search').optional().isString().trim().withMessage('Search must be a string'),
   body('visitorCatId').optional().isInt().withMessage('VisitorCatId must be an integer'),
   body('visitorSubCatId').optional().isInt().withMessage('VisitorSubCatId must be an integer'),
@@ -229,7 +229,7 @@ router.get('/', [
   query('fromDate').optional().isISO8601().withMessage('FromDate must be a valid date (YYYY-MM-DD)'),
   query('toDate').optional().isISO8601().withMessage('ToDate must be a valid date (YYYY-MM-DD)'),
   query('page').optional().isInt({ min: 1 }).withMessage('Page must be a positive integer'),
-  query('pageSize').optional().isInt({ min: 1, max: 100 }).withMessage('PageSize must be between 1 and 100'),
+  query('pageSize').optional().isInt({ min: 1, max: 100000 }).withMessage('PageSize must be between 1 and 100000'),
   query('search').optional().isString().trim().withMessage('Search must be a string'),
 ], handleValidationErrors, VisitorController.getVisitors);
 

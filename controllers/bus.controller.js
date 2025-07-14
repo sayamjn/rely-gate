@@ -235,7 +235,7 @@ class BusController {
   // GET /api/buses/template - Download CSV template for bulk upload
   static async downloadTemplate(req, res) {
     try {
-      const template = 'Bus_Number,Registration_Number,Driver_Name,Driver_Mobile,Route,Vehicle_Type,Capacity,Purpose';
+      const template = `Bus Number,Bus Name,Driver Mobile,Bus Type,Driver Name\n`;
       
       res.setHeader('Content-Type', 'text/csv');
       res.setHeader('Content-Disposition', 'attachment; filename="bus_template.csv"');
@@ -256,7 +256,7 @@ static async getBuses(req, res) {
       page = 1, 
       pageSize = 20, 
       search = '', 
-      category = '',
+      category = 0,
       tenantId 
     } = req.query;
     

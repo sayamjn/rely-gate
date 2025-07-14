@@ -1,24 +1,4 @@
-Student ID,Student Name,Mobile,Email,Course,Hostel,Vehicle Number,Category,Status,Registration Date,Total Visits,Last Visit,Current Status
-MBA005,Riya Saxena,9876543229,riya.saxena@college.edu,MBA,Hostel D,,Regular Student,ACTIVE,2025-06-20,1,2025-06-19 15:25,AVAILABLE
-MBA001,Aadhya Iyer,9876543225,aadhya.iyer@college.edu,MBA,Hostel D,,Regular Student,ACTIVE,2025-06-20,1,2025-06-18 10:25,AVAILABLE
-MBA002,Nikhil Chopra,9876543226,nikhil.chopra@college.edu,MBA,Hostel A,,Regular Student,ACTIVE,2025-06-20,10,2025-06-21 11:15,AVAILABLE
-MBA003,Shruti Bansal,9876543227,shruti.bansal@college.edu,MBA,Hostel B,,Regular Student,ACTIVE,2025-06-20,1,2025-06-01 09:25,AVAILABLE
-MBA004,Varun Khanna,9876543228,varun.khanna@college.edu,MBA,Hostel C,,Regular Student,ACTIVE,2025-06-20,1,2025-06-04 05:25,AVAILABLE
-ME005,Karan Malhotra,9876543224,karan.malhotra@college.edu,Mechanical Engineering,Hostel C,,Regular Student,ACTIVE,2025-06-19,1,2025-06-01 08:25,AVAILABLE
-ME004,Deepika Roy,9876543223,deepika.roy@college.edu,Mechanical Engineering,Hostel B,,Regular Student,ACTIVE,2025-06-18,2,2025-06-11 13:25,AVAILABLE
-ME003,Rohit Agarwal,9876543222,rohit.agarwal@college.edu,Mechanical Engineering,Hostel A,,Regular Student,ACTIVE,2025-06-17,2,2025-06-11 05:46,AVAILABLE
-ME002,Pooja Mehta,9876543221,pooja.mehta@college.edu,Mechanical Engineering,Hostel D,,Regular Student,ACTIVE,2025-06-16,2,2025-06-13 07:46,AVAILABLE
-ME001,Arjun Das,9876543220,arjun.das@college.edu,Mechanical Engineering,Hostel C,,Regular Student,ACTIVE,2025-06-15,2,2025-06-15 06:46,AVAILABLE
-EC005,Meera Joshi,9876543219,meera.joshi@college.edu,Electronics Engineering,Hostel B,,Regular Student,ACTIVE,2025-06-14,4,2025-06-21 10:16,CHECKED_OUT
-EC004,Suresh Reddy,9876543218,suresh.reddy@college.edu,Electronics Engineering,Hostel A,,Regular Student,ACTIVE,2025-06-13,2,2025-06-18 05:46,AVAILABLE
-EC003,Kavya Nair,9876543217,kavya.nair@college.edu,Electronics Engineering,Hostel C,,Regular Student,ACTIVE,2025-06-12,4,2025-06-19 02:46,AVAILABLE
-EC002,Rajesh Yadav,9876543216,rajesh.yadav@college.edu,Electronics Engineering,Hostel D,,Regular Student,ACTIVE,2025-06-10,4,2025-06-20 04:46,AVAILABLE
-EC001,Anita Verma,9876543215,anita.verma@college.edu,Electronics Engineering,Hostel B,,Regular Student,ACTIVE,2025-06-08,2,2025-06-21 09:46,CHECKED_OUT
-CS004,Sneha Singh,9876543213,sneha.singh@college.edu,Computer Science,Hostel C,,Regular Student,ACTIVE,2025-06-05,3,2025-06-21 11:28,CHECKED_OUT
-CS005,Vikash Gupta,9876543214,vikash.gupta@college.edu,Computer Science,Hostel A,,Regular Student,ACTIVE,2025-06-02,2,2025-06-21 06:46,CHECKED_OUT
-CS003,Amit Kumar,9876543212,amit.kumar@college.edu,Computer Science,Hostel A,,Regular Student,ACTIVE,2025-05-31,1,2025-06-14 06:25,AVAILABLE
-CS002,Priya Patel,9876543211,priya.patel@college.edu,Computer Science,Hostel B,,Regular Student,ACTIVE,2025-05-26,1,2025-06-04 09:25,AVAILABLE
-PHD003,Dr. Arun Krishnan,9876543232,arun.krishnan@college.edu,PhD Mechanical,Research Hostel,,New Admission,ACTIVE,2025-05-21,0,,AVAILABLE
-CS001,Rahul Sharma,9876543210,rahul.sharma@college.edu,Computer Science,Hostel A,,Regular Student,ACTIVE,2025-05-21,1,2025-05-27 09:25,AVAILABLE
-PHD002,Dr. Lakshmi Menon,9876543231,lakshmi.menon@college.edu,PhD Electronics,Research Hostel,,New Admission,ACTIVE,2025-05-06,1,2025-05-31 16:25,AVAILABLE
-PHD001,Dr. Sanjay Mishra,9876543230,sanjay.mishra@college.edu,PhD Computer Science,Research Hostel,,New Admission,ACTIVE,2025-04-21,1,2025-06-05 07:25,AVAILABLE
+Student ID,Student Name,Mobile,Course,Hostel
+MBA005,Riya Saxena,9876543229,MBA,Hostel D
+MBA001,Aadhya Iyer,9876543225,MBA,Hostel D
+MBA002,Nikhil Chopra,9876543226,MBA,Hostel A

@@ -866,7 +866,7 @@ class BusModel {
   }
 
   // Get buses with pagination (legacy method moved from service)
-  static async getBusesBasic(tenantId, page = 1, pageSize = 20, search = '', category = '') {
+  static async getBusesBasic(tenantId, page = 1, pageSize = 20, search = '', category = 0) {
     const offset = (page - 1) * pageSize;
     let whereConditions = ['TenantID = $1', "IsActive = 'Y'", "VisitorCatName = 'Bus'"];
     let params = [tenantId];
@@ -878,9 +878,10 @@ class BusModel {
       paramIndex++;
     }
 
-    if (category && category.trim()) {
-      whereConditions.push(`VisitorSubCatName ILIKE $${paramIndex}`);
-      params.push(`%${category.trim()}%`);
+    // Category filter: 0 means show all, any other ID filters by VisitorSubCatID
+    if (category && parseInt(category) > 0) {
+      whereConditions.push(`VisitorSubCatID = $${paramIndex}`);
+      params.push(parseInt(category));
       paramIndex++;
     }
 

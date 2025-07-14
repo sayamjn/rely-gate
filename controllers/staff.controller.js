@@ -322,10 +322,8 @@ class StaffController {
 static async downloadTemplate(req, res) {
   try {
     const csvTemplate = [
-      'StaffID,Name,Mobile,Designation,Email,Address',
-      'STF001,John Doe,9876543210,Sales Executive,john.doe@company.com,123 Main St',
-      'STF002,Jane Smith,9876543211,Manager,jane.smith@company.com,456 Oak Ave',
-      'STF003,Mike Johnson,9876543212,Security,mike.johnson@company.com,789 Pine Rd'
+      'Staff ID,Name,Mobile,Designation,Address',
+      'STA1001001,John Doe,9876543210,Security,123 Main Street'
     ].join('\n');
 
     res.setHeader('Content-Type', 'text/csv');

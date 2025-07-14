@@ -14,7 +14,7 @@ router.use(authenticateToken);
 // Accepts fromDate/toDate in DD/MM/YYYY or YYYY-MM-DD
 router.get('/list', [
   query('page').optional().isInt({ min: 1 }).withMessage('Page must be a positive integer'),
-  query('pageSize').optional().isInt({ min: 1, max: 100 }).withMessage('PageSize must be between 1 and 100'),
+  query('pageSize').optional().isInt({ min: 1, max: 100000 }).withMessage('PageSize must be between 1 and 100000'),
   query('search').optional().isString().trim().withMessage('Search must be a string'),
   query('purposeId').optional().isInt().withMessage('PurposeId must be an integer'),
   query('studentId').optional().isString().trim().withMessage('StudentId must be a string'),
