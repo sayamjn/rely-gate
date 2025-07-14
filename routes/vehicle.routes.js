@@ -13,7 +13,6 @@ router.get('/search', [
   query('vehicleNo').optional(),
   query('from').optional().isDate().withMessage('From date must be valid'),
   query('to').optional().isDate().withMessage('To date must be valid'),
-  query('tenantId').optional().isNumeric()
 ], handleValidationErrors, VehicleController.searchVehicles);
 
 module.exports = router;

@@ -7,12 +7,6 @@ class FCMController {
       const { firebaseId, androidId, userName, tenantId } = req.body;
       const userTenantId = req.user.tenantId;
 
-      if (tenantId && parseInt(tenantId) !== userTenantId) {
-        return res.status(403).json({
-          responseCode: responseUtils.RESPONSE_CODES.ERROR,
-          responseMessage: 'Access denied for this tenant'
-        });
-      }
 
       const result = await FCMTokenService.registerToken(
         firebaseId,
@@ -37,12 +31,6 @@ class FCMController {
       const { firebaseId, androidId, tenantId } = req.body;
       const userTenantId = req.user.tenantId;
 
-      if (tenantId && parseInt(tenantId) !== userTenantId) {
-        return res.status(403).json({
-          responseCode: responseUtils.RESPONSE_CODES.ERROR,
-          responseMessage: 'Access denied for this tenant'
-        });
-      }
 
       const result = await FCMTokenService.updateToken(
         firebaseId,
@@ -65,12 +53,6 @@ class FCMController {
       const { androidId, notificationFlag, tenantId } = req.body;
       const userTenantId = req.user.tenantId;
 
-      if (tenantId && parseInt(tenantId) !== userTenantId) {
-        return res.status(403).json({
-          responseCode: responseUtils.RESPONSE_CODES.ERROR,
-          responseMessage: 'Access denied for this tenant'
-        });
-      }
 
       const result = await FCMTokenService.updateNotificationFlag(
         androidId,

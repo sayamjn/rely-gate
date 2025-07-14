@@ -1366,72 +1366,30 @@ class VisitorService {
     }
   }
 
-  // getVisitors method
-  static async getVisitors(tenantId, page = 1, pageSize = 20, search = "") {
+  // getVisitors method - refactored to use model layer
+  static async getVisitors(tenantId, page = 1, pageSize = 20, search = "", visitorSubCatId = 0, fromDate = null, toDate = null) {
     try {
-      const offset = (page - 1) * pageSize;
-
-      // FIXED: Remove restrictive category filtering to match POST behavior
-      let whereConditions = ["TenantID = $1", "IsActive = 'Y'"];
-      let params = [tenantId];
-      let paramIndex = 2;
-
-      if (search && search.trim()) {
-        whereConditions.push(
-          `(VistorName ILIKE $${paramIndex} OR VisitorRegNo ILIKE $${paramIndex} OR Mobile ILIKE $${paramIndex})`
-        );
-        params.push(`%${search.trim()}%`);
-        paramIndex++;
-      }
-
-      const whereClause = whereConditions.join(" AND ");
-
-      // Get total count
-      const countSql = `
-      SELECT COUNT(*) as total
-      FROM VisitorRegistration
-      WHERE ${whereClause}
-    `;
-
-      const { query } = require("../config/database");
-      const countResult = await query(countSql, params);
-      const totalCount = parseInt(countResult.rows[0].total);
-
-      // Get paginated data
-      const dataSql = `
-      SELECT 
-        VisitorRegID as visitorId,
-        VisitorRegNo as visitorRegNo,
-        VistorName as visitorName,
-        Mobile as mobile,
-        Email as email,
-        VisitorCatName as category,
-        VisitorSubCatName as subCategory,
-        AssociatedFlat as flatDetails,
-        AssociatedBlock as blockDetails,
-        StatusName as status,
-        CreatedDate as registrationDate
-      FROM VisitorRegistration
-      WHERE ${whereClause}
-      ORDER BY CreatedDate DESC
-      LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
-    `;
-
-      params.push(pageSize, offset);
-      const dataResult = await query(dataSql, params);
-
-      const totalPages = Math.ceil(totalCount / pageSize);
+      // Call the model method instead of having SQL queries in service
+      const result = await VisitorModel.getVisitors(
+        tenantId,
+        parseInt(page),
+        parseInt(pageSize),
+        search,
+        parseInt(visitorSubCatId),
+        fromDate,
+        toDate
+      );
 
       return {
         responseCode: responseUtils.RESPONSE_CODES.SUCCESS,
-        data: dataResult.rows,
+        data: result.data,
         pagination: {
-          currentPage: page,
-          pageSize,
-          totalCount,
-          totalPages,
-          hasNext: page < totalPages,
-          hasPrev: page > 1,
+          currentPage: parseInt(page),
+          pageSize: parseInt(pageSize),
+          totalCount: result.totalCount,
+          totalPages: result.totalPages,
+          hasNext: parseInt(page) < result.totalPages,
+          hasPrev: parseInt(page) > 1,
         },
       };
     } catch (error) {
@@ -1441,6 +1399,27 @@ class VisitorService {
         responseMessage: responseUtils.RESPONSE_MESSAGES.ERROR,
         error:
           process.env.NODE_ENV === "development" ? error.message : undefined,
+      };
+    }
+  }
+
+  // Get unregistered visitors list (legacy format)
+  static async getUnregisteredVisitorsList(tenantId, filters) {
+    try {
+      const visitorData = await VisitorModel.getUnregisteredVisitorsList(tenantId, filters);
+      
+      return {
+        responseCode: responseUtils.RESPONSE_CODES.SUCCESS,
+        count: visitorData.length,
+        unregvisitorlist: visitorData,
+        responseMessage: "Record(s) saved successfully"
+      };
+    } catch (error) {
+      console.error("Error fetching unregistered visitors list:", error);
+      return {
+        responseCode: responseUtils.RESPONSE_CODES.ERROR,
+        responseMessage: responseUtils.RESPONSE_MESSAGES.ERROR,
+        error: process.env.NODE_ENV === "development" ? error.message : undefined,
       };
     }
   }

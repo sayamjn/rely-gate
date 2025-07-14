@@ -7,6 +7,7 @@ const { uploadPurposeImage, handleUploadError } = require("../middleware/upload"
 
 const router = express.Router();
 
+
 // POST /api/gatepass - Create new gatepass
 router.post(
   "/",
@@ -44,10 +45,6 @@ router.post(
       .optional()
       .isInt({ min: 1, max: 2 })
       .withMessage("Status ID must be 1 (Pending) or 2 (Approved)"),
-    body("tenantId")
-      .notEmpty()
-      .isNumeric()
-      .withMessage("TenantId is required and must be numeric"),
     body("remark")
       .optional()
       .isString()
@@ -55,6 +52,7 @@ router.post(
       .withMessage("Remark must be a string"),
   ],
   handleValidationErrors,
+  // authenticateToken,
   GatepassController.createGatepass
 );
 
@@ -91,12 +89,9 @@ router.get(
       .optional()
       .matches(/^\d{2}\/\d{2}\/\d{4}$/)
       .withMessage("EndDate must be in DD/MM/YYYY format"),
-    query("tenantId")
-      .notEmpty()
-      .isNumeric()
-      .withMessage("TenantId is required and must be numeric"),
   ],
   handleValidationErrors,
+  authenticateToken,
   GatepassController.listGatepasses
 );
 
@@ -133,12 +128,9 @@ router.post(
       .optional()
       .isISO8601()
       .withMessage("ToDate must be a valid date"),
-    body("tenantId")
-      .notEmpty()
-      .isNumeric()
-      .withMessage("TenantId is required and must be numeric"),
   ],
   handleValidationErrors,
+  authenticateToken,
   GatepassController.listGatepassesAdvanced
 );
 
@@ -151,12 +143,9 @@ router.put(
       .withMessage("Visitor ID is required")
       .isNumeric()
       .withMessage("Visitor ID must be numeric"),
-    body("tenantId")
-      .notEmpty()
-      .isNumeric()
-      .withMessage("TenantId is required and must be numeric"),
   ],
   handleValidationErrors,
+  authenticateToken,
   GatepassController.approveGatepass
 );
 
@@ -169,12 +158,9 @@ router.post(
       .withMessage("Visitor ID is required")
       .isNumeric()
       .withMessage("Visitor ID must be numeric"),
-    body("tenantId")
-      .notEmpty()
-      .isNumeric()
-      .withMessage("TenantId is required and must be numeric"),
   ],
   handleValidationErrors,
+  authenticateToken,
   GatepassController.checkinGatepass
 );
 
@@ -187,12 +173,9 @@ router.post(
       .withMessage("Visitor ID is required")
       .isNumeric()
       .withMessage("Visitor ID must be numeric"),
-    body("tenantId")
-      .notEmpty()
-      .isNumeric()
-      .withMessage("TenantId is required and must be numeric"),
   ],
   handleValidationErrors,
+  authenticateToken,
   GatepassController.checkoutGatepass
 );
 
@@ -205,50 +188,34 @@ router.get(
       .withMessage("Visitor ID is required")
       .isNumeric()
       .withMessage("Visitor ID must be numeric"),
-    query("tenantId")
-      .notEmpty()
-      .isNumeric()
-      .withMessage("TenantId is required and must be numeric"),
   ],
   handleValidationErrors,
+  authenticateToken,
   GatepassController.getGatepassStatus
 );
 
 // GET /api/gatepass/pending-checkin - Get gatepasses ready for check-in
 router.get(
   "/pending-checkin",
-  [
-    query("tenantId")
-      .notEmpty()
-      .isNumeric()
-      .withMessage("TenantId is required and must be numeric"),
-  ],
+  [],
   handleValidationErrors,
+  authenticateToken,
   GatepassController.getPendingCheckin
 );
 
 // GET /api/gatepass/pending-checkout - Get gatepasses that need check-out
 router.get(
   "/pending-checkout",
-  [
-    query("tenantId")
-      .notEmpty()
-      .isNumeric()
-      .withMessage("TenantId is required and must be numeric"),
-  ],
+  [],
   handleValidationErrors,
+  authenticateToken,
   GatepassController.getPendingCheckout
 );
 
 // GET /api/gatepass/purposes - Get available purposes
 router.get(
   "/purposes",
-  [
-    query("tenantId")
-      .notEmpty()
-      .isNumeric()
-      .withMessage("TenantId is required and must be numeric"),
-  ],
+  [],
   handleValidationErrors,
   GatepassController.getGatepassPurposes
 );
@@ -264,10 +231,6 @@ router.post('/purposes', uploadPurposeImage, handleUploadError, [
     .trim()
     .isLength({ min: 1, max: 250 })
     .withMessage('Purpose name must be between 1 and 250 characters'),
-  body('tenantId')
-    .notEmpty()
-    .isNumeric()
-    .withMessage('TenantId is required and must be numeric'),
 ], handleValidationErrors, GatepassController.addGatePassPurpose);
 
 // PUT /api/gatepass/purposes/:purposeId - Update purpose
@@ -286,10 +249,6 @@ router.put(
       .trim()
       .isLength({ min: 1, max: 250 })
       .withMessage("Purpose name must be between 1 and 250 characters"),
-    body("tenantId")
-      .notEmpty()
-      .isNumeric()
-      .withMessage("TenantId is required and must be numeric"),
   ],
   handleValidationErrors,
   
@@ -305,10 +264,6 @@ router.delete(
       .withMessage("Purpose ID is required")
       .isNumeric()
       .withMessage("Purpose ID must be numeric"),
-    query("tenantId")
-      .notEmpty()
-      .isNumeric()
-      .withMessage("TenantId is required and must be numeric"),
   ],
   handleValidationErrors,
   GatepassController.deleteGatePassPurpose
@@ -335,12 +290,9 @@ router.get(
       .isISO8601()
       .withMessage("ToDate must be a valid date"),
     query("format").optional().isIn(["csv"]).withMessage("Invalid format"),
-    query("tenantId")
-      .notEmpty()
-      .isNumeric()
-      .withMessage("TenantId is required and must be numeric"),
   ],
   handleValidationErrors,
+  authenticateToken,
   GatepassController.exportGatepasses
 );
 
@@ -348,6 +300,7 @@ router.get(
 router.get(
   "/template",
   handleValidationErrors,
+  authenticateToken,
   GatepassController.downloadTemplate
 );
 

@@ -16,12 +16,6 @@ class BulkController {
       const { tenantId } = req.body;
       const userTenantId = req.user.tenantId;
 
-      if (tenantId && parseInt(tenantId) !== userTenantId) {
-        return res.status(403).json({
-          responseCode: responseUtils.RESPONSE_CODES.ERROR,
-          responseMessage: 'Access denied for this tenant'
-        });
-      }
 
       const result = await BulkService.processStudentCSV(
         req.file.path,
@@ -55,12 +49,6 @@ class BulkController {
       const { visitorCatId, tenantId } = req.body;
       const userTenantId = req.user.tenantId;
 
-      if (tenantId && parseInt(tenantId) !== userTenantId) {
-        return res.status(403).json({
-          responseCode: responseUtils.RESPONSE_CODES.ERROR,
-          responseMessage: 'Access denied for this tenant'
-        });
-      }
 
       const result = await BulkService.processVisitorCSV(
         req.file.path,
@@ -95,12 +83,6 @@ class BulkController {
       const { tenantId } = req.body;
       const userTenantId = req.user.tenantId;
 
-      if (tenantId && parseInt(tenantId) !== userTenantId) {
-        return res.status(403).json({
-          responseCode: responseUtils.RESPONSE_CODES.ERROR,
-          responseMessage: 'Access denied for this tenant'
-        });
-      }
 
       const result = await BulkService.processStaffCSV(
         req.file.path,
@@ -134,12 +116,6 @@ class BulkController {
       const { tenantId } = req.body;
       const userTenantId = req.user.tenantId;
 
-      if (tenantId && parseInt(tenantId) !== userTenantId) {
-        return res.status(403).json({
-          responseCode: responseUtils.RESPONSE_CODES.ERROR,
-          responseMessage: 'Access denied for this tenant'
-        });
-      }
 
       const result = await BulkService.processBusCSV(
         req.file.path,

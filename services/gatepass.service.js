@@ -414,7 +414,7 @@ class GatepassService {
           flag: 'Y',
           path: `purposes/${imageFile.filename}`,
           name: imageFile.filename,
-          url: `${baseUrl}/uploads/purposes/${imageFile.filename}`
+          url: `/uploads/purposes/${imageFile.filename}`
         };
       }
 

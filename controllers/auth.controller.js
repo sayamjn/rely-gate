@@ -150,6 +150,7 @@ static async getUserInfo(req, res) {
       });
     }
 
+    // Fetch user information
     const fullUser = await UserModel.findByLoginIdAndTenant(user.loginId, user.tenantId);
 
     if (!fullUser) {
@@ -158,6 +159,9 @@ static async getUserInfo(req, res) {
         responseMessage: 'User not found'
       });
     }
+
+    // Fetch comprehensive tenant information
+    const tenantInfo = await UserModel.getComprehensiveTenantInfo(user.tenantId);
 
     const userInfo = {
       loginId: fullUser.loginid,
@@ -171,12 +175,24 @@ static async getUserInfo(req, res) {
       userName: fullUser.username,
       displayName: fullUser.displayn,
       email: fullUser.email,
-      mobile: fullUser.mobile
+      mobile: fullUser.mobile,
+      linkFlatFlag: fullUser.linkflatflag,
+      linkeFlatId: fullUser.linkeflatid,
+      linkeFlatName: fullUser.linkeflatname
     };
+
+    // Format tenant information if available
+    const tenantDetails = tenantInfo ? {
+      tenantId: tenantInfo.tenantid,
+      tenantCode: tenantInfo.tenantcode,
+      tenantName: tenantInfo.tenantname,
+      createdDate: tenantInfo.createddate
+    } : null;
 
     res.json({
       responseCode: responseUtils.RESPONSE_CODES.SUCCESS,
-      loginuser: userInfo
+      loginuser: userInfo,
+      tenant: tenantDetails
     });
   } catch (error) {
     console.error('Get user info error:', error);

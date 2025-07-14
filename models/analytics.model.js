@@ -264,6 +264,88 @@ const AnalyticsModel = {
 
     const result = await query(sql, [tenantId, startDate, endDate, subCatID]);
     return result.rows;
+  },
+
+  // Get dashboard summary analytics
+  async getDashboardSummary(tenantId) {
+    const sql = `
+      WITH TodayStats AS (
+        SELECT 
+          -- Today's visitors currently outside (checked in but not out)
+          COUNT(CASE WHEN VisitorCatName = 'Visitor' AND DATE(VisitDate) = CURRENT_DATE 
+                    AND InTime IS NOT NULL AND OutTime IS NULL THEN 1 END) as today_outside,
+          
+          -- Today's check-ins and check-outs for visitors
+          COUNT(CASE WHEN VisitorCatName = 'Visitor' AND DATE(InTime) = CURRENT_DATE THEN 1 END) as checkin_visitors,
+          COUNT(CASE WHEN VisitorCatName = 'Visitor' AND DATE(OutTime) = CURRENT_DATE THEN 1 END) as checkout_visitors,
+          
+          -- Yesterday's visitors still outside
+          COUNT(CASE WHEN VisitorCatName = 'Visitor' AND DATE(VisitDate) = CURRENT_DATE - 1 
+                    AND InTime IS NOT NULL AND OutTime IS NULL THEN 1 END) as yesterday_outside,
+          
+          -- Total visitors
+          COUNT(CASE WHEN VisitorCatName = 'Visitor' THEN 1 END) as total_visitors,
+          
+          -- Present and absent registered visitors (using IsActive for registration status)
+          COUNT(CASE WHEN VisitorCatName = 'Visitor' AND InTime IS NOT NULL AND OutTime IS NULL 
+                    AND IsActive = 'Y' THEN 1 END) as present_reg_visitors,
+          COUNT(CASE WHEN VisitorCatName = 'Visitor' AND (InTime IS NULL OR OutTime IS NOT NULL) 
+                    AND IsActive = 'Y' THEN 1 END) as absent_reg_visitors,
+          
+          -- Employee check-ins and check-outs (Staff category)
+          COUNT(CASE WHEN VisitorCatName = 'Staff' AND DATE(InTime) = CURRENT_DATE THEN 1 END) as checkin_employee,
+          COUNT(CASE WHEN VisitorCatName = 'Staff' AND DATE(OutTime) = CURRENT_DATE THEN 1 END) as checkout_employee,
+          COUNT(CASE WHEN VisitorCatName = 'Staff' AND DATE(VisitDate) = CURRENT_DATE - 1 
+                    AND InTime IS NOT NULL AND OutTime IS NULL THEN 1 END) as yesterday_employee,
+          
+          -- Student check-ins and check-outs
+          COUNT(CASE WHEN VisitorCatName = 'Student' AND DATE(InTime) = CURRENT_DATE THEN 1 END) as checkin_student,
+          COUNT(CASE WHEN VisitorCatName = 'Student' AND DATE(OutTime) = CURRENT_DATE THEN 1 END) as checkout_student,
+          
+          -- Bus check-ins and check-outs
+          COUNT(CASE WHEN VisitorCatName = 'Bus' AND DATE(InTime) = CURRENT_DATE THEN 1 END) as checkin_bus,
+          COUNT(CASE WHEN VisitorCatName = 'Bus' AND DATE(OutTime) = CURRENT_DATE THEN 1 END) as checkout_bus
+          
+        FROM VisitorMaster
+        WHERE TenantID = $1 
+          AND IsActive = 'Y'
+          AND VisitDate >= CURRENT_DATE - INTERVAL '30 days'
+      )
+      SELECT 
+        today_outside as "todayOutside",
+        checkin_visitors as "checkInVisitors",
+        checkout_visitors as "checkOutVisitors",
+        yesterday_outside as "yesterdayOutside",
+        total_visitors as "totalVisitors",
+        present_reg_visitors as "presentRegVisitors",
+        absent_reg_visitors as "absentRegVisitors",
+        checkout_employee as "checkOutEmployee",
+        checkin_employee as "checkInEmployee",
+        yesterday_employee as "yesterdayEmployee",
+        checkin_student as "checkInStudent",
+        checkout_student as "checkOutStudent",
+        checkin_bus as "checkInBus",
+        checkout_bus as "checkOutBus"
+      FROM TodayStats
+    `;
+
+    const result = await query(sql, [tenantId]);
+    return result.rows[0] || {
+      todayOutside: 0,
+      checkInVisitors: 0,
+      checkOutVisitors: 0,
+      yesterdayOutside: 0,
+      totalVisitors: 0,
+      presentRegVisitors: 0,
+      absentRegVisitors: 0,
+      checkOutEmployee: 0,
+      checkInEmployee: 0,
+      yesterdayEmployee: 0,
+      checkInStudent: 0,
+      checkOutStudent: 0,
+      checkInBus: 0,
+      checkOutBus: 0
+    };
   }
 };
 

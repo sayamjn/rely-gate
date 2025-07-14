@@ -4,15 +4,9 @@ const responseUtils = require('../utils/constants');
 class DashboardController {
   static async getDashboardSummary(req, res) {
     try {
-      const { tenantId } = req.query;
+      
       const userTenantId = req.user.tenantId;
 
-      if (tenantId && parseInt(tenantId) !== userTenantId) {
-        return res.status(403).json({
-          responseCode: responseUtils.RESPONSE_CODES.ERROR,
-          responseMessage: 'Access denied for this tenant'
-        });
-      }
 
       const result = await DashboardService.getDashboardSummary(userTenantId);
       res.json(result);
@@ -30,12 +24,6 @@ class DashboardController {
       const { tenantId, catId, subCatId } = req.query;
       const userTenantId = req.user.tenantId;
 
-      if (tenantId && parseInt(tenantId) !== userTenantId) {
-        return res.status(403).json({
-          responseCode: responseUtils.RESPONSE_CODES.ERROR,
-          responseMessage: 'Access denied for this tenant'
-        });
-      }
 
       const result = await DashboardService.getVisitorLatestVisitDetails(
         userTenantId, 

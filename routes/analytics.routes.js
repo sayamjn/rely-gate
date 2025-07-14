@@ -68,4 +68,7 @@ router.get('/GetTrendByPurpose', [
   query('subCatID').notEmpty().isNumeric().withMessage('SubCatID is required and must be numeric')
 ], handleValidationErrors, AnalyticsController.getTrendByPurpose);
 
+// GET /api/analytics/GetDashboardSummary - Get dashboard summary analytics
+router.get('/GetDashboardSummary', [], handleValidationErrors, AnalyticsController.getDashboardSummary);
+
 module.exports = router;

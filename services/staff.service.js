@@ -1,14 +1,176 @@
 const { query } = require("../config/database");
 const StaffModel = require("../models/staff.model");
 const responseUtils = require("../utils/constants");
+const DateFormatter = require("../utils/dateFormatter");
 const MessagingService = require("./messaging.service");
 
 class StaffService {
-  // Get all staff with pagination and search
-  static async getStaff(tenantId, page = 1, pageSize = 10, search = "") {
+
+  // Helper function to format datetime in IST format matching student/bus service
+
+  // // Get staff list with filters (like students/buses)
+  // static async getStaffList(tenantId, filters = {}) {
+  //   try {
+  //     const result = await StaffModel.getStaffList(tenantId, filters);
+
+  //     // Map data to proper response format with IST formatting
+  //     const mappedData = result.data.map((staff) => ({
+  //       VisitorRegID: String(staff.visitorregid || ''),
+  //       VisitorRegNo: staff.visitorregno || '',
+  //       SecurityCode: staff.securitycode || '',
+  //       VistorName: staff.vistorname || '',
+  //       Mobile: staff.mobile || '',
+  //       Email: staff.email || '',
+  //       VisitorCatID: staff.visitorcatid || 1,
+  //       VisitorCatName: staff.visitorcatname || 'Staff',
+  //       VisitorSubCatID: staff.visitorsubcatid || '',
+  //       VisitorSubCatName: staff.visitorsubcatname || '',
+  //       FlatID: staff.flatid || '',
+  //       FlatName: staff.flatname || '',
+  //       AssociatedFlat: staff.associatedflat || '',
+  //       AssociatedBlock: staff.associatedblock || '',
+  //       VehiclelNo: staff.vehiclelno || '',
+  //       PhotoFlag: staff.photoflag || 'N',
+  //       PhotoPath: staff.photopath || '',
+  //       PhotoName: staff.photoname || '',
+  //       IsActive: staff.isactive || 'Y',
+  //       CreatedDate: staff.createddate,
+  //       CreatedBy: staff.createdby || '',
+  //       Designation: staff.visitorsubcatname || '',
+  //       Department: staff.associatedblock || '',
+  //       StaffID: staff.visitorregno || '',
+  //       Name: staff.vistorname || '',
+
+  //       // Visit history with IST formatting
+  //       RegVisitorHistoryID: staff.regvisitorhistoryid || null,
+
+  //       // InTime represents checkin time (when staff arrives)
+  //       InTime: staff.lastcheckintime,
+  //       InTimeTxt: StaffService.formatDateTimeIST(staff.lastcheckintime),
+
+  //       // OutTime represents checkout time (when staff leaves)
+  //       OutTime: staff.lastcheckouttime,
+  //       OutTimeTxt: StaffService.formatDateTimeIST(staff.lastcheckouttime),
+
+  //       // Purpose details
+  //       VisitPurposeID: staff.visitpurposeid || null,
+  //       VisitPurpose: staff.visitpurpose || '',
+  //       PurposeCatID: staff.purposecatid || null,
+  //       PurposeCatName: staff.purposecatname || '',
+
+  //       // Current status
+  //       CurrentStatus: staff.currentstatus || 'AVAILABLE',
+
+  //       // Additional fields for better tracking
+  //       Remark: null,
+  //       VehiclePhotoFlag: 'N',
+  //       VehiclePhotoName: null
+  //     }));
+
+  //     return {
+  //       responseCode: responseUtils.RESPONSE_CODES.SUCCESS,
+  //       responseMessage: 'Record(s) retrieved successfully',
+  //       data: mappedData,
+  //       count: result.pagination.totalItems,
+  //       pagination: result.pagination
+  //     };
+  //   } catch (error) {
+  //     console.error("Error fetching staff list:", error);
+  //     return {
+  //       responseCode: responseUtils.RESPONSE_CODES.ERROR,
+  //       responseMessage: responseUtils.RESPONSE_MESSAGES.ERROR,
+  //       error: process.env.NODE_ENV === "development" ? error.message : undefined,
+  //     };
+  //   }
+  // }
+
+  // Get staff sub-categories
+  static async getStaffSubCategories(tenantId) {
     try {
-      const staff = await StaffModel.getStaff(tenantId, page, pageSize, search);
-      const totalCount = await StaffModel.getStaffCount(tenantId, search);
+      const subCategories = await StaffModel.getStaffSubCategories(tenantId);
+      return {
+        responseCode: responseUtils.RESPONSE_CODES.SUCCESS,
+        data: subCategories,
+        count: subCategories.length,
+      };
+    } catch (error) {
+      console.error("Error fetching staff subcategories:", error);
+      return {
+        responseCode: responseUtils.RESPONSE_CODES.ERROR,
+        responseMessage: responseUtils.RESPONSE_MESSAGES.ERROR,
+        error: process.env.NODE_ENV === "development" ? error.message : undefined,
+      };
+    }
+  }
+
+
+    // GET staff list with filters and pagination (like students/buses)
+  static async getStaffList(tenantId, filters = {}) {
+    try {
+      const result = await StaffModel.getStaffList(tenantId, filters);
+
+      // Map/format as needed (minimal, similar to students/buses)
+      const mapped = result.data.map(staff => ({
+        VisitorRegID: staff.visitorregid,
+        VistorName: staff.vistorname,
+        Mobile: staff.mobile,
+        Email: staff.email,
+        VisitorCatID: staff.visitorcatid,
+        VisitorCatName: staff.visitorcatname,
+        VisitorSubCatID: staff.visitorsubcatid,
+        VisitorSubCatName: staff.visitorsubcatname,
+        FlatID: staff.flatid,
+        FlatName: staff.flatname,
+        AssociatedFlat: staff.associatedflat,
+        AssociatedBlock: staff.associatedblock,
+        VehiclelNo: staff.vehiclelno,
+        visitorRegNo: staff.visitorregno,
+        PhotoFlag: staff.photoflag,
+        PhotoPath: staff.photopath,
+        PhotoName: staff.photoname,
+        IsActive: staff.isactive,
+        CreatedDate: staff.createddate,
+        CreatedBy: staff.createdby,
+        StatusName: staff.statusname,
+        // Visit history
+        RegVisitorHistoryID: staff.regvisitorhistoryid,
+
+        InTime: staff.lastcheckintime,
+        InTimeTxt: DateFormatter.formatDateTime(staff.lastcheckintime),
+
+        OutTime: staff.lastcheckouttime,
+        OutTimeTxt: DateFormatter.formatDateTime(staff.lastcheckouttime),
+        
+        VisitPurposeID: staff.visitpurposeid,
+
+        VisitPurpose: staff.visitpurpose,
+
+        PurposeCatID: staff.purposecatid,
+        PurposeCatName: staff.purposecatname,
+        CurrentStatus: staff.currentstatus
+      }));
+
+      return {
+        responseCode: 'S',
+        responseMessage: 'Record(s) retrieved successfully',
+        data: mapped,
+        count: result.pagination.totalItems,
+        pagination: result.pagination
+      };
+    } catch (error) {
+      console.error('Error in getStaffList:', error);
+      return {
+        responseCode: 'E',
+        responseMessage: 'Internal server error',
+        error: process.env.NODE_ENV === 'development' ? error.message : undefined
+      };
+    }
+  }
+  // Get all staff with pagination and search
+  static async getStaff(tenantId, page = 1, pageSize = 10, search = "", designation = "") {
+    try {
+      const staff = await StaffModel.getStaff(tenantId, page, pageSize, search, designation);
+      const totalCount = await StaffModel.getStaffCount(tenantId, search, designation);
 
       const totalPages = Math.ceil(totalCount / pageSize);
 
@@ -278,227 +440,6 @@ class StaffService {
     }
   }
 
-  // Get staff with filters (similar to student/bus list)
-  static async getStaffWithFilters(tenantId, filters) {
-    try {
-      const {
-        page = 1,
-        pageSize = 20,
-        search = "",
-        designation = "",
-        staffId = "",
-        name = "",
-        department = "",
-        fromDate = null,
-        toDate = null,
-      } = filters;
-
-      const offset = (page - 1) * pageSize;
-
-      // Build dynamic WHERE conditions
-      let whereConditions = [
-        "vr.TenantID = $1",
-        "vr.IsActive = 'Y'",
-        "vr.VisitorCatName = 'Staff'",
-      ];
-      let params = [tenantId];
-      let paramIndex = 2;
-
-      if (search && search.trim()) {
-        whereConditions.push(`(
-        vr.VistorName ILIKE $${paramIndex} OR 
-        vr.Mobile ILIKE $${paramIndex} OR 
-        vr.VisitorRegNo ILIKE $${paramIndex} OR
-        vr.Email ILIKE $${paramIndex}
-      )`);
-        params.push(`%${search.trim()}%`);
-        paramIndex++;
-      }
-
-      if (designation && designation.trim()) {
-        whereConditions.push(`vr.VisitorSubCatName ILIKE $${paramIndex}`);
-        params.push(`%${designation.trim()}%`);
-        paramIndex++;
-      }
-
-      if (staffId && staffId.trim()) {
-        whereConditions.push(`vr.VisitorRegNo ILIKE $${paramIndex}`);
-        params.push(`%${staffId.trim()}%`);
-        paramIndex++;
-      }
-
-      if (name && name.trim()) {
-        whereConditions.push(`vr.VistorName ILIKE $${paramIndex}`);
-        params.push(`%${name.trim()}%`);
-        paramIndex++;
-      }
-
-      if (department && department.trim()) {
-        whereConditions.push(`vr.AssociatedBlock ILIKE $${paramIndex}`);
-        params.push(`%${department.trim()}%`);
-        paramIndex++;
-      }
-
-      if (fromDate) {
-        whereConditions.push(`DATE(vr.CreatedDate) >= $${paramIndex}`);
-        params.push(fromDate);
-        paramIndex++;
-      }
-
-      if (toDate) {
-        whereConditions.push(`DATE(vr.CreatedDate) <= $${paramIndex}`);
-        params.push(toDate);
-        paramIndex++;
-      }
-
-      const whereClause = whereConditions.join(" AND ");
-
-      // Count query first (simpler)
-      const countQuery = `
-      SELECT COUNT(*) as total
-      FROM VisitorRegistration vr
-      WHERE ${whereClause}
-    `;
-
-      // Main data query with simplified structure
-      const dataQuery = `
-      SELECT 
-        vr.VisitorRegID as staffId,
-        vr.VistorName as name,
-        vr.Mobile as mobile,
-        vr.VisitorRegNo as staffRegNo,
-        vr.VisitorSubCatName as designation,
-        vr.AssociatedFlat as workLocation,
-        vr.AssociatedBlock as department,
-        vr.Email as email,
-        vr.StatusName as status,
-        vr.CreatedDate as registrationDate,
-        
-        -- Get latest visit info using a simpler approach
-        (
-          SELECT vm1.INTime 
-          FROM VisitorMaster vm1 
-          WHERE vm1.Mobile = vr.Mobile 
-            AND vm1.TenantID = vr.TenantID 
-          ORDER BY vm1.VisitDate DESC, vm1.CreatedDate DESC 
-          LIMIT 1
-        ) as lastInTime,
-        
-        (
-          SELECT vm2.OUTTime 
-          FROM VisitorMaster vm2 
-          WHERE vm2.Mobile = vr.Mobile 
-            AND vm2.TenantID = vr.TenantID 
-          ORDER BY vm2.VisitDate DESC, vm2.CreatedDate DESC 
-          LIMIT 1
-        ) as lastOutTime,
-        
-        (
-          SELECT vm3.VisitDate 
-          FROM VisitorMaster vm3 
-          WHERE vm3.Mobile = vr.Mobile 
-            AND vm3.TenantID = vr.TenantID 
-          ORDER BY vm3.VisitDate DESC, vm3.CreatedDate DESC 
-          LIMIT 1
-        ) as lastVisitDate
-
-      FROM VisitorRegistration vr
-      WHERE ${whereClause}
-      ORDER BY vr.VistorName
-      LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
-    `;
-
-      // Add pagination parameters
-      const dataParams = [...params, pageSize, offset];
-      const countParams = [...params];
-
-      // Execute both queries
-      const [dataResult, countResult] = await Promise.all([
-        query(dataQuery, dataParams),
-        query(countQuery, countParams),
-      ]);
-
-      const totalCount = parseInt(countResult.rows[0].total);
-      const totalPages = Math.ceil(totalCount / pageSize);
-      const currentPage = page;
-
-      // Format duration helper
-      const formatDuration = (startTime, endTime) => {
-        if (!startTime) return "0 min";
-
-        const end = endTime ? new Date(endTime) : new Date();
-        const start = new Date(startTime);
-        const diffMs = end - start;
-        const diffHours = diffMs / (1000 * 60 * 60);
-
-        if (diffHours < 1) {
-          const minutes = Math.floor(diffMs / (1000 * 60));
-          return `${minutes}m`;
-        }
-
-        const hours = Math.floor(diffHours);
-        const minutes = Math.floor((diffHours - hours) * 60);
-        return hours > 0 ? `${hours}h ${minutes}m` : `${minutes}m`;
-      };
-
-      // Calculate current status
-      const calculateStatus = (inTime, outTime) => {
-        if (!inTime) return "NEVER_VISITED";
-        if (inTime && !outTime) return "CHECKED_IN";
-        if (inTime && outTime) return "CHECKED_OUT";
-        return "NEVER_VISITED";
-      };
-
-      return {
-        responseCode: responseUtils.RESPONSE_CODES.SUCCESS,
-        data: dataResult.rows.map((staff) => {
-          const currentStatus = calculateStatus(
-            staff.lastintime,
-            staff.lastouttime
-          );
-
-          return {
-            staffId: staff.staffid,
-            name: staff.name,
-            mobile: staff.mobile,
-            staffRegNo: staff.staffregno,
-            designation: staff.designation,
-            workLocation: staff.worklocation,
-            department: staff.department,
-            email: staff.email,
-            status: staff.status,
-            registrationDate: staff.registrationdate,
-            visits: {
-              lastInTime: staff.lastintime,
-              lastOutTime: staff.lastouttime,
-              lastVisitDate: staff.lastvisitdate,
-              duration: formatDuration(staff.lastintime, staff.lastouttime),
-            },
-            currentStatus: currentStatus,
-            isCheckedIn: currentStatus === "CHECKED_IN",
-            isCheckedOut: currentStatus === "CHECKED_OUT",
-          };
-        }),
-        pagination: {
-          currentPage,
-          pageSize,
-          totalCount,
-          totalPages,
-          hasNext: currentPage < totalPages,
-          hasPrev: currentPage > 1,
-        },
-        filters: filters,
-      };
-    } catch (error) {
-      console.error("Error fetching staff with filters:", error);
-      return {
-        responseCode: responseUtils.RESPONSE_CODES.ERROR,
-        responseMessage: responseUtils.RESPONSE_MESSAGES.ERROR,
-        error:
-          process.env.NODE_ENV === "development" ? error.message : undefined,
-      };
-    }
-  }
 
   // Get available designations
   static async getDesignations(tenantId) {
@@ -517,6 +458,7 @@ class StaffService {
     `;
 
       const result = await query(sql, [tenantId]);
+console.log("result: ", result)
 
       const predefinedSql = `
       SELECT 
@@ -531,7 +473,7 @@ class StaffService {
     `;
 
       const predefinedResult = await query(predefinedSql, [tenantId]);
-
+console.log("predefinedResult: ", predefinedResult)
       // Combine and deduplicate
       const allDesignations = [...result.rows, ...predefinedResult.rows];
       const uniqueDesignations = allDesignations.reduce((acc, curr) => {
@@ -760,7 +702,7 @@ class StaffService {
           flag: 'Y',
           path: `purposes/${imageFile.filename}`,
           name: imageFile.filename,
-          url: `${baseUrl}/uploads/purposes/${imageFile.filename}`
+          url: `/uploads/purposes/${imageFile.filename}`
         };
       }
 

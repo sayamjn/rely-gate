@@ -927,6 +927,175 @@ class VisitorModel {
     const result = await query(sql, [purposeId, tenantId]);
     return result.rows[0];
   }
+
+  // Get unregistered visitors list (legacy format)
+  static async getUnregisteredVisitorsList(tenantId, filters = {}) {
+    const {
+      subcatid = 0,
+      from = '',
+      to = '',
+      flatname = '',
+      flatid = 0,
+      page = 1,
+      pageSize = 50
+    } = filters;
+
+    let sql = `
+      SELECT 
+        '' as "Address_1",
+        '0' as "ConvertFlag",
+        CreatedBy as "CreatedBy",
+        0 as "FlatID",
+        Fname as "Fname",
+        INTime as "INTime",
+        INTimeTxt as "INTimeTxt",
+        IsActive as "IsActive",
+        PhotoFlag as "PhotoFlag",
+        VisitorCatID as "VisitorCatID",
+        VisitorID as "VisitorID",
+        VisitorSubCatID as "VisitorSubCatID",
+        FlatName as "FlatName",
+        Mobile as "Mobile",
+        OutTime as "OutTime",
+        OutTimeTxt as "OutTimeTxt",
+        VisitDate as "VisitDate",
+        VehiclelNo as "VehicleNo",
+        PhotoName as "PhotoName",
+        PhotoPath as "PhotoPath",
+        VisitPurpose as "VisitPurpose",
+        TotalVisitor as "TotalVisitor",
+        CreatedDate as "CreatedDate",
+        COUNT(*) OVER() as total_count
+      FROM VisitorMaster
+      WHERE TenantID = $1 AND IsActive = 'Y'
+    `;
+
+    const params = [tenantId];
+    let paramIndex = 2;
+
+    // Subcategory filter
+    if (subcatid > 0) {
+      sql += ` AND VisitorSubCatID = $${paramIndex}`;
+      params.push(subcatid);
+      paramIndex++;
+    }
+
+    // Date range filters
+    if (from) {
+      sql += ` AND DATE(VisitDate) >= $${paramIndex}`;
+      params.push(from);
+      paramIndex++;
+    }
+
+    if (to) {
+      sql += ` AND DATE(VisitDate) <= $${paramIndex}`;
+      params.push(to);
+      paramIndex++;
+    }
+
+    // Flat name filter
+    if (flatname) {
+      sql += ` AND FlatName ILIKE $${paramIndex}`;
+      params.push(`%${flatname}%`);
+      paramIndex++;
+    }
+
+    // Flat ID filter (if provided)
+    if (flatid > 0) {
+      // Note: VisitorMaster doesn't have FlatID, but we can filter by FlatName if needed
+      // This is a placeholder to match legacy API structure
+    }
+
+    // Pagination
+    const offset = (page - 1) * pageSize;
+    sql += ` ORDER BY VisitDate DESC, INTime DESC LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`;
+    params.push(pageSize, offset);
+
+    const result = await query(sql, params);
+    return result.rows;
+  }
+
+  // Get visitors with pagination, search and filters (for GET /api/visitors)
+  static async getVisitors(tenantId, page = 1, pageSize = 20, search = '', visitorSubCatId = 0, fromDate = null, toDate = null) {
+    let whereConditions = ["vm.TenantID = $1", "vm.IsActive = 'Y'"];
+    let params = [tenantId];
+    let paramIndex = 2;
+
+    // Search filter
+    if (search && search.trim()) {
+      whereConditions.push(
+        `(vm.Fname ILIKE $${paramIndex} OR vm.Mobile ILIKE $${paramIndex} OR vm.VehiclelNo ILIKE $${paramIndex})`
+      );
+      params.push(`%${search.trim()}%`);
+      paramIndex++;
+    }
+
+    // Visitor subcategory filter
+    if (visitorSubCatId > 0) {
+      whereConditions.push(`vm.VisitorSubCatID = $${paramIndex}`);
+      params.push(visitorSubCatId);
+      paramIndex++;
+    }
+
+    // Date range filters
+    if (fromDate) {
+      whereConditions.push(`DATE(vm.CreatedDate) >= $${paramIndex}`);
+      params.push(fromDate);
+      paramIndex++;
+    }
+
+    if (toDate) {
+      whereConditions.push(`DATE(vm.CreatedDate) <= $${paramIndex}`);
+      params.push(toDate);
+      paramIndex++;
+    }
+
+    const whereClause = whereConditions.join(" AND ");
+
+    // Get total count
+    const countSql = `
+      SELECT COUNT(*) as total
+      FROM VisitorMaster vm
+      WHERE ${whereClause}
+    `;
+    const countResult = await query(countSql, params);
+    const totalCount = parseInt(countResult.rows[0].total);
+
+    // Get paginated data with required fields
+    const offset = (page - 1) * pageSize;
+    const dataSql = `
+      SELECT 
+        vm.VisitorID as "VisitorId",
+        COALESCE(vm.VehiclelNo, '') as "VehicleNumber",
+        COALESCE(vm.Fname, '') as "Fname",
+        COALESCE(vm.Mname, '') as "Mname",
+        COALESCE(vm.Lname, '') as "Lname",
+        CASE WHEN vm.INTime IS NOT NULL THEN TO_CHAR(vm.INTime, 'DD/MM/YYYY') ELSE '' END as "INTime",
+        COALESCE(vm.INTimeTxt, '') as "INTimeTxt",
+        CASE WHEN vm.OutTime IS NOT NULL THEN TO_CHAR(vm.OutTime, 'DD/MM/YYYY') ELSE '' END as "OutTime",
+        COALESCE(vm.OutTimeTxt, '') as "OutTimeTxt",
+        vm.VisitDate as "VisitDate",
+        vm.VisitorSubCatID as "VisitorSubCatId",
+        vm.VisitorSubCatName as "visitorSubCatName",
+        vm.Mobile as "Mobile",
+        vm.FlatName as "FlatName",
+        COALESCE(vm.PhotoName, '') as "PhotoName",
+        COALESCE(vm.VehiclePhotoName, '') as "VehiclePhotoName"
+      FROM VisitorMaster vm
+      WHERE ${whereClause}
+      ORDER BY vm.CreatedDate DESC
+      LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
+    `;
+
+    params.push(pageSize, offset);
+    const dataResult = await query(dataSql, params);
+
+    return {
+      data: dataResult.rows,
+      totalCount,
+      totalPages: Math.ceil(totalCount / pageSize)
+    };
+  }
 }
 
 module.exports = VisitorModel;

@@ -1,7 +1,6 @@
-
-const { query } = require('../config/database');
 const BusModel = require('../models/bus.model');
 const responseUtils = require("../utils/constants");
+const DateFormatter = require('../utils/dateFormatter');
 
 class BusService {
 
@@ -33,21 +32,6 @@ class BusService {
             };
           };
 
-          // Format dates
-          const formatDateTime = (dateTime) => {
-            if (!dateTime) return null;
-            const date = new Date(dateTime);
-            return {
-              date: date.toISOString().split('T')[0],
-              time: date.toLocaleTimeString('en-IN', { 
-                hour: '2-digit', 
-                minute: '2-digit', 
-                hour12: true 
-              }),
-              dateTime: date.toISOString(),
-              timestamp: date.getTime()
-            };
-          };
 
           return {
             ...busData,
@@ -59,14 +43,14 @@ class BusService {
             },
             lastActivity: {
               checkOut: {
-                dateTime: formatDateTime(busData.lastcheckoutdatetime),
+                dateTime: DateFormatter.formatDateTime(busData.lastcheckoutdatetime),
                 timeText: busData.lastcheckouttime
               },
               checkIn: {
-                dateTime: formatDateTime(busData.lastcheckindatetime),
+                dateTime: DateFormatter.formatDateTime(busData.lastcheckindatetime),
                 timeText: busData.lastcheckintime
               },
-              visitDate: formatDateTime(busData.lastvisitdate),
+              visitDate: DateFormatter.formatDateTime(busData.lastvisitdate),
               historyId: busData.lasthistoryid
             },
             duration: {
@@ -453,57 +437,9 @@ class BusService {
 
   static async exportBuses(tenantId, filters = {}) {
     try {
-      let whereConditions = ['vr.TenantID = $1', "vr.IsActive = 'Y'", "vr.VisitorCatName = 'Bus'"];
-      let params = [tenantId];
-      let paramIndex = 2;
+      const result = await BusModel.exportBuses(tenantId, filters);
 
-      // Apply filters
-      if (filters.registrationNumber && filters.registrationNumber.trim()) {
-        whereConditions.push(`vr.VisitorRegNo ILIKE $${paramIndex}`);
-        params.push(`%${filters.registrationNumber.trim()}%`);
-        paramIndex++;
-      }
-
-      if (filters.driverName && filters.driverName.trim()) {
-        whereConditions.push(`vr.VistorName ILIKE $${paramIndex}`);
-        params.push(`%${filters.driverName.trim()}%`);
-        paramIndex++;
-      }
-
-      if (filters.fromDate) {
-        whereConditions.push(`vr.CreatedDate >= $${paramIndex}`);
-        params.push(filters.fromDate);
-        paramIndex++;
-      }
-
-      if (filters.toDate) {
-        whereConditions.push(`vr.CreatedDate <= $${paramIndex}`);
-        params.push(filters.toDate);
-        paramIndex++;
-      }
-
-      const whereClause = whereConditions.join(' AND ');
-
-      // Fixed SQL without DISTINCT conflict
-      const sql = `
-        SELECT 
-          vr.VisitorRegNo as "Bus Registration",
-          vr.VistorName as "Driver Name",
-          vr.Mobile as "Driver Mobile",
-          vr.VisitorSubCatName as "Bus Type",
-          vr.AssociatedFlat as "Route",
-          vr.AssociatedBlock as "Area",
-          vr.StatusName as "Status",
-          TO_CHAR(vr.CreatedDate, 'YYYY-MM-DD') as "Registration Date"
-        FROM VisitorRegistration vr
-        WHERE ${whereClause}
-        ORDER BY vr.CreatedDate DESC
-      `;
-
-      const { query } = require('../config/database');
-      const result = await query(sql, params);
-
-      if (result.rows.length === 0) {
+      if (result.length === 0) {
         return {
           responseCode: 'E',
           responseMessage: 'No bus data found for export'
@@ -511,10 +447,10 @@ class BusService {
       }
 
       // Convert to CSV
-      const headers = Object.keys(result.rows[0]);
+      const headers = Object.keys(result[0]);
       const csvRows = [headers.join(',')];
       
-      result.rows.forEach(row => {
+      result.forEach(row => {
         const values = headers.map(header => {
           const value = row[header] || '';
           const stringValue = value.toString();
@@ -529,7 +465,7 @@ class BusService {
       return {
         responseCode: 'S',
         csvData: csvRows.join('\n'),
-        count: result.rows.length
+        count: result.length
       };
     } catch (error) {
       console.error('Error exporting buses:', error);
@@ -579,7 +515,7 @@ class BusService {
           flag: 'Y',
           path: `purposes/${imageFile.filename}`,
           name: imageFile.filename,
-          url: `${baseUrl}/uploads/purposes/${imageFile.filename}`
+          url: `/uploads/purposes/${imageFile.filename}`
         };
       }
 
@@ -715,62 +651,18 @@ class BusService {
   }
 
   // Get buses with pagination and search (legacy)
-static async getBuses(tenantId, page = 1, pageSize = 20, search = '') {
+static async getBuses(tenantId, page = 1, pageSize = 20, search = '', category = '') {
   try {
-    const offset = (page - 1) * pageSize;
-    let whereConditions = ['TenantID = $1', "IsActive = 'Y'", "VisitorCatName = 'Bus'"];
-    let params = [tenantId];
-    let paramIndex = 2;
-
-    if (search && search.trim()) {
-      whereConditions.push(`(VistorName ILIKE $${paramIndex} OR VisitorRegNo ILIKE $${paramIndex} OR Mobile ILIKE $${paramIndex})`);
-      params.push(`%${search.trim()}%`);
-      paramIndex++;
-    }
-
-    const whereClause = whereConditions.join(' AND ');
-
-    // Get total count
-    const countSql = `
-      SELECT COUNT(*) as total
-      FROM VisitorRegistration
-      WHERE ${whereClause}
-    `;
-
-    const { query } = require('../config/database');
-    const countResult = await query(countSql, params);
-    const totalCount = parseInt(countResult.rows[0].total);
-
-    // Get paginated data
-    const dataSql = `
-      SELECT 
-        VisitorRegID as busId,
-        VisitorRegNo as busRegNo,
-        VistorName as driverName,
-        Mobile as driverMobile,
-        VisitorSubCatName as busType,
-        AssociatedFlat as route,
-        AssociatedBlock as area,
-        StatusName as status,
-        CreatedDate as registrationDate
-      FROM VisitorRegistration
-      WHERE ${whereClause}
-      ORDER BY CreatedDate DESC
-      LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
-    `;
-
-    params.push(pageSize, offset);
-    const dataResult = await query(dataSql, params);
-
-    const totalPages = Math.ceil(totalCount / pageSize);
+    const result = await BusModel.getBusesBasic(tenantId, page, pageSize, search, category);
+    const totalPages = Math.ceil(result.totalCount / pageSize);
 
     return {
       responseCode: responseUtils.RESPONSE_CODES.SUCCESS,
-      data: dataResult.rows,
+      data: result.rows,
       pagination: {
         currentPage: page,
         pageSize,
-        totalCount,
+        totalCount: result.totalCount,
         totalPages,
         hasNext: page < totalPages,
         hasPrev: page > 1
@@ -789,33 +681,9 @@ static async getBuses(tenantId, page = 1, pageSize = 20, search = '') {
 // Get buses currently checked in (pending checkout)
 static async getPendingCheckout(tenantId) {
   try {
-    const sql = `
-      SELECT DISTINCT
-        vr.VisitorRegID as busId,
-        vr.VisitorRegNo as busRegNo,
-        vr.VistorName as driverName,
-        vr.Mobile as driverMobile,
-        vr.VisitorSubCatName as busType,
-        vr.AssociatedFlat as route,
-        vr.AssociatedBlock as area,
-        vh.INTime as checkInTime,
-        vh.INTimeTxt as checkInTimeText,
-        EXTRACT(EPOCH FROM (NOW() - vh.INTime))/3600 as hoursCheckedIn
-      FROM VisitorRegistration vr
-      INNER JOIN VisitorRegVisitHistory vh ON vr.VisitorRegID = vh.VisitorRegID
-      WHERE vr.TenantID = $1 
-        AND vr.IsActive = 'Y'
-        AND vr.VisitorCatName = 'Bus'
-        AND vh.TenantID = $1
-        AND vh.IsActive = 'Y'
-        AND (vh.OutTime IS NULL OR vh.OutTimeTxt IS NULL OR vh.OutTimeTxt = '')
-      ORDER BY vh.INTime DESC
-    `;
+    const result = await BusModel.getBusesPendingCheckout(tenantId);
 
-    const { query } = require('../config/database');
-    const result = await query(sql, [tenantId]);
-
-    const buses = result.rows.map(row => ({
+    const buses = result.map(row => ({
       ...row,
       hoursCheckedIn: Math.round(row.hourscheckedin * 100) / 100
     }));
@@ -835,8 +703,105 @@ static async getPendingCheckout(tenantId) {
   }
 }
 
+// New method: Get buses list with comprehensive filters and IST formatting
+static async getBusesList(tenantId, filters = {}) {
+  try {
+    const result = await BusModel.getBusesList(tenantId, filters);
 
-  
+
+    // Map data to proper response format with IST formatting
+    const mappedData = result.data.map((bus) => ({
+      VisitorRegID: String(bus.visitorregid || ''),
+      VisitorRegNo: bus.visitorregno || '',
+      SecurityCode: bus.securitycode || '',
+      VistorName: bus.vistorname || '',
+      Mobile: bus.mobile || '',
+      Email: bus.email || '',
+      VisitorCatID: bus.visitorcatid || 5,
+      VisitorCatName: bus.visitorcatname || 'Bus',
+      VisitorSubCatID: bus.visitorsubcatid || '',
+      VisitorSubCatName: bus.visitorsubcatname || '',
+      FlatID: bus.flatid || '',
+      FlatName: bus.flatname || '',
+      AssociatedFlat: bus.associatedflat || '',
+      AssociatedBlock: bus.associatedblock || '',
+      VehiclelNo: bus.vehiclelno || '',
+      PhotoFlag: bus.photoflag || 'N',
+      PhotoPath: bus.photopath || '',
+      PhotoName: bus.photoname || '',
+      IsActive: bus.isactive || 'Y',
+      CreatedDate: bus.createddate,
+      CreatedBy: bus.createdby || '',
+      BusNumber: bus.busnumber || '',
+      RegistrationNumber: bus.registrationnumber || '',
+      DriverName: bus.drivername || '',
+      BusType: bus.bustype || '',
+      Route: bus.associatedflat || '',
+      Area: bus.associatedblock || '',
+
+      // Visit history with IST formatting
+      RegVisitorHistoryID: bus.regvisitorhistoryid || null,
+
+      // InTime represents checkout time (when bus leaves)
+      InTime: bus.lastcheckintime,
+      InTimeTxt: DateFormatter.formatDateTime(bus.lastcheckintime),
+
+      // OutTime represents checkin time (when bus returns)
+      OutTime: bus.lastcheckouttime,
+      OutTimeTxt: DateFormatter.formatDateTime(bus.lastcheckouttime),
+
+      // Purpose details
+      VisitPurposeID: bus.visitpurposeid || null,
+      VisitPurpose: bus.visitpurpose || '',
+      PurposeCatID: bus.purposecatid || null,
+      PurposeCatName: bus.purposecatname || '',
+
+      // Current status
+      CurrentStatus: bus.currentstatus || 'AVAILABLE',
+
+      // Additional fields for better tracking
+      Remark: null,
+      VehiclePhotoFlag: 'N',
+      VehiclePhotoName: null
+    }));
+    
+
+    return {
+      responseCode: responseUtils.RESPONSE_CODES.SUCCESS,
+      responseMessage: 'Record(s) retrieved successfully',
+      data: mappedData,
+      count: result.pagination.totalItems,
+      pagination: result.pagination
+    };
+  } catch (error) {
+    console.error("Error fetching buses list:", error);
+    return {
+      responseCode: responseUtils.RESPONSE_CODES.ERROR,
+      responseMessage: responseUtils.RESPONSE_MESSAGES.ERROR,
+      error: process.env.NODE_ENV === "development" ? error.message : undefined,
+    };
+  }
+}
+
+// Get all unique bus subcategories for a tenant
+static async getBusSubCategories(tenantId) {
+  try {
+    const subCategories = await BusModel.getBusSubCategories(tenantId);
+    return {
+      responseCode: responseUtils.RESPONSE_CODES.SUCCESS,
+      data: subCategories,
+      count: subCategories.length,
+    };
+  } catch (error) {
+    console.error("Error fetching bus subcategories:", error);
+    return {
+      responseCode: responseUtils.RESPONSE_CODES.ERROR,
+      responseMessage: responseUtils.RESPONSE_MESSAGES.ERROR,
+      error:
+        process.env.NODE_ENV === "development" ? error.message : undefined,
+    };
+  }
+}
 }
 
 module.exports = BusService

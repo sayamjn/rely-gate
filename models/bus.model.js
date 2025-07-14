@@ -556,6 +556,397 @@ class BusModel {
     const result = await query(sql, [purposeId, tenantId]);
     return result.rows[0];
   }
+
+  // New method: Get buses list with comprehensive filters and pagination
+  static async getBusesList(tenantId, filters = {}) {
+    const {
+      page = 1,
+      pageSize = 20,
+      search = '',
+      purposeId = 0,
+      busNumber = '',
+      VisitorSubCatID = 0,
+      registrationNumber = '',
+      driverName = '',
+      busType = '',
+      route = '',
+      fromDate = '',
+      toDate = ''
+    } = filters;
+
+    let whereConditions = [
+      'vr.TenantID = $1',
+      "vr.IsActive = 'Y'",
+      'vr.VisitorCatID = 5'
+    ];
+    let params = [tenantId];
+    let paramIndex = 2;
+
+    // Search filter (bus number, registration, driver, etc.)
+    if (search && search.trim()) {
+      whereConditions.push(`(
+        LOWER(COALESCE(bvu.Name, vr.VistorName)) LIKE LOWER($${paramIndex}) OR
+        LOWER(COALESCE(bvu.StudentID, vr.VisitorRegNo)) LIKE LOWER($${paramIndex}) OR
+        LOWER(COALESCE(bvu.Course, '')) LIKE LOWER($${paramIndex}) OR
+        LOWER(vr.VistorName) LIKE LOWER($${paramIndex}) OR
+        LOWER(vr.VisitorRegNo) LIKE LOWER($${paramIndex}) OR
+        LOWER(vr.SecurityCode) LIKE LOWER($${paramIndex}) OR
+        vr.Mobile LIKE $${paramIndex} OR
+        LOWER(COALESCE(bvu.Hostel, '')) LIKE LOWER($${paramIndex})
+      )`);
+      params.push(`%${search.trim()}%`);
+      paramIndex++;
+    }
+
+    // Purpose ID filter
+    if (purposeId && purposeId > 0) {
+      whereConditions.push(`EXISTS (
+        SELECT 1 FROM VisitorRegVisitHistory vh 
+        WHERE vh.VisitorRegID = vr.VisitorRegID 
+        AND vh.TenantID = vr.TenantID 
+        AND vh.VisitPurposeID = $${paramIndex}
+        AND vh.IsActive = 'Y'
+      )`);
+      params.push(purposeId);
+      paramIndex++;
+    }
+
+    // Bus number filter
+    if (busNumber && busNumber.trim()) {
+      whereConditions.push(`(
+        COALESCE(bvu.Name, vr.VistorName) ILIKE $${paramIndex}
+      )`);
+      params.push(`%${busNumber.trim()}%`);
+      paramIndex++;
+    }
+
+    // Registration number filter
+    if (registrationNumber && registrationNumber.trim()) {
+      whereConditions.push(`(
+        COALESCE(bvu.StudentID, vr.VisitorRegNo) ILIKE $${paramIndex}
+      )`);
+      params.push(`%${registrationNumber.trim()}%`);
+      paramIndex++;
+    }
+
+    // Driver name filter
+    if (driverName && driverName.trim()) {
+      whereConditions.push(`COALESCE(bvu.Course, '') ILIKE $${paramIndex}`);
+      params.push(`%${driverName.trim()}%`);
+      paramIndex++;
+    }
+
+    // Bus type filter
+    if (busType && busType.trim()) {
+      whereConditions.push(`COALESCE(bvu.Hostel, '') ILIKE $${paramIndex}`);
+      params.push(`%${busType.trim()}%`);
+      paramIndex++;
+    }
+
+    // Route filter
+    if (route && route.trim()) {
+      whereConditions.push(`vr.AssociatedFlat ILIKE $${paramIndex}`);
+      params.push(`%${route.trim()}%`);
+      paramIndex++;
+    }
+
+    // Date range filter (for visit history)
+    if (fromDate && fromDate.trim()) {
+      const [day, month, year] = fromDate.split('/');
+      const formattedFromDate = `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+      whereConditions.push(`EXISTS (
+        SELECT 1 FROM VisitorRegVisitHistory vh 
+        WHERE vh.VisitorRegID = vr.VisitorRegID 
+        AND vh.TenantID = vr.TenantID 
+        AND DATE(vh.INTime) >= $${paramIndex}
+        AND vh.IsActive = 'Y'
+      )`);
+      params.push(formattedFromDate);
+      paramIndex++;
+    }
+
+    if (toDate && toDate.trim()) {
+      const [day, month, year] = toDate.split('/');
+      const formattedToDate = `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+      whereConditions.push(`EXISTS (
+        SELECT 1 FROM VisitorRegVisitHistory vh 
+        WHERE vh.VisitorRegID = vr.VisitorRegID 
+        AND vh.TenantID = vr.TenantID 
+        AND DATE(vh.INTime) <= $${paramIndex}
+        AND vh.IsActive = 'Y'
+      )`);
+      params.push(formattedToDate);
+      paramIndex++;
+    }
+
+        // Visitor Sub Category ID filter
+    if (VisitorSubCatID && VisitorSubCatID > 0) {
+      whereConditions.push(`vr.VisitorSubCatID = $${paramIndex}`);
+      params.push(VisitorSubCatID);
+      paramIndex++;
+    }
+    
+    const whereClause = whereConditions.join(' AND ');
+    const offset = (page - 1) * pageSize;
+
+    // Count query for pagination
+    const countSql = `
+      SELECT COUNT(DISTINCT vr.VisitorRegID) as total_count
+      FROM VisitorRegistration vr
+      LEFT JOIN BulkVisitorUpload bvu ON vr.Mobile = bvu.Mobile AND bvu.Type = 'bus'
+      WHERE ${whereClause}
+    `;
+
+    // Main query with latest visit details - ensure unique bus records
+    const sql = `
+      SELECT DISTINCT ON (vr.VisitorRegID)
+        vr.VisitorRegID,
+        vr.VisitorRegNo,
+        vr.SecurityCode,
+        vr.VistorName,
+        vr.Mobile,
+        vr.Email,
+        vr.VisitorCatID,
+        vr.VisitorCatName,
+        vr.VisitorSubCatID,
+        vr.VisitorSubCatName,
+        vr.FlatID,
+        vr.FlatName,
+        vr.AssociatedFlat,
+        vr.AssociatedBlock,
+        vr.VehiclelNo,
+        vr.PhotoFlag,
+        vr.PhotoPath,
+        vr.PhotoName,
+        vr.IsActive,
+        vr.CreatedDate,
+        vr.CreatedBy,
+        COALESCE(bvu.Name, vr.VistorName) as BusNumber,
+        COALESCE(bvu.StudentID, vr.VisitorRegNo) as RegistrationNumber,
+        COALESCE(bvu.Course, 'N/A') as DriverName,
+        COALESCE(bvu.Hostel, 'N/A') as BusType,
+
+        -- Latest visit details with proper checkout/checkin logic
+        latest_visit.RegVisitorHistoryID,
+        latest_visit.INTime as LastCheckoutTime,
+        latest_visit.INTimeTxt as LastCheckoutTimeTxt,
+        latest_visit.OutTime as LastCheckinTime,
+        latest_visit.OutTimeTxt as LastCheckinTimeTxt,
+        latest_visit.VisitPurposeID,
+        latest_visit.VisitPurpose,
+        latest_visit.PurposeCatID,
+        latest_visit.PurposeCatName,
+
+        -- Current status based on latest visit
+        CASE 
+          WHEN latest_visit.RegVisitorHistoryID IS NULL THEN 'AVAILABLE'
+          WHEN latest_visit.OutTime IS NULL OR latest_visit.OutTimeTxt IS NULL OR latest_visit.OutTimeTxt = '' THEN 'CHECKED_OUT'
+          ELSE 'AVAILABLE'
+        END as CurrentStatus
+
+      FROM VisitorRegistration vr
+      LEFT JOIN BulkVisitorUpload bvu ON vr.Mobile = bvu.Mobile AND bvu.Type = 'bus'
+      LEFT JOIN (
+        SELECT DISTINCT ON (vh.VisitorRegID) 
+          vh.RegVisitorHistoryID,
+          vh.VisitorRegID,
+          vh.INTime,
+          vh.INTimeTxt,
+          vh.OutTime,
+          vh.OutTimeTxt,
+          vh.VisitPurposeID,
+          vh.VisitPurpose,
+          vh.PurposeCatID,
+          vh.PurposeCatName
+        FROM VisitorRegVisitHistory vh
+        WHERE vh.TenantID = $1 AND vh.IsActive = 'Y'
+        ORDER BY vh.VisitorRegID, vh.CreatedDate DESC
+      ) latest_visit ON vr.VisitorRegID = latest_visit.VisitorRegID
+
+      WHERE ${whereClause}
+      ORDER BY vr.VisitorRegID, vr.CreatedDate DESC
+      LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
+    `;
+
+    params.push(pageSize, offset);
+
+    // For count query, we need all params except the LIMIT and OFFSET
+    const countParams = params.slice(0, params.length - 2);
+
+    const [countResult, dataResult] = await Promise.all([
+      query(countSql, countParams),
+      query(sql, params)
+    ]);
+
+    const totalCount = parseInt(countResult.rows[0]?.total_count || 0);
+    const totalPages = Math.ceil(totalCount / pageSize);
+
+    return {
+      data: dataResult.rows,
+      pagination: {
+        page: parseInt(page),
+        pageSize: parseInt(pageSize),
+        totalItems: totalCount,
+        totalPages,
+        hasNext: parseInt(page) < totalPages,
+        hasPrev: parseInt(page) > 1
+    }
+  }
+  }
+
+  // Get all unique bus subcategories for a tenant
+  static async getBusSubCategories(tenantId) {
+    const sql = `
+      SELECT DISTINCT
+        vr.VisitorSubCatID AS "subCategoryId",
+        vr.VisitorSubCatName AS "subCategoryName"
+      FROM VisitorRegistration vr
+      WHERE vr.TenantID = $1
+        AND vr.IsActive = 'Y'
+        AND vr.VisitorCatID = 5
+        AND vr.VisitorSubCatID IS NOT NULL
+        AND vr.VisitorSubCatName IS NOT NULL
+      ORDER BY vr.VisitorSubCatName ASC
+    `;
+    const result = await query(sql, [tenantId]);
+    return result.rows;
+  }
+
+  // Export buses method moved from service
+  static async exportBuses(tenantId, filters = {}) {
+    let whereConditions = ['vr.TenantID = $1', "vr.IsActive = 'Y'", "vr.VisitorCatName = 'Bus'"];
+    let params = [tenantId];
+    let paramIndex = 2;
+
+    // Apply filters
+    if (filters.registrationNumber && filters.registrationNumber.trim()) {
+      whereConditions.push(`vr.VisitorRegNo ILIKE $${paramIndex}`);
+      params.push(`%${filters.registrationNumber.trim()}%`);
+      paramIndex++;
+    }
+
+    if (filters.driverName && filters.driverName.trim()) {
+      whereConditions.push(`vr.VistorName ILIKE $${paramIndex}`);
+      params.push(`%${filters.driverName.trim()}%`);
+      paramIndex++;
+    }
+
+    if (filters.fromDate) {
+      whereConditions.push(`vr.CreatedDate >= $${paramIndex}`);
+      params.push(filters.fromDate);
+      paramIndex++;
+    }
+
+    if (filters.toDate) {
+      whereConditions.push(`vr.CreatedDate <= $${paramIndex}`);
+      params.push(filters.toDate);
+      paramIndex++;
+    }
+
+    const whereClause = whereConditions.join(' AND ');
+
+    // Fixed SQL without DISTINCT conflict
+    const sql = `
+      SELECT 
+        vr.VisitorRegNo as "Bus Registration",
+        vr.VistorName as "Driver Name",
+        vr.Mobile as "Driver Mobile",
+        vr.VisitorSubCatName as "Bus Type",
+        vr.AssociatedFlat as "Route",
+        vr.AssociatedBlock as "Area",
+        vr.StatusName as "Status",
+        TO_CHAR(vr.CreatedDate, 'YYYY-MM-DD') as "Registration Date"
+      FROM VisitorRegistration vr
+      WHERE ${whereClause}
+      ORDER BY vr.CreatedDate DESC
+    `;
+
+    const result = await query(sql, params);
+    return result.rows;
+  }
+
+  // Get buses with pagination (legacy method moved from service)
+  static async getBusesBasic(tenantId, page = 1, pageSize = 20, search = '', category = '') {
+    const offset = (page - 1) * pageSize;
+    let whereConditions = ['TenantID = $1', "IsActive = 'Y'", "VisitorCatName = 'Bus'"];
+    let params = [tenantId];
+    let paramIndex = 2;
+
+    if (search && search.trim()) {
+      whereConditions.push(`(VistorName ILIKE $${paramIndex} OR VisitorRegNo ILIKE $${paramIndex} OR Mobile ILIKE $${paramIndex})`);
+      params.push(`%${search.trim()}%`);
+      paramIndex++;
+    }
+
+    if (category && category.trim()) {
+      whereConditions.push(`VisitorSubCatName ILIKE $${paramIndex}`);
+      params.push(`%${category.trim()}%`);
+      paramIndex++;
+    }
+
+    const whereClause = whereConditions.join(' AND ');
+
+    // Get total count
+    const countSql = `
+      SELECT COUNT(*) as total
+      FROM VisitorRegistration
+      WHERE ${whereClause}
+    `;
+
+    const countResult = await query(countSql, params);
+    const totalCount = parseInt(countResult.rows[0].total);
+
+    // Get paginated data
+    const dataSql = `
+      SELECT 
+        VisitorRegNo,
+        VistorName,
+        Mobile,
+        VisitorSubCatName,
+        COALESCE(FlatName, AssociatedFlat, '') as FlatName
+      FROM VisitorRegistration
+      WHERE ${whereClause}
+      ORDER BY CreatedDate DESC
+      LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
+    `;
+
+    params.push(pageSize, offset);
+    const dataResult = await query(dataSql, params);
+
+    return {
+      rows: dataResult.rows,
+      totalCount
+    };
+  }
+
+  // Get buses pending checkout (moved from service)
+  static async getBusesPendingCheckout(tenantId) {
+    const sql = `
+      SELECT DISTINCT
+        vr.VisitorRegID as busId,
+        vr.VisitorRegNo as busRegNo,
+        vr.VistorName as driverName,
+        vr.Mobile as driverMobile,
+        vr.VisitorSubCatName as busType,
+        vr.AssociatedFlat as route,
+        vr.AssociatedBlock as area,
+        vh.INTime as checkInTime,
+        vh.INTimeTxt as checkInTimeText,
+        EXTRACT(EPOCH FROM (NOW() - vh.INTime))/3600 as hoursCheckedIn
+      FROM VisitorRegistration vr
+      INNER JOIN VisitorRegVisitHistory vh ON vr.VisitorRegID = vh.VisitorRegID
+      WHERE vr.TenantID = $1 
+        AND vr.IsActive = 'Y'
+        AND vr.VisitorCatName = 'Bus'
+        AND vh.TenantID = $1
+        AND vh.IsActive = 'Y'
+        AND (vh.OutTime IS NULL OR vh.OutTimeTxt IS NULL OR vh.OutTimeTxt = '')
+      ORDER BY vh.INTime DESC
+    `;
+
+    const result = await query(sql, [tenantId]);
+    return result.rows;
+  }
 }
 
 module.exports = BusModel;

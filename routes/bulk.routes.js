@@ -26,22 +26,18 @@ router.use(authenticateToken);
 // POST /api/bulk/students - Upload student data
 router.post('/students', upload.single('file'), [
   body('type').optional().isString().trim().withMessage('Type must be a string'),
-  body('tenantId').optional().isNumeric().withMessage('TenantId must be numeric')
 ], handleValidationErrors, BulkController.uploadStudentData);
 
 // POST /api/bulk/visitors - Upload visitor data
 router.post('/visitors', upload.single('file'), [
-  body('tenantId').optional().isNumeric().withMessage('TenantId must be numeric')
 ], handleValidationErrors, BulkController.uploadVisitorData);
 
 // POST /api/bulk/staff - Upload staff data
 router.post('/staff', upload.single('file'), [
-  body('tenantId').optional().isNumeric().withMessage('TenantId must be numeric')
 ], handleValidationErrors, BulkController.uploadStaffData);
 
 // POST /api/bulk/buses - Upload bus data
 router.post('/buses', upload.single('file'), [
-  body('tenantId').optional().isNumeric().withMessage('TenantId must be numeric')
 ], handleValidationErrors, BulkController.uploadBusData);
 
 // GET /api/bulk/operation/:operationId/status - Get bulk operation status

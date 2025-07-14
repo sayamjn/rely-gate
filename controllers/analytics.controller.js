@@ -233,6 +233,24 @@ class AnalyticsController {
       });
     }
   }
+
+  // GET /api/analytics/GetDashboardSummary - Get dashboard summary analytics
+  static async getDashboardSummary(req, res) {
+    try {
+      const userTenantId = req.user.tenantId;
+
+      const result = await AnalyticsService.getDashboardSummary(
+        parseInt(userTenantId)
+      );
+      res.json(result);
+    } catch (error) {
+      console.error('Error in getDashboardSummary:', error);
+      res.status(500).json({
+        responseCode: 'E',
+        responseMessage: 'Internal server error'
+      });
+    }
+  }
 }
 
 module.exports = AnalyticsController;

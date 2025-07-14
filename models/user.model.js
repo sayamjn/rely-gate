@@ -138,6 +138,27 @@ class UserModel {
     }
   }
 
+  // Get comprehensive tenant information
+  static async getComprehensiveTenantInfo(tenantId) {
+    const sql = `
+      SELECT 
+        TenantID,
+        TenantCode,
+        TenantName,
+        CreatedDate
+      FROM Tenant
+      WHERE TenantID = $1 AND IsActive = 'Y'
+    `;
+    
+    try {
+      const result = await query(sql, [tenantId]);
+      return result.rows[0] || null;
+    } catch (error) {
+      console.log('Error fetching comprehensive tenant info:', error);
+      return null;
+    }
+  }
+
   // Create user
   static async createUser({ tenantId, userName, password }) {
     const hashedPassword = await bcrypt.hash(password, 10);

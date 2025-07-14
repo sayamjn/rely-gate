@@ -327,6 +327,27 @@ class AnalyticsService {
       };
     }
   }
+
+  // Get dashboard summary analytics
+  static async getDashboardSummary(tenantId) {
+    try {
+      const analytics = await AnalyticsModel.getDashboardSummary(tenantId);
+      
+      return {
+        responseCode: responseUtils.RESPONSE_CODES.SUCCESS,
+        data: [analytics],
+        count: 1,
+        responseMessage: 'Record(s) saved successfully'
+      };
+    } catch (error) {
+      console.error('Error getting dashboard summary:', error);
+      return {
+        responseCode: responseUtils.RESPONSE_CODES.ERROR,
+        responseMessage: 'Internal server error',
+        error: process.env.NODE_ENV === 'development' ? error.message : undefined
+      };
+    }
+  }
 }
 
 module.exports = AnalyticsService;

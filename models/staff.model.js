@@ -2,29 +2,16 @@ const { query } = require('../config/database');
 
 class StaffModel {
   // Get all staff with pagination and search
-  static async getStaff(tenantId, page = 1, pageSize = 10, search = '') {
+  static async getStaff(tenantId, page = 1, pageSize = 10, search = '', designation = '') {
     const offset = (page - 1) * pageSize;
     
     let sql = `
       SELECT 
-        vr.VisitorRegID as staffId,
-        vr.VistorName as staffName,
-        vr.Mobile as mobile,
-        vr.Email as email,
-        vr.VisitorRegNo as staffRegNo,
-        vr.SecurityCode as securityCode,
-        vr.VisitorCatID as visitorCatId,
-        vr.VisitorCatName as visitorCatName,
-        vr.VisitorSubCatID as visitorSubCatId,
-        vr.VisitorSubCatName as visitorSubCatName,
-        vr.AssociatedFlat as associatedFlat,
-        vr.AssociatedBlock as associatedBlock,
-        vr.StatusID as statusId,
-        vr.StatusName as statusName,
-        vr.IsActive as isActive,
-        vr.CreatedDate as createdDate,
-        vr.UpdatedDate as updatedDate,
-        vr.VehiclelNo as vehicleNo
+        vr.VisitorRegNo,
+        vr.VistorName,
+        vr.Mobile,
+        vr.VisitorSubCatName,
+        COALESCE(vr.FlatName, vr.AssociatedFlat, '') as FlatName
       FROM VisitorRegistration vr
       WHERE vr.TenantID = $1 
         AND vr.VisitorCatID = 1 
@@ -40,9 +27,15 @@ class StaffModel {
         LOWER(vr.VistorName) LIKE LOWER($${paramCount}) 
         OR LOWER(vr.Mobile) LIKE LOWER($${paramCount}) 
         OR LOWER(vr.VisitorRegNo) LIKE LOWER($${paramCount})
-        OR LOWER(vr.Email) LIKE LOWER($${paramCount})
+        OR LOWER(vr.VisitorSubCatName) LIKE LOWER($${paramCount})
       )`;
       params.push(`%${search.trim()}%`);
+    }
+    
+    if (designation && designation.trim() !== '' && designation.trim() !== '0') {
+      paramCount++;
+      sql += ` AND LOWER(vr.VisitorSubCatName) LIKE LOWER($${paramCount})`;
+      params.push(`%${designation.trim()}%`);
     }
     
     sql += ` ORDER BY vr.VistorName ASC LIMIT $${paramCount + 1} OFFSET $${paramCount + 2}`;
@@ -52,7 +45,7 @@ class StaffModel {
   }
 
   // Get total count for pagination
-  static async getStaffCount(tenantId, search = '') {
+  static async getStaffCount(tenantId, search = '', designation = '') {
     let sql = `
       SELECT COUNT(*) as total
       FROM VisitorRegistration vr
@@ -70,9 +63,15 @@ class StaffModel {
         LOWER(vr.VistorName) LIKE LOWER($${paramCount}) 
         OR LOWER(vr.Mobile) LIKE LOWER($${paramCount}) 
         OR LOWER(vr.VisitorRegNo) LIKE LOWER($${paramCount})
-        OR LOWER(vr.Email) LIKE LOWER($${paramCount})
+        OR LOWER(vr.VisitorSubCatName) LIKE LOWER($${paramCount})
       )`;
       params.push(`%${search.trim()}%`);
+    }
+    
+    if (designation && designation.trim() !== '' && designation.trim() !== '0') {
+      paramCount++;
+      sql += ` AND LOWER(vr.VisitorSubCatName) LIKE LOWER($${paramCount})`;
+      params.push(`%${designation.trim()}%`);
     }
     
     const result = await query(sql, params);
@@ -466,6 +465,212 @@ class StaffModel {
         AND IsActive = 'Y' 
         AND PurposeCatID = 4
       ORDER BY VisitPurpose ASC
+    `;
+
+    const result = await query(sql, [tenantId]);
+    return result.rows;
+  }
+
+  // Get staff list with filters and pagination (like students/buses)
+  static async getStaffList(tenantId, filters = {}) {
+    const {
+      page = 1,
+      pageSize = 20,
+      search = '',
+      designation = '',
+      staffId = '',
+      VisitorSubCatID = 0,
+      name = '',
+      department = '',
+      fromDate = '',
+      toDate = ''
+    } = filters;
+
+    let whereConditions = [
+      'vr.TenantID = $1',
+      "vr.IsActive = 'Y'",
+      "vr.VisitorCatID = 1"
+    ];
+    let params = [tenantId];
+    let paramIndex = 2;
+
+    if (search && search.trim()) {
+      whereConditions.push(`(
+        LOWER(vr.VistorName) LIKE LOWER($${paramIndex}) OR
+        vr.Mobile LIKE $${paramIndex} OR
+        LOWER(vr.VisitorRegNo) LIKE LOWER($${paramIndex}) OR
+        LOWER(vr.Email) LIKE LOWER($${paramIndex})
+      )`);
+      params.push(`%${search.trim()}%`);
+      paramIndex++;
+    }
+    if (designation && designation.trim() && designation.trim() !== '0') {
+      whereConditions.push(`LOWER(vr.VisitorSubCatName) LIKE LOWER($${paramIndex})`);
+      params.push(`%${designation.trim()}%`);
+      paramIndex++;
+    }
+    if (staffId && staffId.trim()) {
+      whereConditions.push(`LOWER(vr.VisitorRegNo) LIKE LOWER($${paramIndex})`);
+      params.push(`%${staffId.trim()}%`);
+      paramIndex++;
+    }
+    if (VisitorSubCatID && VisitorSubCatID > 0) {
+      whereConditions.push(`vr.VisitorSubCatID = $${paramIndex}`);
+      params.push(VisitorSubCatID);
+      paramIndex++;
+    }
+    if (name && name.trim()) {
+      whereConditions.push(`LOWER(vr.VistorName) LIKE LOWER($${paramIndex})`);
+      params.push(`%${name.trim()}%`);
+      paramIndex++;
+    }
+    if (department && department.trim()) {
+      whereConditions.push(`LOWER(vr.AssociatedBlock) LIKE LOWER($${paramIndex})`);
+      params.push(`%${department.trim()}%`);
+      paramIndex++;
+    }
+    if (fromDate && fromDate.trim()) {
+      const [day, month, year] = fromDate.split('/');
+      const formattedFromDate = `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+      whereConditions.push(`EXISTS (
+        SELECT 1 FROM VisitorRegVisitHistory vh 
+        WHERE vh.VisitorRegID = vr.VisitorRegID 
+        AND vh.TenantID = vr.TenantID 
+        AND vh.IsActive = 'Y'
+        AND DATE(vh.INTime) >= $${paramIndex}
+      )`);
+      params.push(formattedFromDate);
+      paramIndex++;
+    }
+    if (toDate && toDate.trim()) {
+      const [day, month, year] = toDate.split('/');
+      const formattedToDate = `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+      whereConditions.push(`EXISTS (
+        SELECT 1 FROM VisitorRegVisitHistory vh 
+        WHERE vh.VisitorRegID = vr.VisitorRegID 
+        AND vh.TenantID = vr.TenantID 
+        AND vh.IsActive = 'Y'
+        AND DATE(vh.INTime) <= $${paramIndex}
+      )`);
+      params.push(formattedToDate);
+      paramIndex++;
+    }
+
+    const whereClause = whereConditions.join(' AND ');
+    const offset = (page - 1) * pageSize;
+
+    // Count query for pagination
+    const countSql = `
+      SELECT COUNT(DISTINCT vr.VisitorRegID) as total_count
+      FROM VisitorRegistration vr
+      WHERE ${whereClause}
+    `;
+
+    // Main query with latest visit details
+    const sql = `
+      SELECT DISTINCT ON (vr.VisitorRegID)
+        vr.VisitorRegID,
+        vr.VisitorRegNo,
+        vr.SecurityCode,
+        vr.VistorName,
+        vr.Mobile,
+        vr.Email,
+        vr.VisitorCatID,
+        vr.VisitorCatName,
+        vr.VisitorSubCatID,
+        vr.VisitorSubCatName,
+        vr.FlatID,
+        vr.FlatName,
+        vr.AssociatedFlat,
+        vr.AssociatedBlock,
+        vr.VehiclelNo,
+        vr.PhotoFlag,
+        vr.PhotoPath,
+        vr.PhotoName,
+        vr.IsActive,
+        vr.CreatedDate,
+        vr.CreatedBy,
+        vr.StatusName,
+        latest_visit.RegVisitorHistoryID,
+        latest_visit.INTime as LastCheckinTime,
+        latest_visit.INTimeTxt as LastCheckinTimeTxt,
+        latest_visit.OutTime as LastCheckoutTime,
+        latest_visit.OutTimeTxt as LastCheckoutTimeTxt,
+        latest_visit.VisitPurposeID,
+        latest_visit.VisitPurpose,
+        latest_visit.PurposeCatID,
+        latest_visit.PurposeCatName,
+        CASE 
+          WHEN latest_visit.RegVisitorHistoryID IS NULL THEN 'AVAILABLE'
+          WHEN latest_visit.OutTime IS NULL OR latest_visit.OutTimeTxt IS NULL OR latest_visit.OutTimeTxt = '' THEN 'CHECKED_IN'
+          ELSE 'AVAILABLE'
+        END as CurrentStatus
+      FROM VisitorRegistration vr
+      LEFT JOIN (
+        SELECT DISTINCT ON (vh.VisitorRegID)
+          vh.RegVisitorHistoryID,
+          vh.VisitorRegID,
+          vh.INTime,
+          vh.INTimeTxt,
+          vh.OutTime,
+          vh.OutTimeTxt,
+          vh.VisitPurposeID,
+          vh.VisitPurpose,
+          vh.PurposeCatID,
+          vh.PurposeCatName
+        FROM VisitorRegVisitHistory vh
+        WHERE vh.TenantID = $1 AND vh.IsActive = 'Y'
+        ORDER BY vh.VisitorRegID, vh.CreatedDate DESC
+      ) latest_visit ON vr.VisitorRegID = latest_visit.VisitorRegID
+      WHERE ${whereClause}
+      ORDER BY vr.VisitorRegID, vr.CreatedDate DESC
+      LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
+    `;
+
+    params.push(pageSize, offset);
+
+    // For count query, we need all params except the LIMIT and OFFSET
+    const countParams = params.slice(0, params.length - 2);
+
+    const [countResult, dataResult] = await Promise.all([
+      query(countSql, countParams),
+      query(sql, params)
+    ]);
+
+    const totalCount = parseInt(countResult.rows[0]?.total_count || 0);
+    const totalPages = Math.ceil(totalCount / pageSize);
+
+    return {
+      data: dataResult.rows,
+      pagination: {
+        page: parseInt(page),
+        pageSize: parseInt(pageSize),
+        totalItems: totalCount,
+        totalPages,
+        hasNext: parseInt(page) < totalPages,
+        hasPrev: parseInt(page) > 1
+      }
+    };
+  }
+
+  // Get all unique staff subcategories for a tenant
+  static async getStaffSubCategories(tenantId) {
+    const sql = `
+      SELECT DISTINCT
+        vsc.VisitorSubCatID as id,
+        vsc.VisitorSubCatName as name,
+        vsc.VisitorSubCatName as designation,
+        COUNT(vr.VisitorRegID) as count
+      FROM VisitorSubCategory vsc
+      LEFT JOIN VisitorRegistration vr ON vsc.VisitorSubCatID = vr.VisitorSubCatID 
+        AND vr.TenantID = vsc.TenantID 
+        AND vr.VisitorCatID = 1 
+        AND vr.IsActive = 'Y'
+      WHERE vsc.TenantID = $1 
+        AND vsc.VisitorCatID = 1 
+        AND vsc.IsActive = 'Y'
+      GROUP BY vsc.VisitorSubCatID, vsc.VisitorSubCatName
+      ORDER BY vsc.VisitorSubCatName ASC
     `;
 
     const result = await query(sql, [tenantId]);

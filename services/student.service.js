@@ -3,104 +3,87 @@ const StudentModel = require("../models/student.model");
 const responseUtils = require("../utils/constants");
 
 class StudentService {
+  // Get student (legacy/backward compatible)
+  static async getStudents(tenantId, page = 1, pageSize = 20, search = '', visitorSubCatId = null) {
+    try {
+      const result = await StudentModel.getStudentsWithPagination(tenantId, page, pageSize, search, visitorSubCatId);
+      return {
+        count: result.students.length,
+        data: result.students,
+        responseMessage: 'Record(s) saved successfully',
+        responseCode: 'S',
+        pagination: {
+          currentPage: result.currentPage,
+          pageSize: result.pageSize,
+          totalRecords: result.totalCount,
+          totalPages: result.totalPages,
+          hasNext: result.currentPage < result.totalPages,
+          hasPrevious: result.currentPage > 1,
+        },
+      };
+    } catch (error) {
+      console.error("Error fetching students (legacy):", error);
+      return {
+        responseCode: responseUtils.RESPONSE_CODES.ERROR,
+        responseMessage: responseUtils.RESPONSE_MESSAGES.ERROR,
+        error:
+          process.env.NODE_ENV === "development" ? error.message : undefined,
+      };
+    }
+  }
+
   // Get students with filters
   static async getStudentsWithFilters(tenantId, filters = {}) {
     try {
-      const students = await StudentModel.getStudentsWithFilters(
-        tenantId,
-        filters
-      );
-
-      const totalCount =
-        students.length > 0 ? parseInt(students[0].total_count) : 0;
-      const currentPage = parseInt(filters.page) || 1;
-      const pageSize = parseInt(filters.pageSize) || 20;
+      const students = await StudentModel.getStudentsWithFilters(tenantId, filters);
+      
+      // Get total count from the first row (if any)
+      const totalCount = students.length > 0 ? parseInt(students[0].total_count) : 0;
+      const page = filters.page || 1;
+      const pageSize = filters.pageSize || 20;
       const totalPages = Math.ceil(totalCount / pageSize);
-
+      
+      // Map to required response format
+      const mapped = students.map((s) => ({
+        VisitorRegID: s.visitorregid || s.VisitorRegID,
+        VistorName: s.vistorname || s.VistorName,
+        CreatedDateTxt: s.createddate ? new Date(s.createddate).toLocaleDateString('en-GB') : 
+                       s.CreatedDate ? new Date(s.CreatedDate).toLocaleDateString('en-GB') : '',
+        InTimeTxt: s.lastcheckintime || s.LastCheckInTime || '',
+        InTime: s.lastcheckindatetime || s.LastCheckInDateTime || '',
+        OutTime: s.lastcheckoutdatetime || s.LastCheckOutDateTime || '',
+        OutTimeTxt: s.lastcheckouttime || s.LastCheckOutTime || '',
+        CreatedBy: s.createdby || s.CreatedBy || '',
+        Course: s.course || s.Course || '',
+        VisitorSubCatName: s.visitorsubcatname || s.VisitorSubCatName || '',
+        VisitorRegNo: s.visitorregno || s.VisitorRegNo || '',
+        SecurityCode: s.securitycode || s.SecurityCode || '',
+        Mobile: s.mobile || s.Mobile || '',
+        PhotoName: s.photoname || s.PhotoName || '',
+        VehiclelNo: s.vehiclelno || s.VehiclelNo || '',
+        VehiclePhotoFlag: s.vehiclephotoflag || s.VehiclePhotoFlag || 'N',
+        VehiclePhotoName: s.vehiclephotoname || s.VehiclePhotoName || null,
+        AssociatedFlat: s.associatedflat || s.AssociatedFlat || '',
+        Remark: s.remark || s.Remark || null,
+        RegVisitorHistoryID: s.lasthistoryid || s.LastHistoryID || null,
+        CurrentStatus: s.CurrentStatus || 'UNKNOWN',
+        LastVisitPurpose: s.LastVisitPurpose || '',
+        LastVisitPurposeID: s.LastVisitPurposeID || null
+      }));
+      
       return {
-        responseCode: responseUtils.RESPONSE_CODES.SUCCESS,
-        data: students.map((student) => {
-          const { total_count, ...studentData } = student;
-
-          // Calculate formatted duration
-          const formatDuration = (hours) => {
-            if (!hours || hours <= 0) return null;
-            const h = Math.floor(hours);
-            const m = Math.round((hours % 1) * 60);
-            return {
-              hours: h,
-              minutes: m,
-              formatted: `${h}h ${m}m`,
-              totalMinutes: Math.round(hours * 60),
-            };
-          };
-
-          // Format dates
-          const formatDateTime = (dateTime) => {
-            if (!dateTime) return null;
-            const date = new Date(dateTime);
-            return {
-              date: date.toISOString().split("T")[0], // YYYY-MM-DD
-              time: date.toLocaleTimeString("en-IN", {
-                hour: "2-digit",
-                minute: "2-digit",
-                hour12: true,
-              }),
-              dateTime: date.toISOString(),
-              timestamp: date.getTime(),
-            };
-          };
-
-          return {
-            ...studentData,
-            lastPurpose: {
-              purposeId: studentData.lastvisitpurposeid,
-              purposeName: studentData.lastvisitpurpose,
-              purposeCatId: studentData.lastpurposecatid,
-              purposeCatName: studentData.lastpurposecatname,
-            },
-            lastActivity: {
-              // Checkout information
-              checkOut: {
-                dateTime: formatDateTime(studentData.lastcheckoutdatetime),
-                timeText: studentData.lastcheckouttime,
-              },
-              // Checkin information
-              checkIn: {
-                dateTime: formatDateTime(studentData.lastcheckindatetime),
-                timeText: studentData.lastcheckintime,
-              },
-              // Visit date
-              visitDate: formatDateTime(studentData.lastvisitdate),
-              historyId: studentData.lasthistoryid,
-            },
-            duration: {
-              // Completed visit duration (if student has checked back in)
-              lastVisit: studentData.lastvisitdurationhours
-                ? formatDuration(studentData.lastvisitdurationhours)
-                : null,
-              // Current checkout duration (if student is still checked out)
-              currentCheckout: studentData.currentcheckoutdurationhours
-                ? formatDuration(studentData.currentcheckoutdurationhours)
-                : null,
-            },
-            // Status information
-            status: {
-              current: studentData.currentstatus,
-              isCheckedOut: studentData.currentstatus === "CHECKED_OUT",
-              isCheckedIn: studentData.currentstatus === "CHECKED_IN",
-            },
-          };
-        }),
+        count: mapped.length,
+        data: mapped,
+        responseMessage: 'Record(s) saved successfully',
+        responseCode: 'S',
         pagination: {
-          currentPage,
-          pageSize,
-          totalCount,
-          totalPages,
-          hasNext: currentPage < totalPages,
-          hasPrev: currentPage > 1,
-        },
-        filters: filters,
+          currentPage: page,
+          pageSize: pageSize,
+          totalRecords: totalCount,
+          totalPages: totalPages,
+          hasNext: page < totalPages,
+          hasPrevious: page > 1
+        }
       };
     } catch (error) {
       console.error("Error fetching students with filters:", error);
@@ -113,10 +96,26 @@ class StudentService {
     }
   }
 
-  // Get student
-  static async getStudents(tenantId, page = 1, pageSize = 20, search = "") {
-    return this.getStudentsWithFilters(tenantId, { page, pageSize, search });
+  // Get all unique student subcategories for a tenant
+  static async getStudentSubCategories(tenantId) {
+    try {
+      const subCategories = await StudentModel.getStudentSubCategories(tenantId);
+      return {
+        responseCode: responseUtils.RESPONSE_CODES.SUCCESS,
+        data: subCategories,
+        count: subCategories.length,
+      };
+    } catch (error) {
+      console.error("Error fetching student subcategories:", error);
+      return {
+        responseCode: responseUtils.RESPONSE_CODES.ERROR,
+        responseMessage: responseUtils.RESPONSE_MESSAGES.ERROR,
+        error:
+          process.env.NODE_ENV === "development" ? error.message : undefined,
+      };
+    }
   }
+
 
   // Get student purposes
   static async getStudentPurposes(tenantId, purposeCatId = 3) {
@@ -696,7 +695,7 @@ class StudentService {
           flag: 'Y',
           path: `purposes/${imageFile.filename}`,
           name: imageFile.filename,
-          url: `${baseUrl}/uploads/purposes/${imageFile.filename}`
+          url: `/uploads/purposes/${imageFile.filename}`
         };
       }
 
@@ -912,4 +911,5 @@ static async getPendingCheckout(tenantId) {
 }
 }
 
+module.exports = StudentService;
 module.exports = StudentService;

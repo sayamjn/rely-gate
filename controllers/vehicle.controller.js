@@ -7,12 +7,6 @@ class VehicleController {
       const { vehicleNo, from, to, tenantId } = req.query;
       const userTenantId = req.user.tenantId;
 
-      if (tenantId && parseInt(tenantId) !== userTenantId) {
-        return res.status(403).json({
-          responseCode: responseUtils.RESPONSE_CODES.ERROR,
-          responseMessage: 'Access denied for this tenant'
-        });
-      }
 
       const result = await VehicleService.searchVehicles(userTenantId, vehicleNo, from, to);
       res.json(result);

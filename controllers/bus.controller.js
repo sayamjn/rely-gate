@@ -20,12 +20,6 @@ class BusController {
       
       const userTenantId = req.user.tenantId;
 
-      if (tenantId && parseInt(tenantId) !== userTenantId) {
-        return res.status(403).json({
-          responseCode: responseUtils.RESPONSE_CODES.ERROR,
-          responseMessage: 'Access denied for this tenant'
-        });
-      }
 
       const filters = {
         page: parseInt(page),
@@ -55,15 +49,8 @@ class BusController {
   static async getBusStatus(req, res) {
     try {
       const { busId } = req.params;
-      const { tenantId } = req.query;
       const userTenantId = req.user.tenantId;
 
-      if (tenantId && parseInt(tenantId) !== userTenantId) {
-        return res.status(403).json({
-          responseCode: responseUtils.RESPONSE_CODES.ERROR,
-          responseMessage: 'Access denied for this tenant'
-        });
-      }
 
       if (!busId) {
         return res.status(400).json({
@@ -95,12 +82,6 @@ class BusController {
       const userTenantId = req.user.tenantId;
       const createdBy = req.user.username;
 
-      if (tenantId && parseInt(tenantId) !== userTenantId) {
-        return res.status(403).json({
-          responseCode: responseUtils.RESPONSE_CODES.ERROR,
-          responseMessage: 'Access denied for this tenant'
-        });
-      }
 
       if (!busId) {
         return res.status(400).json({
@@ -142,12 +123,6 @@ class BusController {
       const userTenantId = req.user.tenantId;
       const updatedBy = req.user.username;
 
-      if (tenantId && parseInt(tenantId) !== userTenantId) {
-        return res.status(403).json({
-          responseCode: responseUtils.RESPONSE_CODES.ERROR,
-          responseMessage: 'Access denied for this tenant'
-        });
-      }
 
       if (!busId) {
         return res.status(400).json({
@@ -176,15 +151,9 @@ class BusController {
   static async getBusHistory(req, res) {
     try {
       const { busId } = req.params;
-      const { tenantId, limit = 10 } = req.query;
+      const { limit = 10 } = req.query;
       const userTenantId = req.user.tenantId;
 
-      if (tenantId && parseInt(tenantId) !== userTenantId) {
-        return res.status(403).json({
-          responseCode: responseUtils.RESPONSE_CODES.ERROR,
-          responseMessage: 'Access denied for this tenant'
-        });
-      }
 
       const result = await BusService.getBusHistory(
         parseInt(busId),
@@ -205,15 +174,9 @@ class BusController {
   // GET /api/buses/pending-checkin - Get buses currently checked out
   static async getPendingCheckin(req, res) {
     try {
-      const { tenantId } = req.query;
+      
       const userTenantId = req.user.tenantId;
 
-      if (tenantId && parseInt(tenantId) !== userTenantId) {
-        return res.status(403).json({
-          responseCode: responseUtils.RESPONSE_CODES.ERROR,
-          responseMessage: 'Access denied for this tenant'
-        });
-      }
 
       const result = await BusService.getBusesPendingCheckin(userTenantId);
 
@@ -242,12 +205,6 @@ class BusController {
       
       const userTenantId = req.user.tenantId;
 
-      if (tenantId && parseInt(tenantId) !== userTenantId) {
-        return res.status(403).json({
-          responseCode: responseUtils.RESPONSE_CODES.ERROR,
-          responseMessage: 'Access denied for this tenant'
-        });
-      }
 
       const filters = {
         purposeId: purposeId ? parseInt(purposeId) : null,
@@ -299,6 +256,7 @@ static async getBuses(req, res) {
       page = 1, 
       pageSize = 20, 
       search = '', 
+      category = '',
       tenantId 
     } = req.query;
     
@@ -315,10 +273,27 @@ static async getBuses(req, res) {
       userTenantId,
       parseInt(page),
       parseInt(pageSize),
-      search
+      search,
+      category
     );
 
-    res.json(result);
+    // Map response to only return required fields
+    if (result.responseCode === responseUtils.RESPONSE_CODES.SUCCESS && result.data) {
+      const mappedData = result.data.map(bus => ({
+        VisitorRegNo: bus.VisitorRegNo || bus.visitorregno,
+        VisitorName: bus.VistorName || bus.vistorname,
+        mobile: bus.Mobile || bus.mobile,
+        VisitorSubCatName: bus.VisitorSubCatName || bus.visitorsubcatname,
+        flatName: bus.FlatName || bus.flatname || ''
+      }));
+
+      res.json({
+        ...result,
+        data: mappedData
+      });
+    } else {
+      res.json(result);
+    }
   } catch (error) {
     console.error('Error in getBuses:', error);
     res.status(500).json({
@@ -332,7 +307,7 @@ static async getBuses(req, res) {
 // GET /api/buses/pending-checkout - Get buses currently checked in
 static async getPendingCheckout(req, res) {
   try {
-    const { tenantId } = req.query;
+    
     const userTenantId = req.user.tenantId;
 
     if (tenantId && parseInt(tenantId) !== userTenantId) {
@@ -360,12 +335,6 @@ static async getPendingCheckout(req, res) {
       const { tenantId, purposeCatId = 2 } = req.query; // Bus category = 2
       const userTenantId = req.user.tenantId;
 
-      if (tenantId && parseInt(tenantId) !== userTenantId) {
-        return res.status(403).json({
-          responseCode: responseUtils.RESPONSE_CODES.ERROR,
-          responseMessage: 'Access denied for this tenant'
-        });
-      }
 
       const result = await BusService.getBusPurposes(
         userTenantId, 
@@ -475,6 +444,69 @@ static async getPendingCheckout(req, res) {
       res.status(500).json({
         responseCode: responseUtils.RESPONSE_CODES.ERROR,
         responseMessage: "Internal server error",
+      });
+    }
+  }
+
+  // GET /api/buses/list - New comprehensive list endpoint with all filters
+  static async getBusesList(req, res) {
+    try {
+      const {
+        page = 1,
+        pageSize = 20,
+        search = '',
+        purposeId = 0,
+        busNumber = '',
+        VisitorSubCatID = 0,
+        registrationNumber = '',
+        driverName = '',
+        busType = '',
+        route = '',
+        fromDate = '',
+        toDate = ''
+      } = req.query;
+
+      const userTenantId = req.user.tenantId;
+
+      const filters = {
+        page: parseInt(page),
+        pageSize: parseInt(pageSize),
+        search: search.trim(),
+        purposeId: parseInt(purposeId),
+        busNumber: busNumber.trim(),
+        registrationNumber: registrationNumber.trim(),
+        VisitorSubCatID: parseInt(VisitorSubCatID),
+        driverName: driverName.trim(),
+        busType: busType.trim(),
+        route: route.trim(),
+        fromDate: fromDate.trim(),
+        toDate: toDate.trim()
+      };
+
+      const result = await BusService.getBusesList(userTenantId, filters);
+      res.json(result);
+    } catch (error) {
+      console.error('Error in getBusesList:', error);
+      res.status(500).json({
+        responseCode: responseUtils.RESPONSE_CODES.ERROR,
+        responseMessage: 'Internal server error',
+        error: process.env.NODE_ENV === 'development' ? error.message : undefined
+      });
+    }
+  }
+
+  // GET /api/buses/sub-categories - List of bus sub categories
+  static async getBusSubCategories(req, res) {
+    try {
+      const userTenantId = req.user.tenantId;
+      const result = await BusService.getBusSubCategories(userTenantId);
+      res.json(result);
+    } catch (error) {
+      console.error('Error in getBusSubCategories:', error);
+      res.status(500).json({
+        responseCode: responseUtils.RESPONSE_CODES.ERROR,
+        responseMessage: 'Internal server error',
+        error: process.env.NODE_ENV === 'development' ? error.message : undefined
       });
     }
   }

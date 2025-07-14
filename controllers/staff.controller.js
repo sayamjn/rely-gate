@@ -19,12 +19,6 @@ class StaffController {
       
       const userTenantId = req.user.tenantId;
 
-      if (tenantId && parseInt(tenantId) !== userTenantId) {
-        return res.status(403).json({
-          responseCode: responseUtils.RESPONSE_CODES.ERROR,
-          responseMessage: 'Access denied for this tenant'
-        });
-      }
 
       const filters = {
         page: parseInt(page),
@@ -37,7 +31,7 @@ class StaffController {
         toDate
       };
 
-      const result = await StaffService.getStaffWithFilters(userTenantId, filters);
+      const result = await StaffService.getStaffList(userTenantId, filters);
       res.json(result);
     } catch (error) {
       console.error('Error in listStaff:', error);
@@ -53,24 +47,35 @@ class StaffController {
   // GET /api/staff - List staff with pagination and search
   static async getStaff(req, res) {
     try {
-      const { page = 1, pageSize = 10, search = '', tenantId } = req.query;
+      const { page = 1, pageSize = 10, search = '', designation = '', tenantId } = req.query;
       const userTenantId = req.user.tenantId;
 
-      if (tenantId && parseInt(tenantId) !== userTenantId) {
-        return res.status(403).json({
-          responseCode: responseUtils.RESPONSE_CODES.ERROR,
-          responseMessage: 'Access denied for this tenant'
-        });
-      }
 
       const result = await StaffService.getStaff(
         userTenantId,
         parseInt(page),
         parseInt(pageSize),
-        search
+        search,
+        designation
       );
 
-      res.json(result);
+      // Map response to only return required fields
+      if (result.responseCode === responseUtils.RESPONSE_CODES.SUCCESS && result.data) {
+        const mappedData = result.data.map(staff => ({
+          VisitorRegNo: staff.VisitorRegNo || staff.visitorregno,
+          VisitorName: staff.VistorName || staff.vistorname,
+          mobile: staff.Mobile || staff.mobile,
+          VisitorSubCatName: staff.VisitorSubCatName || staff.visitorsubcatname,
+          flatName: staff.FlatName || staff.flatname || ''
+        }));
+
+        res.json({
+          ...result,
+          data: mappedData
+        });
+      } else {
+        res.json(result);
+      }
     } catch (error) {
       console.error('Error in getStaff:', error);
       res.status(500).json({
@@ -88,12 +93,6 @@ class StaffController {
       const userTenantId = req.user.tenantId;
       const createdBy = req.user.username;
 
-      if (tenantId && parseInt(tenantId) !== userTenantId) {
-        return res.status(403).json({
-          responseCode: responseUtils.RESPONSE_CODES.ERROR,
-          responseMessage: 'Access denied for this tenant'
-        });
-      }
 
       if (!staffId) {
         return res.status(400).json({
@@ -126,12 +125,6 @@ class StaffController {
       const userTenantId = req.user.tenantId;
       const updatedBy = req.user.username;
 
-      if (tenantId && parseInt(tenantId) !== userTenantId) {
-        return res.status(403).json({
-          responseCode: responseUtils.RESPONSE_CODES.ERROR,
-          responseMessage: 'Access denied for this tenant'
-        });
-      }
 
       if (!staffId) {
         return res.status(400).json({
@@ -163,12 +156,6 @@ class StaffController {
       const { tenantId, limit = 10 } = req.query;
       const userTenantId = req.user.tenantId;
 
-      if (tenantId && parseInt(tenantId) !== userTenantId) {
-        return res.status(403).json({
-          responseCode: responseUtils.RESPONSE_CODES.ERROR,
-          responseMessage: 'Access denied for this tenant'
-        });
-      }
 
       const result = await StaffService.getStaffHistory(
         parseInt(staffId),
@@ -189,15 +176,9 @@ class StaffController {
   // GET /api/staff/pending-checkout - Get staff currently checked in
   static async getPendingCheckout(req, res) {
     try {
-      const { tenantId } = req.query;
+      
       const userTenantId = req.user.tenantId;
 
-      if (tenantId && parseInt(tenantId) !== userTenantId) {
-        return res.status(403).json({
-          responseCode: responseUtils.RESPONSE_CODES.ERROR,
-          responseMessage: 'Access denied for this tenant'
-        });
-      }
 
       const result = await StaffService.getPendingCheckout(userTenantId);
 
@@ -215,15 +196,9 @@ class StaffController {
   static async getStaffStatus(req, res) {
     try {
       const { staffId } = req.params;
-      const { tenantId } = req.query;
+      
       const userTenantId = req.user.tenantId;
 
-      if (tenantId && parseInt(tenantId) !== userTenantId) {
-        return res.status(403).json({
-          responseCode: responseUtils.RESPONSE_CODES.ERROR,
-          responseMessage: 'Access denied for this tenant'
-        });
-      }
 
       if (!staffId) {
         return res.status(400).json({
@@ -250,12 +225,6 @@ class StaffController {
       const { mobile, designation, tenantId } = req.body;
       const userTenantId = req.user.tenantId;
 
-      if (tenantId && parseInt(tenantId) !== userTenantId) {
-        return res.status(403).json({
-          responseCode: responseUtils.RESPONSE_CODES.ERROR,
-          responseMessage: 'Access denied for this tenant'
-        });
-      }
 
       const result = await StaffService.registerStaff(
         userTenantId,
@@ -292,12 +261,6 @@ class StaffController {
       const userTenantId = req.user.tenantId;
       const createdBy = req.user.username;
 
-      if (tenantId && parseInt(tenantId) !== userTenantId) {
-        return res.status(403).json({
-          responseCode: responseUtils.RESPONSE_CODES.ERROR,
-          responseMessage: 'Access denied for this tenant'
-        });
-      }
 
       const result = await StaffService.verifyRegistration(
         userTenantId,
@@ -380,15 +343,9 @@ static async downloadTemplate(req, res) {
     // GET /api/staff/designations - Get available designations
   static async getDesignations(req, res) {
     try {
-      const { tenantId } = req.query;
+      
       const userTenantId = req.user.tenantId;
 
-      if (tenantId && parseInt(tenantId) !== userTenantId) {
-        return res.status(403).json({
-          responseCode: responseUtils.RESPONSE_CODES.ERROR,
-          responseMessage: 'Access denied for this tenant'
-        });
-      }
 
       const result = await StaffService.getDesignations(userTenantId);
       res.json(result);
@@ -404,7 +361,7 @@ static async downloadTemplate(req, res) {
   // GET /api/staff/purposes - Get available staff purposes
   static async getStaffPurposes(req, res) {
     try {
-      const { tenantId } = req.query;
+      
 
       if (!tenantId) {
         return res.status(400).json({
@@ -518,6 +475,65 @@ static async downloadTemplate(req, res) {
       res.status(500).json({
         responseCode: responseUtils.RESPONSE_CODES.ERROR,
         responseMessage: "Internal server error",
+      });
+    }
+  }
+
+  // GET /api/staff/sub-categories - List of staff sub categories
+  static async getStaffSubCategories(req, res) {
+    try {
+      const userTenantId = req.user.tenantId;
+      const result = await StaffService.getStaffSubCategories(userTenantId);
+      res.json(result);
+    } catch (error) {
+      console.error('Error in getStaffSubCategories:', error);
+      res.status(500).json({
+        responseCode: 'E',
+        responseMessage: 'Internal server error',
+        error: process.env.NODE_ENV === 'development' ? error.message : undefined
+      });
+    }
+  }
+
+  // GET /api/staff/list - List staff with filters (query params, like students/buses)
+  static async getStaffList(req, res) {
+    try {
+      const {
+        page = 1,
+        pageSize = 20,
+        search = '',
+        designation = '',
+        staffId = '',
+        VisitorSubCatID = 0,
+        name = '',
+        department = '',
+        fromDate = '',
+        toDate = ''
+      } = req.query;
+
+      const userTenantId = req.user.tenantId;
+
+      const filters = {
+        page: parseInt(page),
+        pageSize: parseInt(pageSize),
+        search: search.trim(),
+        designation: designation.trim(),
+        staffId: staffId.trim(),
+        VisitorSubCatID: parseInt(VisitorSubCatID),
+        name: name.trim(),
+        department: department.trim(),
+        fromDate: fromDate.trim(),
+        toDate: toDate.trim()
+      };
+
+      const result = await StaffService.getStaffList(userTenantId, filters);
+      res.json(result);
+    } catch (error) {
+      console.error('Error in getStaffList:', error);
+      res.status(500).json({
+        responseCode: 'E',
+        responseMessage: 'Internal server error',
+        error: process.env.NODE_ENV === 'development' ? error.message : undefined
       });
     }
   }

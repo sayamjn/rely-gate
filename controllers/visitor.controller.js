@@ -2,6 +2,7 @@ const VisitorModel = require("../models/visitor.model");
 const VisitorService = require("../services/visitor.service");
 const AnalyticsService = require("../services/analytics.service");
 const MessagingService = require("../services/messaging.service");
+const FileService = require("../services/file.service");
 const responseUtils = require("../utils/constants");
 
 class VisitorController {
@@ -9,15 +10,8 @@ class VisitorController {
   // GET /api/visitors/subcategories
   static async getVisitorSubCategories(req, res) {
     try {
-      const { tenantId, visitorCatId = 0 } = req.query;
+      const { visitorCatId = 0 } = req.query;
       const userTenantId = req.user.tenantId;
-
-      if (tenantId && parseInt(tenantId) !== userTenantId) {
-        return res.status(403).json({
-          responseCode: "E",
-          responseMessage: "Access denied for this tenant",
-        });
-      }
 
       const result = await VisitorService.getVisitorSubCategories(
         userTenantId,
@@ -37,16 +31,9 @@ class VisitorController {
   // POST /api/visitors/send-otp
   static async sendOTP(req, res) {
     try {
-      const { mobile, tenantId, visitorTypeId } = req.body;
+      const { mobile, visitorTypeId } = req.body;
       const userTenantId = req.user.tenantId;
       const appUser = req.user.username;
-
-      if (tenantId && parseInt(tenantId) !== userTenantId) {
-        return res.status(403).json({
-          responseCode: "E",
-          responseMessage: "Access denied for this tenant",
-        });
-      }
 
       if (!mobile) {
         return res.status(400).json({
@@ -75,16 +62,9 @@ class VisitorController {
   // POST /api/visitors/send-unregistered-otp
   static async sendUnregisteredOTP(req, res) {
     try {
-      const { mobile, tenantId } = req.body;
+      const { mobile } = req.body;
       const userTenantId = req.user.tenantId;
       const appUser = req.user.username;
-
-      if (tenantId && parseInt(tenantId) !== userTenantId) {
-        return res.status(403).json({
-          responseCode: "E",
-          responseMessage: "Access denied for this tenant",
-        });
-      }
 
       if (!mobile) {
         return res.status(400).json({
@@ -139,11 +119,11 @@ class VisitorController {
     }
   }
 
-  // POST /api/visitors/create-unregistered
+  // POST /api/visitors/create-unregistered (Form Data with images)
   static async createUnregisteredVisitor(req, res) {
     try {
+      // Use req.body for fields, req.files for images (multer)
       const {
-        tenantId,
         fname,
         mobile,
         vehicleNo,
@@ -154,22 +134,23 @@ class VisitorController {
         visitorSubCatName,
         visitPurposeId,
         visitPurpose,
-        totalVisitor,
-        photoPath,
-        vehiclePhotoPath,
+        totalVisitor
       } = req.body;
 
-      // ✅ FIX: Get just the tenantId number, not the entire user object
-      const userTenantId = req.user.tenantId; // Changed from req.user
-      console.log("userTenantId: ", userTenantId); // Now will show just the number
+      const userTenantId = req.user.tenantId;
       const createdBy = req.user.username;
 
-      // ✅ Now this validation will work correctly
-      if (tenantId && parseInt(tenantId) !== userTenantId) {
-        return res.status(403).json({
-          responseCode: "E",
-          responseMessage: "Access denied for this tenant",
-        });
+      // Images: req.files.photo, req.files.vehiclePhoto
+      let photoPath = null;
+      let vehiclePhotoPath = null;
+
+      if (req.files) {
+        if (req.files.photo && req.files.photo[0]) {
+          photoPath = req.files.photo[0].path;
+        }
+        if (req.files.vehiclePhoto && req.files.vehiclePhoto[0]) {
+          vehiclePhotoPath = req.files.vehiclePhoto[0].path;
+        }
       }
 
       // Validate required fields
@@ -182,7 +163,7 @@ class VisitorController {
       }
 
       const visitorData = {
-        tenantId: userTenantId, // Use the correct tenantId
+        tenantId: userTenantId,
         fname,
         mobile,
         vehicleNo,
@@ -199,9 +180,7 @@ class VisitorController {
         createdBy,
       };
 
-      const result = await VisitorService.createUnregisteredVisitor(
-        visitorData
-      );
+      const result = await VisitorService.createUnregisteredVisitor(visitorData);
 
       res.json(result);
     } catch (error) {
@@ -217,7 +196,6 @@ class VisitorController {
   static async createRegisteredVisitor(req, res) {
     try {
       const {
-        tenantId,
         vistorName,
         mobile,
         email,
@@ -238,13 +216,6 @@ class VisitorController {
 
       const userTenantId = req.user.tenantId;
       const createdBy = req.user.username;
-
-      if (tenantId && parseInt(tenantId) !== userTenantId) {
-        return res.status(403).json({
-          responseCode: "E",
-          responseMessage: "Access denied for this tenant",
-        });
-      }
 
       if (!vistorName || !mobile || !visitorCatId || !visitorSubCatId) {
         return res.status(400).json({
@@ -290,15 +261,8 @@ class VisitorController {
   // GET /api/visitors/registered
   static async getRegisteredVisitors(req, res) {
     try {
-      const { tenantId, visitorCatId = 0, visitorSubCatId = 0 } = req.query;
+      const { visitorCatId = 0, visitorSubCatId = 0 } = req.query;
       const userTenantId = req.user.tenantId;
-
-      if (tenantId && parseInt(tenantId) !== userTenantId) {
-        return res.status(403).json({
-          responseCode: "E",
-          responseMessage: "Access denied for this tenant",
-        });
-      }
 
       const result = await VisitorService.getRegisteredVisitors(
         userTenantId,
@@ -316,20 +280,49 @@ class VisitorController {
     }
   }
 
+  // GET /api/visitors/unregistered - Get unregistered visitors flat-wise list (legacy format)
+  static async getUnregisteredVisitorsList(req, res) {
+    try {
+      const {
+        subcatid = 0,
+        from = '',
+        to = '',
+        flatname = '',
+        flatid = 0,
+        page = 1,
+        pageSize = 50
+      } = req.query;
+
+      const userTenantId = req.user.tenantId;
+
+      const filters = {
+        subcatid: parseInt(subcatid),
+        from,
+        to,
+        flatname,
+        flatid: parseInt(flatid),
+        page: parseInt(page),
+        pageSize: parseInt(pageSize)
+      };
+
+      const result = await VisitorService.getUnregisteredVisitorsList(userTenantId, filters);
+
+      res.json(result);
+    } catch (error) {
+      console.error("Error in getUnregisteredVisitorsList:", error);
+      res.status(500).json({
+        responseCode: "E",
+        responseMessage: "Internal server error",
+      });
+    }
+  }
+
   // PUT /api/visitors/:visitorId/checkout
   static async checkoutVisitor(req, res) {
     try {
       const { visitorId } = req.params;
-      const { tenantId } = req.body;
       const userTenantId = req.user.tenantId;
       const updatedBy = req.user.username || "System";
-
-      if (tenantId && parseInt(tenantId) !== userTenantId) {
-        return res.status(403).json({
-          responseCode: responseUtils.RESPONSE_CODES.ERROR,
-          responseMessage: "Access denied for this tenant",
-        });
-      }
 
       if (!visitorId) {
         return res.status(400).json({
@@ -353,20 +346,12 @@ class VisitorController {
       });
     }
   }
-  // GET /api/visitors/:visitorId/status - Get visitor's current status
 
+  // GET /api/visitors/:visitorId/status - Get visitor's current status
   static async getVisitorStatus(req, res) {
     try {
       const { visitorId } = req.params;
-      const { tenantId } = req.query;
       const userTenantId = req.user.tenantId;
-
-      if (tenantId && parseInt(tenantId) !== userTenantId) {
-        return res.status(403).json({
-          responseCode: responseUtils.RESPONSE_CODES.ERROR,
-          responseMessage: "Access denied for this tenant",
-        });
-      }
 
       if (!visitorId) {
         return res.status(400).json({
@@ -392,16 +377,9 @@ class VisitorController {
 
   static async checkinVisitor(req, res) {
     try {
-      const { visitorRegId, tenantId } = req.body;
+      const { visitorRegId } = req.body;
       const userTenantId = req.user.tenantId;
       const createdBy = req.user.username;
-
-      if (tenantId && parseInt(tenantId) !== userTenantId) {
-        return res.status(403).json({
-          responseCode: "E",
-          responseMessage: "Access denied for this tenant",
-        });
-      }
 
       if (!visitorRegId) {
         return res.status(400).json({
@@ -430,16 +408,8 @@ class VisitorController {
   static async checkoutVisitorHistory(req, res) {
     try {
       const { historyId } = req.params;
-      const { tenantId } = req.body;
       const userTenantId = req.user.tenantId;
       const updatedBy = req.user.username;
-
-      if (tenantId && parseInt(tenantId) !== userTenantId) {
-        return res.status(403).json({
-          responseCode: "E",
-          responseMessage: "Access denied for this tenant",
-        });
-      }
 
       if (!historyId) {
         return res.status(400).json({
@@ -468,15 +438,8 @@ class VisitorController {
   static async getVisitorHistory(req, res) {
     try {
       const { visitorRegId } = req.params;
-      const { tenantId, limit = 10 } = req.query;
+      const { limit = 10 } = req.query;
       const userTenantId = req.user.tenantId;
-
-      if (tenantId && parseInt(tenantId) !== userTenantId) {
-        return res.status(403).json({
-          responseCode: "E",
-          responseMessage: "Access denied for this tenant",
-        });
-      }
 
       const result = await VisitorService.getVisitHistory(
         parseInt(visitorRegId),
@@ -497,15 +460,7 @@ class VisitorController {
   // GET /api/visitors/pending-checkout
   static async getPendingCheckout(req, res) {
     try {
-      const { tenantId } = req.query;
       const userTenantId = req.user.tenantId;
-
-      if (tenantId && parseInt(tenantId) !== userTenantId) {
-        return res.status(403).json({
-          responseCode: "E",
-          responseMessage: "Access denied for this tenant",
-        });
-      }
 
       const result = await VisitorService.getVisitorsPendingCheckout(
         userTenantId
@@ -525,15 +480,7 @@ class VisitorController {
   static async generateQR(req, res) {
     try {
       const { visitorRegId } = req.params;
-      const { tenantId } = req.body;
       const userTenantId = req.user.tenantId;
-
-      if (tenantId && parseInt(tenantId) !== userTenantId) {
-        return res.status(403).json({
-          responseCode: "E",
-          responseMessage: "Access denied for this tenant",
-        });
-      }
 
       const result = await VisitorService.generateVisitorQR(
         parseInt(visitorRegId),
@@ -553,15 +500,8 @@ class VisitorController {
   // POST /api/visitors/scan-qr
   static async scanQR(req, res) {
     try {
-      const { qrString, tenantId } = req.body;
+      const { qrString } = req.body;
       const userTenantId = req.user.tenantId;
-
-      if (tenantId && parseInt(tenantId) !== userTenantId) {
-        return res.status(403).json({
-          responseCode: "E",
-          responseMessage: "Access denied for this tenant",
-        });
-      }
 
       if (!qrString) {
         return res.status(400).json({
@@ -589,15 +529,8 @@ class VisitorController {
   // GET /api/visitors/search
   static async searchVisitors(req, res) {
     try {
-      const { tenantId, ...searchParams } = req.query;
+      const { ...searchParams } = req.query;
       const userTenantId = req.user.tenantId;
-
-      if (tenantId && parseInt(tenantId) !== userTenantId) {
-        return res.status(403).json({
-          responseCode: "E",
-          responseMessage: "Access denied for this tenant",
-        });
-      }
 
       const result = await VisitorService.searchVisitors(
         userTenantId,
@@ -619,13 +552,6 @@ class VisitorController {
     try {
       const { tenantId, ...filters } = req.query;
       const userTenantId = req.user.tenantId;
-
-      if (tenantId && parseInt(tenantId) !== userTenantId) {
-        return res.status(403).json({
-          responseCode: "E",
-          responseMessage: "Access denied for this tenant",
-        });
-      }
 
       const history = await VisitorModel.getComprehensiveVisitHistory(
         userTenantId,
@@ -688,6 +614,7 @@ class VisitorController {
       });
     }
   }
+
   static async listVisitors(req, res) {
     try {
       const {
@@ -732,6 +659,7 @@ class VisitorController {
         userTenantId,
         filters
       );
+
       res.json(result);
     } catch (error) {
       console.error("Error in listVisitors:", error);
@@ -795,33 +723,6 @@ class VisitorController {
     }
   }
 
-  // GET /api/visitors/pending-checkout - Get visitors currently checked in
-  static async getPendingCheckout(req, res) {
-    try {
-      const { tenantId, visitorCatId } = req.query;
-      const userTenantId = req.user.tenantId;
-
-      if (tenantId && parseInt(tenantId) !== userTenantId) {
-        return res.status(403).json({
-          responseCode: responseUtils.RESPONSE_CODES.ERROR,
-          responseMessage: "Access denied for this tenant",
-        });
-      }
-
-      const result = await VisitorService.getPendingCheckout(
-        userTenantId,
-        visitorCatId ? parseInt(visitorCatId) : null
-      );
-      res.json(result);
-    } catch (error) {
-      console.error("Error in getPendingCheckout:", error);
-      res.status(500).json({
-        responseCode: responseUtils.RESPONSE_CODES.ERROR,
-        responseMessage: "Internal server error",
-      });
-    }
-  }
-
   // GET /api/visitors/template - Download CSV template
   static async downloadTemplate(req, res) {
     try {
@@ -842,6 +743,7 @@ class VisitorController {
         "Content-Disposition",
         `attachment; filename="visitor_template_cat${visitorCatId}.csv"`
       );
+
       res.send(template);
     } catch (error) {
       console.error("Error in downloadTemplate:", error);
@@ -855,22 +757,25 @@ class VisitorController {
   // GET /api/visitors - List visitors with pagination and search (legacy)
   static async getVisitors(req, res) {
     try {
-      const { page = 1, pageSize = 20, search = "", tenantId } = req.query;
+      const {
+        page = 1,
+        pageSize = 20,
+        search = "",
+        visitorSubCatId = 0,
+        fromDate = null,
+        toDate = null
+      } = req.query;
 
       const userTenantId = req.user.tenantId;
-
-      if (tenantId && parseInt(tenantId) !== userTenantId) {
-        return res.status(403).json({
-          responseCode: responseUtils.RESPONSE_CODES.ERROR,
-          responseMessage: "Access denied for this tenant",
-        });
-      }
 
       const result = await VisitorService.getVisitors(
         userTenantId,
         parseInt(page),
         parseInt(pageSize),
-        search
+        search,
+        parseInt(visitorSubCatId),
+        fromDate,
+        toDate
       );
 
       res.json(result);
@@ -885,18 +790,11 @@ class VisitorController {
     }
   }
 
-    // GET /api/visitors/purposes
+  // GET /api/visitors/purposes
   static async getVisitorPurposes(req, res) {
     try {
-      const { tenantId, purposeCatId = 0 } = req.query;
+      const { purposeCatId = 0 } = req.query;
       const userTenantId = req.user.tenantId;
-
-      if (tenantId && parseInt(tenantId) !== userTenantId) {
-        return res.status(403).json({
-          responseCode: "E",
-          responseMessage: "Access denied for this tenant",
-        });
-      }
 
       const result = await VisitorService.getVisitorPurposes(
         userTenantId,

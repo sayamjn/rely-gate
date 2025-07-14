@@ -2,165 +2,184 @@ const { query } = require("../config/database");
 
 class StudentModel {
   // Get students with filters
-  static async getStudentsWithFilters(tenantId, filters = {}) {
-    const {
-      page = 1,
-      pageSize = 20,
-      search = "",
-      purposeId = null,
-      studentId = "",
-      firstName = "",
-      course = "",
-      hostel = "",
-      fromDate = null,
-      toDate = null,
-    } = filters;
+static async getStudentsWithFilters(tenantId, filters = {}) {
+  const {
+    page = 1,
+    pageSize = 20,
+    search = "",
+    purposeId = null,
+    studentId = "",
+    firstName = "",
+    fromDate = null,
+    toDate = null,
+  } = filters;
 
-    let sql = `
-      SELECT 
-  vr.VisitorRegID,
-  vr.VisitorRegNo,
-  vr.SecurityCode,
-  vr.VistorName,
-  vr.Mobile,
-  vr.Email,
-  vr.VisitorCatID,
-  vr.VisitorCatName,
-  vr.VisitorSubCatID,
-  vr.VisitorSubCatName,
-  vr.FlatID,
-  vr.FlatName,
-  vr.AssociatedFlat,
-  vr.VehiclelNo,
-  vr.PhotoFlag,
-  vr.PhotoPath,
-  vr.PhotoName,
-  vr.CreatedDate,
-  vr.UpdatedDate,
-  vr.IsActive,
-  -- Add custom fields for course and hostel information
-  COALESCE(bvu.Course, 'N/A') as Course,
-  COALESCE(bvu.Hostel, 'N/A') as Hostel,
-  COALESCE(bvu.StudentID, '') as StudentID,
-  -- Latest visit purpose info
-  vh_latest.VisitPurposeID as LastVisitPurposeID,
-  vh_latest.VisitPurpose as LastVisitPurpose,
-  vh_latest.PurposeCatID as LastPurposeCatID,
-  vh_latest.PurposeCatName as LastPurposeCatName,
-  vh_latest.INTimeTxt as LastCheckOutTime,
-  vh_latest.OutTimeTxt as LastCheckInTime,
-  vh_latest.RegVisitorHistoryID as LastHistoryID,
-  
-  -- ADD THESE NEW FIELDS FOR DATE AND DURATION:
-  vh_latest.INTime as LastCheckOutDateTime,
-  vh_latest.OutTime as LastCheckInDateTime,
-  vh_latest.CreatedDate as LastVisitDate,
-  
-  -- Calculate duration in hours if both times exist
-  CASE 
-    WHEN vh_latest.OutTime IS NOT NULL AND vh_latest.INTime IS NOT NULL 
-    THEN EXTRACT(EPOCH FROM (vh_latest.OutTime - vh_latest.INTime))/3600
-    ELSE NULL 
-  END as LastVisitDurationHours,
-  
-  -- Calculate current checkout duration if still checked out
-  CASE 
-    WHEN vh_latest.OutTime IS NULL AND vh_latest.INTime IS NOT NULL 
-    THEN EXTRACT(EPOCH FROM (NOW() - vh_latest.INTime))/3600
-    ELSE NULL 
-  END as CurrentCheckoutDurationHours,
-  
-  -- Current status
-  CASE 
-    WHEN vh_latest.OutTime IS NULL OR vh_latest.OutTimeTxt IS NULL OR vh_latest.OutTimeTxt = '' 
-    THEN 'CHECKED_OUT' 
-    ELSE 'CHECKED_IN' 
-  END as CurrentStatus,
-  COUNT(*) OVER() as total_count
-FROM VisitorRegistration vr
-LEFT JOIN BulkVisitorUpload bvu ON vr.Mobile = bvu.Mobile AND bvu.Type = 'student'
-LEFT JOIN LATERAL (
-  SELECT vh.VisitPurposeID, vh.VisitPurpose, vh.PurposeCatID, vh.PurposeCatName,
-         vh.INTimeTxt, vh.OutTimeTxt, vh.OutTime, vh.INTime, vh.CreatedDate, vh.RegVisitorHistoryID
-  FROM VisitorRegVisitHistory vh 
-  WHERE vh.VisitorRegID = vr.VisitorRegID 
-    AND vh.TenantID = vr.TenantID 
-    AND vh.IsActive = 'Y'
-  ORDER BY vh.CreatedDate DESC 
-  LIMIT 1
-) vh_latest ON true
-WHERE vr.TenantID = $1 
-  AND vr.IsActive = 'Y'
-  AND vr.VisitorCatID = 3
-    `;
+  let sql = `
+    SELECT 
+      vr.VisitorRegID,
+      vr.VisitorRegNo,
+      vr.SecurityCode,
+      vr.VistorName,
+      vr.Mobile,
+      vr.Email,
+      vr.VisitorCatID,
+      vr.VisitorCatName,
+      vr.VisitorSubCatID,
+      vr.VisitorSubCatName,
+      vr.FlatID,
+      vr.FlatName,
+      vr.AssociatedFlat,
+      vr.VehiclelNo,
+      vr.PhotoFlag,
+      vr.PhotoPath,
+      vr.PhotoName,
+      vr.CreatedDate,
+      vr.UpdatedDate,
+      vr.IsActive,
+      -- Latest visit purpose info
+      vh_latest.VisitPurposeID as LastVisitPurposeID,
+      vh_latest.VisitPurpose as LastVisitPurpose,
+      vh_latest.PurposeCatID as LastPurposeCatID,
+      vh_latest.PurposeCatName as LastPurposeCatName,
+      -- Convert times to IST (UTC+5:30)
+      CASE 
+        WHEN vh_latest.INTime IS NOT NULL 
+        THEN TO_CHAR((vh_latest.INTime AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata'), 'DD/MM/YYYY HH12:MI AM')
+        ELSE vh_latest.INTimeTxt
+      END as LastCheckOutTime,
+      CASE 
+        WHEN vh_latest.OutTime IS NOT NULL 
+        THEN TO_CHAR((vh_latest.OutTime AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata'), 'DD/MM/YYYY HH12:MI AM')
+        ELSE vh_latest.OutTimeTxt
+      END as LastCheckInTime,
+      vh_latest.RegVisitorHistoryID as LastHistoryID,
+      
+      -- ADD THESE NEW FIELDS FOR DATE AND DURATION (IST converted):
+      CASE 
+        WHEN vh_latest.INTime IS NOT NULL 
+        THEN vh_latest.INTime AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata'
+        ELSE vh_latest.INTime
+      END as LastCheckOutDateTime,
+      CASE 
+        WHEN vh_latest.OutTime IS NOT NULL 
+        THEN vh_latest.OutTime AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata'
+        ELSE vh_latest.OutTime
+      END as LastCheckInDateTime,
+      vh_latest.CreatedDate as LastVisitDate,
+      
+      -- Calculate duration in hours if both times exist (using IST)
+      CASE 
+        WHEN vh_latest.OutTime IS NOT NULL AND vh_latest.INTime IS NOT NULL 
+        THEN EXTRACT(EPOCH FROM ((vh_latest.OutTime AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata') - (vh_latest.INTime AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata')))/3600
+        ELSE NULL 
+      END as LastVisitDurationHours,
+      
+      -- Calculate current checkout duration if still checked out (using IST)
+      CASE 
+        WHEN vh_latest.OutTime IS NULL AND vh_latest.INTime IS NOT NULL 
+        THEN EXTRACT(EPOCH FROM ((NOW() AT TIME ZONE 'Asia/Kolkata') - (vh_latest.INTime AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata')))/3600
+        ELSE NULL 
+      END as CurrentCheckoutDurationHours,
+      
+      -- Current status
+      CASE 
+        WHEN vh_latest.OutTime IS NULL OR vh_latest.OutTimeTxt IS NULL OR vh_latest.OutTimeTxt = '' 
+        THEN 'CHECKED_OUT' 
+        ELSE 'CHECKED_IN' 
+      END as CurrentStatus,
+      COUNT(*) OVER() as total_count
+    FROM VisitorRegistration vr
+    LEFT JOIN LATERAL (
+      SELECT vh.VisitPurposeID, vh.VisitPurpose, vh.PurposeCatID, vh.PurposeCatName,
+             vh.INTimeTxt, vh.OutTimeTxt, vh.OutTime, vh.INTime, vh.CreatedDate, vh.RegVisitorHistoryID
+      FROM VisitorRegVisitHistory vh 
+      WHERE vh.VisitorRegID = vr.VisitorRegID 
+        AND vh.TenantID = vr.TenantID 
+        AND vh.IsActive = 'Y'
+      ORDER BY vh.INTime DESC NULLS LAST, vh.CreatedDate DESC 
+      LIMIT 1
+    ) vh_latest ON true
+    WHERE vr.TenantID = $1 
+      AND vr.IsActive = 'Y'
+      AND vr.VisitorCatID = 3
+  `;
 
-    const params = [tenantId];
-    let paramIndex = 2;
+  const params = [tenantId];
+  let paramIndex = 2;
 
-    // Apply filters
-    if (search) {
-      sql += ` AND (
-        vr.VistorName ILIKE $${paramIndex} OR 
-        vr.Mobile ILIKE $${paramIndex} OR 
-        vr.VisitorRegNo ILIKE $${paramIndex} OR
-        vr.SecurityCode ILIKE $${paramIndex} OR
-        bvu.StudentID ILIKE $${paramIndex} OR
-        bvu.Course ILIKE $${paramIndex} OR
-        bvu.Hostel ILIKE $${paramIndex}
-      )`;
-      params.push(`%${search}%`);
-      paramIndex++;
-    }
-
-    if (studentId) {
-      sql += ` AND (bvu.StudentID ILIKE $${paramIndex} OR vr.VisitorRegNo ILIKE $${paramIndex})`;
-      params.push(`%${studentId}%`);
-      paramIndex++;
-    }
-
-    if (firstName) {
-      sql += ` AND vr.VistorName ILIKE $${paramIndex}`;
-      params.push(`%${firstName}%`);
-      paramIndex++;
-    }
-
-    if (course) {
-      sql += ` AND bvu.Course ILIKE $${paramIndex}`;
-      params.push(`%${course}%`);
-      paramIndex++;
-    }
-
-    if (hostel) {
-      sql += ` AND bvu.Hostel ILIKE $${paramIndex}`;
-      params.push(`%${hostel}%`);
-      paramIndex++;
-    }
-
-    if (purposeId && purposeId > 0) {
-      sql += ` AND vh_latest.VisitPurposeID = $${paramIndex}`;
-      params.push(purposeId);
-      paramIndex++;
-    }
-
-    if (fromDate && toDate) {
-      sql += ` AND vr.CreatedDate BETWEEN $${paramIndex} AND $${
-        paramIndex + 1
-      }`;
-      params.push(fromDate, toDate);
-      paramIndex += 2;
-    }
-
-    // Pagination
-    const offset = (page - 1) * pageSize;
-    sql += ` ORDER BY vr.CreatedDate DESC LIMIT $${paramIndex} OFFSET $${
-      paramIndex + 1
-    }`;
-    params.push(pageSize, offset);
-
-    const result = await query(sql, params);
-    return result.rows;
+  // Apply filters
+  if (search) {
+    sql += ` AND (
+      vr.VistorName ILIKE $${paramIndex} OR 
+      vr.Mobile ILIKE $${paramIndex} OR 
+      vr.VisitorRegNo ILIKE $${paramIndex} OR
+      vr.SecurityCode ILIKE $${paramIndex}
+    )`;
+    params.push(`%${search}%`);
+    paramIndex++;
   }
 
+  if (studentId) {
+    sql += ` AND vr.VisitorRegNo ILIKE $${paramIndex}`;
+    params.push(`%${studentId}%`);
+    paramIndex++;
+  }
+
+  if (filters.VisitorSubCatID) {
+    sql += ` AND vr.VisitorSubCatID = $${paramIndex}`;
+    params.push(filters.VisitorSubCatID);
+    paramIndex++;
+  }
+
+  if (firstName) {
+    sql += ` AND vr.VistorName ILIKE $${paramIndex}`;
+    params.push(`%${firstName}%`);
+    paramIndex++;
+  }
+
+  if (purposeId && purposeId > 0) {
+    sql += ` AND vh_latest.VisitPurposeID = $${paramIndex}`;
+    params.push(purposeId);
+    paramIndex++;
+  }
+
+  if (fromDate && toDate) {
+    sql += ` AND vr.CreatedDate BETWEEN $${paramIndex} AND $${
+      paramIndex + 1
+    }`;
+    params.push(fromDate, toDate);
+    paramIndex += 2;
+  }
+
+  // Pagination
+  const offset = (page - 1) * pageSize;
+  sql += ` ORDER BY vr.CreatedDate DESC LIMIT $${paramIndex} OFFSET $${
+    paramIndex + 1
+  }`;
+  params.push(pageSize, offset);
+
+  const result = await query(sql, params);
+  
+  return result.rows;
+}
+  // Get all unique student subcategories for a tenant
+  static async getStudentSubCategories(tenantId) {
+    const sql = `
+      SELECT DISTINCT
+        vr.VisitorSubCatID AS "subCategoryId",
+        vr.VisitorSubCatName AS "subCategoryName"
+      FROM VisitorRegistration vr
+      WHERE vr.TenantID = $1
+        AND vr.IsActive = 'Y'
+        AND vr.VisitorCatID = 3
+        AND vr.VisitorSubCatID IS NOT NULL
+        AND vr.VisitorSubCatName IS NOT NULL
+      ORDER BY vr.VisitorSubCatName ASC
+    `;
+
+    const result = await query(sql, [tenantId]);
+    return result.rows;
+  }
   // Get student by ID with latest purpose
   static async getStudentById(studentId, tenantId) {
     const sql = `
@@ -262,7 +281,7 @@ WHERE vr.TenantID = $1
       ) VALUES (
         $1, 'Y', 'Y', $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13,
         $14, $15, $16, $17,
-        NOW(), TO_CHAR(NOW(), 'HH12:MI AM'), NOW(), NOW(), $18, $18
+        NOW(), TO_CHAR((NOW() AT TIME ZONE 'Asia/Kolkata'), 'DD/MM/YYYY HH12:MI AM'), NOW(), NOW(), $18, $18
       ) RETURNING RegVisitorHistoryID
     `;
 
@@ -295,7 +314,7 @@ WHERE vr.TenantID = $1
     const sql = `
       UPDATE VisitorRegVisitHistory 
       SET OutTime = NOW(), 
-          OutTimeTxt = TO_CHAR(NOW(), 'HH12:MI AM'),
+          OutTimeTxt = TO_CHAR((NOW() AT TIME ZONE 'Asia/Kolkata'), 'DD/MM/YYYY HH12:MI AM'),
           UpdatedDate = NOW(),
           UpdatedBy = $3
       WHERE RegVisitorHistoryID = $1 AND TenantID = $2
@@ -322,16 +341,24 @@ WHERE vr.TenantID = $1
         VisitPurpose,
         PurposeCatID,
         PurposeCatName,
-        INTime,
-        INTimeTxt,
-        OutTime,
-        OutTimeTxt,
+        INTime AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata' as INTime,
+        CASE 
+          WHEN INTime IS NOT NULL 
+          THEN TO_CHAR((INTime AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata'), 'DD/MM/YYYY HH12:MI AM')
+          ELSE INTimeTxt
+        END as INTimeTxt,
+        OutTime AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata' as OutTime,
+        CASE 
+          WHEN OutTime IS NOT NULL 
+          THEN TO_CHAR((OutTime AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata'), 'DD/MM/YYYY HH12:MI AM')
+          ELSE OutTimeTxt
+        END as OutTimeTxt,
         CreatedDate,
         UpdatedDate,
-        -- Calculate duration if both times exist
+        -- Calculate duration if both times exist (using IST converted times)
         CASE 
           WHEN OutTime IS NOT NULL AND INTime IS NOT NULL 
-          THEN EXTRACT(EPOCH FROM (OutTime - INTime))/3600
+          THEN EXTRACT(EPOCH FROM ((OutTime AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata') - (INTime AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata')))/3600
           ELSE NULL 
         END as DurationHours
       FROM VisitorRegVisitHistory
@@ -361,8 +388,12 @@ WHERE vr.TenantID = $1
         vh.VisitPurpose,
         vh.PurposeCatID,
         vh.PurposeCatName,
-        vh.INTime,
-        vh.INTimeTxt,
+        vh.INTime AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata' as INTime,
+        CASE 
+          WHEN vh.INTime IS NOT NULL 
+          THEN TO_CHAR((vh.INTime AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata'), 'DD/MM/YYYY HH12:MI AM')
+          ELSE vh.INTimeTxt
+        END as INTimeTxt,
         vr.PhotoPath,
         vr.PhotoName,
         COALESCE(bvu.Course, 'N/A') as Course,
@@ -451,9 +482,13 @@ WHERE vr.TenantID = $1
         vr.Mobile as mobile,
         COALESCE(bvu.Course, vr.AssociatedBlock) as course,
         COALESCE(bvu.Hostel, vr.AssociatedFlat) as hostel,
-        vh.INTime as checkInTime,
-        vh.INTimeTxt as checkInTimeText,
-        EXTRACT(EPOCH FROM (NOW() - vh.INTime))/3600 as hoursCheckedIn
+        vh.INTime AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata' as checkInTime,
+        CASE 
+          WHEN vh.INTime IS NOT NULL 
+          THEN TO_CHAR((vh.INTime AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata'), 'DD/MM/YYYY HH12:MI AM')
+          ELSE vh.INTimeTxt
+        END as checkInTimeText,
+        EXTRACT(EPOCH FROM ((NOW() AT TIME ZONE 'Asia/Kolkata') - (vh.INTime AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata')))/3600 as hoursCheckedIn
       FROM VisitorRegistration vr
       INNER JOIN VisitorRegVisitHistory vh ON vr.VisitorRegID = vh.VisitorRegID
       LEFT JOIN BulkVisitorUpload bvu ON vr.Mobile = bvu.Mobile AND bvu.Type = 'student'
@@ -608,6 +643,85 @@ WHERE vr.TenantID = $1
 
     const result = await query(sql, [purposeId, tenantId]);
     return result.rows[0];
+  }
+
+  // Get students for legacy GET /api/students (simple, paginated, search, subcatid)
+  static async getStudentsBasic(tenantId, page = 1, pageSize = 20, search = '', visitorSubCatId = null) {
+    let sql = `
+      SELECT 
+        vr.VisitorRegID as visitorregid,
+        vr.VistorName as vistorname,
+        vr.CreatedDate as createddate,
+        vr.CreatedBy as createdby,
+        vr.VisitorSubCatName as visitorsubcatname,
+        vr.VisitorRegNo as visitorregno,
+        vr.Mobile as mobile,
+        vr.AssociatedFlat as flatname,
+        COUNT(*) OVER() as total_count
+      FROM VisitorRegistration vr
+      WHERE vr.TenantID = $1
+        AND vr.IsActive = 'Y'
+        AND vr.VisitorCatID = 3
+    `;
+    const params = [tenantId];
+    let paramIndex = 2;
+
+    if (search && search.trim()) {
+      sql += ` AND (
+        vr.VistorName ILIKE $${paramIndex} OR 
+        vr.Mobile ILIKE $${paramIndex} OR 
+        vr.VisitorRegNo ILIKE $${paramIndex}
+      )`;
+      params.push(`%${search.trim()}%`);
+      paramIndex++;
+    }
+
+    if (visitorSubCatId) {
+      sql += ` AND vr.VisitorSubCatID = $${paramIndex}`;
+      params.push(visitorSubCatId);
+      paramIndex++;
+    }
+
+    const offset = (page - 1) * pageSize;
+    sql += ` ORDER BY vr.CreatedDate DESC LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`;
+    params.push(pageSize, offset);
+
+    const result = await query(sql, params);
+    return result.rows;
+  }
+
+  // Get students with pagination and mapping logic (following bus model pattern)
+  static async getStudentsWithPagination(tenantId, page = 1, pageSize = 20, search = '', visitorSubCatId = null) {
+    try {
+      // Get students data with total count
+      const students = await this.getStudentsBasic(tenantId, page, pageSize, search, visitorSubCatId);
+      
+      // Get total count from the first row (if any)
+      const totalCount = students.length > 0 ? parseInt(students[0].total_count) : 0;
+      const totalPages = Math.ceil(totalCount / pageSize);
+      
+      // Map the data to required format
+      const mapped = students.map((s) => ({
+        VisitorRegID: s.visitorregid,
+        VistorName: s.vistorname,
+        CreatedDateTxt: s.createddate ? new Date(s.createddate).toLocaleDateString('en-GB') : '',
+        CreatedBy: s.createdby || '',
+        VisitorSubCatName: s.visitorsubcatname || '',
+        VisitorRegNo: s.visitorregno || '',
+        Mobile: s.mobile || '',
+        FlatName: s.flatname || '',
+      }));
+      
+      return {
+        students: mapped,
+        totalCount,
+        totalPages,
+        currentPage: page,
+        pageSize
+      };
+    } catch (error) {
+      throw error;
+    }
   }
 }
 

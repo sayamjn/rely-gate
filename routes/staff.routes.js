@@ -11,7 +11,6 @@ router.use(authenticateToken);
 
 // GET /api/staff/pending-checkout - Get staff currently checked in (pending checkout)
 router.get('/pending-checkout', [
-  query('tenantId').optional().isNumeric().withMessage('TenantId must be numeric')
 ], handleValidationErrors, StaffController.getPendingCheckout);
 
 // GET /api/staff - List staff with pagination and search
@@ -19,31 +18,41 @@ router.get('/', [
   query('page').optional().isInt({ min: 1 }).withMessage('Page must be a positive integer'),
   query('pageSize').optional().isInt({ min: 1, max: 100 }).withMessage('PageSize must be between 1 and 100'),
   query('search').optional().isString().trim().withMessage('Search must be a string'),
-  query('tenantId').optional().isNumeric().withMessage('TenantId must be numeric')
+  query('designation').optional().isString().trim().withMessage('Designation must be a string'),
 ], handleValidationErrors, StaffController.getStaff);
+
+// GET /api/staff/list - List staff with filters (query params, like students/buses)
+router.get('/list', [
+  query('page').optional().isInt({ min: 1 }).withMessage('Page must be a positive integer'),
+  query('pageSize').optional().isInt({ min: 1, max: 100 }).withMessage('PageSize must be between 1 and 100'),
+  query('search').optional().isString().trim().withMessage('Search must be a string'),
+  query('designation').optional().isString().trim().withMessage('Designation must be a string'),
+  query('staffId').optional().isString().trim().withMessage('StaffId must be a string'),
+  // query('VisitorSubCatID').optional().isInt({ min: 0 }).withMessage('VisitorSubCatID must be a non-negative integer'),
+  query('name').optional().isString().trim().withMessage('Name must be a string'),
+  query('department').optional().isString().trim().withMessage('Department must be a string'),
+  query('fromDate').optional().matches(/^\d{2}\/\d{2}\/\d{4}$/).withMessage('FromDate must be in DD/MM/YYYY format'),
+  query('toDate').optional().matches(/^\d{2}\/\d{2}\/\d{4}$/).withMessage('ToDate must be in DD/MM/YYYY format'),
+], handleValidationErrors, StaffController.getStaffList);
 
 // GET /api/staff/:staffId/status - Get staff's current status (first visit check)
 router.get('/:staffId/status', [
   param('staffId').isInt({ min: 1 }).withMessage('Staff ID must be a positive integer'),
-  query('tenantId').optional().isNumeric().withMessage('TenantId must be numeric')
 ], handleValidationErrors, StaffController.getStaffStatus);
 
 // POST /api/staff/:staffId/checkin - Check-in staff member (First action)
 router.post('/:staffId/checkin', [
   param('staffId').isInt({ min: 1 }).withMessage('Staff ID must be a positive integer'),
-  body('tenantId').optional().isNumeric().withMessage('TenantId must be numeric')
 ], handleValidationErrors, StaffController.checkinStaff);
 
 // POST /api/staff/:staffId/checkout - Check-out staff member (Second action)
 router.post('/:staffId/checkout', [
   param('staffId').isInt({ min: 1 }).withMessage('Staff ID must be a positive integer'),
-  body('tenantId').optional().isNumeric().withMessage('TenantId must be numeric')
 ], handleValidationErrors, StaffController.checkoutStaff);
 
 // GET /api/staff/:staffId/history - Get staff visit history
 router.get('/:staffId/history', [
   param('staffId').isInt({ min: 1 }).withMessage('Staff ID must be a positive integer'),
-  query('tenantId').optional().isNumeric().withMessage('TenantId must be numeric'),
   query('limit').optional().isNumeric().withMessage('Limit must be numeric')
 ], handleValidationErrors, StaffController.getStaffHistory);
 
@@ -58,28 +67,24 @@ router.post('/list', [
   body('name').optional().isString().trim().withMessage('Name must be a string'),
   body('fromDate').optional().isISO8601().withMessage('FromDate must be a valid date'),
   body('toDate').optional().isISO8601().withMessage('ToDate must be a valid date'),
-  body('tenantId').optional().isNumeric().withMessage('TenantId must be numeric')
 ], handleValidationErrors, StaffController.listStaff);
 
+// GET /api/staff/sub-categories - List of staff sub categories
+router.get('/sub-categories', [
+], handleValidationErrors, StaffController.getStaffSubCategories);
 
 // GET /api/staff/designations - Get available designations
 router.get('/designations', [
-  query('tenantId').optional().isNumeric().withMessage('TenantId must be numeric')
 ], handleValidationErrors, StaffController.getDesignations);
 
 // GET /api/staff/purposes - Get available staff purposes
 router.get('/purposes', [
-  query('tenantId')
-    .notEmpty()
-    .isNumeric()
-    .withMessage('TenantId is required and must be numeric'),
 ], handleValidationErrors, StaffController.getStaffPurposes);
 
 // POST /api/staff/register - Staff registration (OTP-based)
 router.post('/register', [
   body('mobile').notEmpty().matches(/^\d{10}$/).withMessage('Mobile must be 10 digits'),
   body('designation').notEmpty().withMessage('Designation is required'),
-  body('tenantId').optional().isNumeric().withMessage('TenantId must be numeric')
 ], handleValidationErrors, StaffController.registerStaff);
 
 
@@ -93,13 +98,11 @@ router.post('/verify-registration', [
   body('address2').optional().isString().trim(),
   body('remarks').optional().isString().trim(),
   body('vehicleNumber').optional().isString().trim(),
-  body('tenantId').optional().isNumeric().withMessage('TenantId must be numeric')
 ], handleValidationErrors, StaffController.verifyRegistration);
 
 
 // GET /api/staff/export - Export staff data to CSV
 router.get('/export', [
-  query('tenantId').optional().isNumeric().withMessage('TenantId must be numeric'),
   query('designation').optional().isString().trim(),
 ], handleValidationErrors, StaffController.exportStaff);
 
@@ -117,10 +120,6 @@ router.post('/designations', uploadPurposeImage, handleUploadError, [
     .trim()
     .isLength({ min: 1, max: 250 })
     .withMessage('Designation name must be between 1 and 250 characters'),
-  body('tenantId')
-    .notEmpty()
-    .isNumeric()
-    .withMessage('TenantId is required and must be numeric'),
 ], handleValidationErrors, StaffController.addStaffPurpose);
 
 // PUT /api/staff/designations/:purposeId - Update designation
@@ -137,10 +136,6 @@ router.put('/designations/:purposeId', [
     .trim()
     .isLength({ min: 1, max: 250 })
     .withMessage('Designation name must be between 1 and 250 characters'),
-  body('tenantId')
-    .notEmpty()
-    .isNumeric()
-    .withMessage('TenantId is required and must be numeric'),
 ], handleValidationErrors, StaffController.updateStaffPurpose);
 
 // DELETE /api/staff/designations/:purposeId - Delete designation
@@ -150,10 +145,6 @@ router.delete('/designations/:purposeId', [
     .withMessage('Designation ID is required')
     .isNumeric()
     .withMessage('Designation ID must be numeric'),
-  query('tenantId')
-    .notEmpty()
-    .isNumeric()
-    .withMessage('TenantId is required and must be numeric'),
 ], handleValidationErrors, StaffController.deleteStaffPurpose);
 
 module.exports = router;

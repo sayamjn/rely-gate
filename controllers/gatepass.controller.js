@@ -12,21 +12,12 @@ class GatepassController {
         visitDate,
         purposeId,
         purposeName,
-        statusId = 1,
         tenantId,
+        statusId = 1,
         remark = "",
       } = req.body;
 
-      const finalTenantId = tenantId || (req.user ? req.user.tenantId : null);
       const createdBy = (req.user ? req.user.username : null) || "System";
-
-
-      if (!finalTenantId) {
-        return res.status(400).json({
-          responseCode: responseUtils.RESPONSE_CODES.ERROR,
-          responseMessage: "TenantId is required in request body",
-        });
-      }
 
       // Purpose validation and lookup logic
       let finalPurposeName;
@@ -45,7 +36,7 @@ class GatepassController {
         // Fetch purpose from database - ONLY gate pass purposes (PurposeCatID = 6)
         const purposeResult = await GatepassService.getPurposeById(
           parsedPurposeId,
-          finalTenantId
+          tenantId
         );
 
         if (!purposeResult) {
@@ -66,7 +57,7 @@ class GatepassController {
         purposeId: parsedPurposeId,
         purposeName: finalPurposeName,
         statusId: parseInt(statusId),
-        tenantId: finalTenantId,
+        tenantId: tenantId,
         remark: remark.trim(),
         createdBy,
       };
@@ -93,17 +84,9 @@ class GatepassController {
         purposeId = null,
         StartDate = null,
         EndDate = null,
-        tenantId 
       } = req.query;
 
-      const userTenantId = tenantId || (req.user ? req.user.tenantId : null);
-
-      if (!userTenantId) {
-        return res.status(400).json({
-          responseCode: responseUtils.RESPONSE_CODES.ERROR,
-          responseMessage: "TenantId is required",
-        });
-      }
+      const userTenantId = req.user.tenantId;
 
       // Convert DD/MM/YYYY format to ISO format for database query
       let fromDate = null;
@@ -166,17 +149,9 @@ class GatepassController {
         statusId = null,
         fromDate = null,
         toDate = null,
-        tenantId,
       } = req.body;
 
-      const userTenantId = tenantId || (req.user ? req.user.tenantId : null);
-
-      if (!userTenantId) {
-        return res.status(400).json({
-          responseCode: responseUtils.RESPONSE_CODES.ERROR,
-          responseMessage: "TenantId is required",
-        });
-      }
+      const userTenantId =  req.user.tenantId;
 
       const filters = {
         page: parseInt(page),
@@ -206,16 +181,8 @@ class GatepassController {
   static async approveGatepass(req, res) {
     try {
       const { visitorId } = req.params;
-      const { tenantId } = req.body;
-      const userTenantId = tenantId || (req.user ? req.user.tenantId : null);
+      const userTenantId = req.user.tenantId;
       const updatedBy = (req.user ? req.user.username : null) || "System";
-
-      if (!userTenantId) {
-        return res.status(400).json({
-          responseCode: responseUtils.RESPONSE_CODES.ERROR,
-          responseMessage: "TenantId is required",
-        });
-      }
 
       if (!visitorId) {
         return res.status(400).json({
@@ -244,16 +211,8 @@ class GatepassController {
   static async checkinGatepass(req, res) {
     try {
       const { visitorId } = req.params;
-      const { tenantId } = req.body;
-      const userTenantId = tenantId || (req.user ? req.user.tenantId : null);
+      const userTenantId = req.user?.tenantId
       const updatedBy = (req.user ? req.user.username : null) || "System";
-
-      if (!userTenantId) {
-        return res.status(400).json({
-          responseCode: responseUtils.RESPONSE_CODES.ERROR,
-          responseMessage: "TenantId is required",
-        });
-      }
 
       if (!visitorId) {
         return res.status(400).json({
@@ -282,16 +241,8 @@ class GatepassController {
   static async checkoutGatepass(req, res) {
     try {
       const { visitorId } = req.params;
-      const { tenantId } = req.body;
-      const userTenantId = tenantId || (req.user ? req.user.tenantId : null);
+      const userTenantId = req.user?.tenantId;
       const updatedBy = (req.user ? req.user.username : null) || "System";
-
-      if (!userTenantId) {
-        return res.status(400).json({
-          responseCode: responseUtils.RESPONSE_CODES.ERROR,
-          responseMessage: "TenantId is required",
-        });
-      }
 
       if (!visitorId) {
         return res.status(400).json({
@@ -320,15 +271,9 @@ class GatepassController {
   static async getGatepassStatus(req, res) {
     try {
       const { visitorId } = req.params;
-      const { tenantId } = req.query;
-      const userTenantId = tenantId || (req.user ? req.user.tenantId : null);
+      const userTenantId = req.user.tenantId;
 
-      if (!userTenantId) {
-        return res.status(400).json({
-          responseCode: responseUtils.RESPONSE_CODES.ERROR,
-          responseMessage: "TenantId is required",
-        });
-      }
+
 
       if (!visitorId) {
         return res.status(400).json({
@@ -355,15 +300,9 @@ class GatepassController {
   // GET /api/gatepass/pending-checkin - Get gatepasses ready for check-in
   static async getPendingCheckin(req, res) {
     try {
-      const { tenantId } = req.query;
-      const userTenantId = tenantId || (req.user ? req.user.tenantId : null);
+      const userTenantId = req.user?.tenantId;
 
-      if (!userTenantId) {
-        return res.status(400).json({
-          responseCode: responseUtils.RESPONSE_CODES.ERROR,
-          responseMessage: "TenantId is required",
-        });
-      }
+
 
       const result = await GatepassService.getPendingCheckin(userTenantId);
       res.json(result);
@@ -379,15 +318,10 @@ class GatepassController {
   // GET /api/gatepass/pending-checkout - Get gatepasses that need check-out
   static async getPendingCheckout(req, res) {
     try {
-      const { tenantId } = req.query;
-      const userTenantId = tenantId || (req.user ? req.user.tenantId : null);
+      
+      const userTenantId = req.user?.tenantId;
 
-      if (!userTenantId) {
-        return res.status(400).json({
-          responseCode: responseUtils.RESPONSE_CODES.ERROR,
-          responseMessage: "TenantId is required",
-        });
-      }
+
 
       const result = await GatepassService.getPendingCheckout(userTenantId);
       res.json(result);
@@ -403,16 +337,11 @@ class GatepassController {
   // GET /api/gatepass/purposes - Get available purposes
   static async getGatepassPurposes(req, res) {
     try {
-      const { tenantId } = req.query;
+      
+      const userTenantId = req.user?.tenantId;
 
-      if (!tenantId) {
-        return res.status(400).json({
-          responseCode: responseUtils.RESPONSE_CODES.ERROR,
-          responseMessage: "TenantId is required",
-        });
-      }
 
-      const result = await GatepassService.getGatepassPurposes(tenantId);
+      const result = await GatepassService.getGatepassPurposes(userTenantId);
       res.json(result);
     } catch (error) {
       console.error("Error in getGatepassPurposes:", error);
@@ -434,14 +363,9 @@ class GatepassController {
         tenantId,
       } = req.query;
 
-      const userTenantId = tenantId || (req.user ? req.user.tenantId : null);
+      const userTenantId = req.user?.tenantId;
 
-      if (!userTenantId) {
-        return res.status(400).json({
-          responseCode: responseUtils.RESPONSE_CODES.ERROR,
-          responseMessage: "TenantId is required",
-        });
-      }
+
 
       const filters = {
         purposeId: purposeId ? parseInt(purposeId) : null,
@@ -502,15 +426,10 @@ class GatepassController {
   static async addGatePassPurpose(req, res) {
     try {
       const { purposeName, tenantId } = req.body;
-      const userTenantId = tenantId || (req.user ? req.user.tenantId : null);
+      const userTenantId = req.user?.tenantId;
       const createdBy = (req.user ? req.user.username : null) || "System";
 
-      if (!userTenantId) {
-        return res.status(400).json({
-          responseCode: responseUtils.RESPONSE_CODES.ERROR,
-          responseMessage: "TenantId is required",
-        });
-      }
+
 
       const purposeData = {
         tenantId: userTenantId,
@@ -535,16 +454,11 @@ class GatepassController {
   static async updateGatePassPurpose(req, res) {
     try {
       const { purposeId } = req.params;
-      const { purposeName, tenantId } = req.body;
-      const userTenantId = tenantId || (req.user ? req.user.tenantId : null);
+      const { purposeName } = req.body;
+      const userTenantId = req.user?.tenantId;
       const updatedBy = (req.user ? req.user.username : null) || "System";
 
-      if (!userTenantId) {
-        return res.status(400).json({
-          responseCode: responseUtils.RESPONSE_CODES.ERROR,
-          responseMessage: "TenantId is required",
-        });
-      }
+
 
       const result = await GatepassService.updateGatePassPurpose(
         parseInt(purposeId),
@@ -568,7 +482,8 @@ class GatepassController {
   static async deleteGatePassPurpose(req, res) {
     try {
       const { purposeId } = req.params;
-      const { tenantId } = req.query;
+      const tenantId = req.user?.tenantId;
+
       const updatedBy = "System";
 
       if (!purposeId) {
@@ -578,12 +493,6 @@ class GatepassController {
         });
       }
 
-      if (!tenantId) {
-        return res.status(400).json({
-          responseCode: responseUtils.RESPONSE_CODES.ERROR,
-          responseMessage: "TenantId is required",
-        });
-      }
 
       const result = await GatepassService.deleteGatePassPurpose(
         parseInt(purposeId),

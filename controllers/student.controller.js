@@ -3,7 +3,7 @@ const MealService = require('../services/meal.service');
 const responseUtils = require("../utils/constants");
 
 class StudentController {
-  // POST /api/students/list - List students with filters 
+  // GET /api/students/list - List students with filters (GET, query params)
   static async listStudents(req, res) {
     try {
       const {
@@ -12,21 +12,30 @@ class StudentController {
         search = '',
         purposeId = null,
         studentId = '',
+        VisitorSubCatID = null,
         firstName = '',
         course = '',
         hostel = '',
         fromDate = null,
-        toDate = null,
-        tenantId
-      } = req.body;
-      
+        toDate = null
+      } = req.query;
+
       const userTenantId = req.user.tenantId;
 
-      if (tenantId && parseInt(tenantId) !== userTenantId) {
-        return res.status(403).json({
-          responseCode: responseUtils.RESPONSE_CODES.ERROR,
-          responseMessage: 'Access denied for this tenant'
-        });
+      // Convert DD/MM/YYYY or YYYY-MM-DD to full datetime range for SQL
+      function convertDate(dateStr, isEnd = false) {
+        if (!dateStr) return null;
+        // DD/MM/YYYY
+        if (/^\d{2}\/\d{2}\/\d{4}$/.test(dateStr)) {
+          const [d, m, y] = dateStr.split('/');
+          return isEnd ? `${y}-${m}-${d} 23:59:59` : `${y}-${m}-${d} 00:00:00`;
+        }
+        // YYYY-MM-DD
+        if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
+          return isEnd ? `${dateStr} 23:59:59` : `${dateStr} 00:00:00`;
+        }
+        // If already has time, return as is
+        return dateStr;
       }
 
       const filters = {
@@ -35,11 +44,12 @@ class StudentController {
         search,
         purposeId: purposeId ? parseInt(purposeId) : null,
         studentId,
+        VisitorSubCatID: VisitorSubCatID ? parseInt(VisitorSubCatID) : null,
         firstName,
         course,
         hostel,
-        fromDate,
-        toDate
+        fromDate: convertDate(fromDate, false),
+        toDate: convertDate(toDate, true)
       };
 
       const result = await StudentService.getStudentsWithFilters(userTenantId, filters);
@@ -54,35 +64,52 @@ class StudentController {
     }
   }
 
-  // GET /api/students - List students with pagination and search 
+  // GET /api/students - List students with pagination and search (kept for backward compatibility)
   static async getStudents(req, res) {
     try {
       const { 
         page = 1, 
         pageSize = 20, 
         search = '', 
-        tenantId 
+        visitorSubCatId = null
       } = req.query;
       
       const userTenantId = req.user.tenantId;
-
-      if (tenantId && parseInt(tenantId) !== userTenantId) {
-        return res.status(403).json({
-          responseCode: responseUtils.RESPONSE_CODES.ERROR,
-          responseMessage: 'Access denied for this tenant'
-        });
-      }
 
       const result = await StudentService.getStudents(
         userTenantId,
         parseInt(page),
         parseInt(pageSize),
-        search
+        search,
+        visitorSubCatId ? parseInt(visitorSubCatId) : null
       );
 
-      res.json(result);
+      // Add pagination info to response (like staff get list)
+      res.json({
+        responseCode: result.responseCode,
+        responseMessage: result.responseMessage,
+        count: result.count,
+        data: result.data,
+        pagination: result.pagination
+      });
     } catch (error) {
       console.error('Error in getStudents:', error);
+      res.status(500).json({
+        responseCode: responseUtils.RESPONSE_CODES.ERROR,
+        responseMessage: 'Internal server error',
+        error: process.env.NODE_ENV === 'development' ? error.message : undefined
+      });
+    }
+  }
+
+  // GET /api/students/sub-categories - List of student's sub categories
+  static async getStudentSubCategories(req, res) {
+    try {
+      const userTenantId = req.user.tenantId;
+      const result = await StudentService.getStudentSubCategories(userTenantId);
+      res.json(result);
+    } catch (error) {
+      console.error('Error in getStudentSubCategories:', error);
       res.status(500).json({
         responseCode: responseUtils.RESPONSE_CODES.ERROR,
         responseMessage: 'Internal server error',
@@ -95,15 +122,9 @@ class StudentController {
   static async getStudentStatus(req, res) {
     try {
       const { studentId } = req.params;
-      const { tenantId } = req.query;
+      
       const userTenantId = req.user.tenantId;
 
-      if (tenantId && parseInt(tenantId) !== userTenantId) {
-        return res.status(403).json({
-          responseCode: responseUtils.RESPONSE_CODES.ERROR,
-          responseMessage: 'Access denied for this tenant'
-        });
-      }
 
       if (!studentId) {
         return res.status(400).json({
@@ -131,16 +152,10 @@ class StudentController {
   static async checkoutStudent(req, res) {
     try {
       const { studentId } = req.params;
-      const { tenantId, purposeId, purposeName } = req.body;
+      const { purposeId, purposeName } = req.body;
       const userTenantId = req.user.tenantId;
       const createdBy = req.user.username;
 
-      if (tenantId && parseInt(tenantId) !== userTenantId) {
-        return res.status(403).json({
-          responseCode: responseUtils.RESPONSE_CODES.ERROR,
-          responseMessage: 'Access denied for this tenant'
-        });
-      }
 
       if (!studentId) {
         return res.status(400).json({
@@ -178,16 +193,9 @@ class StudentController {
   static async checkinStudent(req, res) {
     try {
       const { studentId } = req.params;
-      const { tenantId } = req.body;
       const userTenantId = req.user.tenantId;
       const updatedBy = req.user.username;
 
-      if (tenantId && parseInt(tenantId) !== userTenantId) {
-        return res.status(403).json({
-          responseCode: responseUtils.RESPONSE_CODES.ERROR,
-          responseMessage: 'Access denied for this tenant'
-        });
-      }
 
       if (!studentId) {
         return res.status(400).json({
@@ -219,12 +227,6 @@ class StudentController {
       const { tenantId, limit = 10 } = req.query;
       const userTenantId = req.user.tenantId;
 
-      if (tenantId && parseInt(tenantId) !== userTenantId) {
-        return res.status(403).json({
-          responseCode: responseUtils.RESPONSE_CODES.ERROR,
-          responseMessage: 'Access denied for this tenant'
-        });
-      }
 
       const result = await StudentService.getStudentHistory(
         parseInt(studentId),
@@ -245,15 +247,9 @@ class StudentController {
   // GET /api/students/pending-checkin - Get students currently checked out (pending check-in)
   static async getPendingCheckin(req, res) {
     try {
-      const { tenantId } = req.query;
+      
       const userTenantId = req.user.tenantId;
 
-      if (tenantId && parseInt(tenantId) !== userTenantId) {
-        return res.status(403).json({
-          responseCode: responseUtils.RESPONSE_CODES.ERROR,
-          responseMessage: 'Access denied for this tenant'
-        });
-      }
 
       const result = await StudentService.getStudentsPendingCheckin(userTenantId);
 
@@ -281,12 +277,6 @@ class StudentController {
       
       const userTenantId = req.user.tenantId;
 
-      if (tenantId && parseInt(tenantId) !== userTenantId) {
-        return res.status(403).json({
-          responseCode: responseUtils.RESPONSE_CODES.ERROR,
-          responseMessage: 'Access denied for this tenant'
-        });
-      }
 
       const filters = {
         course,
@@ -335,7 +325,7 @@ class StudentController {
   // GET /api/students/pending-checkout - Get students currently checked in
 static async getPendingCheckout(req, res) {
   try {
-    const { tenantId } = req.query;
+    
     const userTenantId = req.user.tenantId;
 
     if (tenantId && parseInt(tenantId) !== userTenantId) {
@@ -415,12 +405,6 @@ static async getPendingCheckout(req, res) {
       const { tenantId, limit = 10 } = req.query;
       const userTenantId = req.user.tenantId;
 
-      if (tenantId && parseInt(tenantId) !== userTenantId) {
-        return res.status(403).json({
-          responseCode: responseUtils.RESPONSE_CODES.ERROR,
-          responseMessage: 'Access denied for this tenant'
-        });
-      }
 
       if (!studentId) {
         return res.status(400).json({
@@ -452,12 +436,6 @@ static async getPendingCheckout(req, res) {
       const { tenantId, mealType } = req.query;
       const userTenantId = req.user.tenantId;
 
-      if (tenantId && parseInt(tenantId) !== userTenantId) {
-        return res.status(403).json({
-          responseCode: responseUtils.RESPONSE_CODES.ERROR,
-          responseMessage: 'Access denied for this tenant'
-        });
-      }
 
       const result = await MealService.getCurrentMealQueue(userTenantId, mealType);
       res.json(result);
@@ -477,12 +455,6 @@ static async getPendingCheckout(req, res) {
       const { tenantId, fromDate, toDate } = req.query;
       const userTenantId = req.user.tenantId;
 
-      if (tenantId && parseInt(tenantId) !== userTenantId) {
-        return res.status(403).json({
-          responseCode: responseUtils.RESPONSE_CODES.ERROR,
-          responseMessage: 'Access denied for this tenant'
-        });
-      }
 
       // Helper function to convert DD/MM/YYYY to YYYY-MM-DD
       const convertDateFormat = (dateStr) => {
@@ -532,12 +504,6 @@ static async getPendingCheckout(req, res) {
       const { tenantId, purposeCatId = 3 } = req.query;
       const userTenantId = req.user.tenantId;
 
-      if (tenantId && parseInt(tenantId) !== userTenantId) {
-        return res.status(403).json({
-          responseCode: responseUtils.RESPONSE_CODES.ERROR,
-          responseMessage: 'Access denied for this tenant'
-        });
-      }
 
       const result = await StudentService.getStudentPurposes(
         userTenantId, 
@@ -556,15 +522,9 @@ static async getPendingCheckout(req, res) {
   // GET /api/students/purpose-categories - Get purpose categories
   static async getPurposeCategories(req, res) {
     try {
-      const { tenantId } = req.query;
+      
       const userTenantId = req.user.tenantId;
 
-      if (tenantId && parseInt(tenantId) !== userTenantId) {
-        return res.status(403).json({
-          responseCode: responseUtils.RESPONSE_CODES.ERROR,
-          responseMessage: 'Access denied for this tenant'
-        });
-      }
 
       const result = await StudentService.getPurposeCategories(userTenantId);
       res.json(result);
