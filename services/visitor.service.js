@@ -261,20 +261,6 @@ class VisitorService {
         vehiclePhotoData,
       });
 
-      try {
-        await FCMService.notifyVisitorCheckIn({
-          tenantId,
-          flatName,
-          visitorName: fname,
-          visitorCategory: visitorSubCatName,
-          photoUrl: photoData ? `/uploads/visitors/${photoData}` : null,
-          type: "UNREGISTERED_CHECKIN",
-        });
-      } catch (fcmError) {
-        console.error("FCM notification failed:", fcmError);
-        // Don't fail the entire operation if FCM fails
-      }
-
       return {
         responseCode: responseUtils.RESPONSE_CODES.SUCCESS,
         responseMessage: responseUtils.RESPONSE_MESSAGES.VISITOR_CREATED,
@@ -535,11 +521,7 @@ class VisitorService {
         data: {
           historyId: visitHistory.regvisitorhistoryid,
           visitorName: visitor.vistorname,
-          checkInTime: new Date().toLocaleTimeString("en-IN", {
-            hour: "2-digit",
-            minute: "2-digit",
-            hour12: true,
-          }),
+          checkInTime: Math.floor(Date.now() / 1000),
         },
       };
     } catch (error) {
@@ -586,11 +568,7 @@ class VisitorService {
           responseMessage: "Visitor checked out successfully",
           data: {
             historyId: result.regvisitorhistoryid,
-            checkOutTime: new Date().toLocaleTimeString("en-IN", {
-              hour: "2-digit",
-              minute: "2-digit",
-              hour12: true,
-            }),
+            checkOutTime: Math.floor(Date.now() / 1000),
           },
         };
       } else {
@@ -829,7 +807,7 @@ class VisitorService {
           visitor: visitor,
           qrData: qrData,
           checkInOutInfo: checkInOutInfo,
-          scanTime: new Date().toISOString(),
+          scanTime: Math.floor(Date.now() / 1000),
           scannedBy: userInfo.username,
           actionRequired: checkInOutInfo.code === 1 ? "CHECK_IN" : "CHECK_OUT",
         },
@@ -951,13 +929,13 @@ class VisitorService {
       }
 
       if (filters.fromDate) {
-        whereConditions.push(`vr.CreatedDate >= $${paramIndex}`);
+        whereConditions.push(`vr.CreatedDate >= TO_TIMESTAMP($${paramIndex})`);
         params.push(filters.fromDate);
         paramIndex++;
       }
 
       if (filters.toDate) {
-        whereConditions.push(`vr.CreatedDate <= $${paramIndex}`);
+        whereConditions.push(`vr.CreatedDate <= TO_TIMESTAMP($${paramIndex})`);
         params.push(filters.toDate);
         paramIndex++;
       }
@@ -1046,13 +1024,13 @@ class VisitorService {
       }
 
       if (filters.fromDate) {
-        whereConditions.push(`vr.CreatedDate >= $${paramIndex}`);
+        whereConditions.push(`vr.CreatedDate >= TO_TIMESTAMP($${paramIndex})`);
         params.push(filters.fromDate);
         paramIndex++;
       }
 
       if (filters.toDate) {
-        whereConditions.push(`vr.CreatedDate <= $${paramIndex}`);
+        whereConditions.push(`vr.CreatedDate <= TO_TIMESTAMP($${paramIndex})`);
         params.push(filters.toDate);
         paramIndex++;
       }

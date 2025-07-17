@@ -139,7 +139,7 @@ class StaffModel {
         INTime, INTimeTxt, CreatedDate, UpdatedDate, CreatedBy, UpdatedBy
       ) VALUES (
         $1, 'Y', 'Y', $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13,
-        NOW(), TO_CHAR(NOW(), 'DD/MM/YYYY HH24:MI:SS'), NOW(), NOW(), $14, $14
+        NOW(), TO_CHAR((NOW() AT TIME ZONE 'Asia/Kolkata'), 'DD/MM/YYYY HH12:MI AM'), NOW(), NOW(), $14, $14
       )
       RETURNING RegVisitorHistoryID as regvisitorhistoryid, INTime as intime, INTimeTxt as intimetxt
     `;
@@ -170,7 +170,7 @@ class StaffModel {
       UPDATE VisitorRegVisitHistory 
       SET 
         OutTime = NOW(),
-        OutTimeTxt = TO_CHAR(NOW(), 'DD/MM/YYYY HH24:MI:SS'),
+        OutTimeTxt = TO_CHAR((NOW() AT TIME ZONE 'Asia/Kolkata'), 'DD/MM/YYYY HH12:MI AM'),
         UpdatedDate = NOW(),
         UpdatedBy = $3
       WHERE RegVisitorHistoryID = $1 

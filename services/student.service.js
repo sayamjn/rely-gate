@@ -831,8 +831,8 @@ class StudentService {
   }
 
   // 1. GET STUDENTS PENDING CHECKOUT (Students currently checked in)
-static async getPendingCheckout(tenantId) {
-  try {
+  static async getPendingCheckout(tenantId) {
+    try {
     const sql = `
       SELECT DISTINCT
         vr.VisitorRegID as studentId,
@@ -909,7 +909,50 @@ static async getPendingCheckout(tenantId) {
     };
   }
 }
-}
 
-module.exports = StudentService;
+  // Delete student
+  static async deleteStudent(studentId, tenantId, deletedBy) {
+    try {
+      const fs = require('fs');
+      const path = require('path');
+
+      const result = await StudentModel.deleteStudent(studentId, tenantId);
+
+      if (!result) {
+        return {
+          responseCode: responseUtils.RESPONSE_CODES.ERROR,
+          responseMessage: "Student not found",
+        };
+      }
+
+      // Clean up files if they exist
+      if (result.photoPath && result.photoName) {
+        const filePath = path.join(process.cwd(), 'uploads', result.photoPath, result.photoName);
+        try {
+          if (fs.existsSync(filePath)) {
+            fs.unlinkSync(filePath);
+          }
+        } catch (fileError) {
+          console.error('Error deleting file:', fileError);
+        }
+      }
+
+      return {
+        responseCode: responseUtils.RESPONSE_CODES.SUCCESS,
+        responseMessage: "Student deleted successfully",
+        data: {
+          deletedStudentId: result.deletedStudent.visitorregid,
+          deletedStudentNo: result.deletedStudent.visitorregno,
+        },
+      };
+    } catch (error) {
+      console.error("Error deleting student:", error);
+      return {
+        responseCode: responseUtils.RESPONSE_CODES.ERROR,
+        responseMessage: "Error deleting student",
+        error: error.message,
+      };
+    }
+  }
+}
 module.exports = StudentService;

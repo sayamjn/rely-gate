@@ -707,7 +707,7 @@ class VisitorController {
         res.setHeader(
           "Content-Disposition",
           `attachment; filename="visitors_${
-            new Date().toISOString().split("T")[0]
+            Math.floor(Date.now() / 1000)
           }.csv"`
         );
         res.send(result.csvData);

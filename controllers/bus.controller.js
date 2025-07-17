@@ -1,4 +1,7 @@
+const BusModel = require('../models/bus.model');
 const BusService = require('../services/bus.service');
+const FileService = require('../services/file.service');
+const QRService = require('../services/qr.service');
 const responseUtils = require("../utils/constants");
 
 class BusController {
@@ -510,6 +513,230 @@ static async getPendingCheckout(req, res) {
       });
     }
   }
+
+
+  // POST /api/buses/:busId/generate-qr - Generate QR code for bus
+static async generateBusQR(req, res) {
+  console.log(">> Entering generateBusQR");
+  try {
+    const { busId } = req.params;
+    console.log("Received busId:", busId);
+
+    const userTenantId = req.user.tenantId;
+    const createdBy = req.user.username || 'System';
+    console.log("User tenantId:", userTenantId, "Created by:", createdBy);
+
+    if (!busId) {
+      console.warn("Bus ID is missing in the request.");
+      return res.status(400).json({
+        responseCode: responseUtils.RESPONSE_CODES.ERROR,
+        responseMessage: 'Bus ID is required'
+      });
+    }
+
+    // Get bus details
+    console.log("Fetching bus details...");
+    const bus = await BusService.getBusStatus(parseInt(busId), userTenantId);
+    console.log("Bus details fetched:", bus);
+
+    if (bus.responseCode !== responseUtils.RESPONSE_CODES.SUCCESS) {
+      console.warn("Bus not found with ID:", busId);
+      return res.status(404).json({
+        responseCode: responseUtils.RESPONSE_CODES.ERROR,
+        responseMessage: 'Bus not found'
+      });
+    }
+
+    // Generate QR data
+    console.log("Generating QR data...");
+    const qrData = QRService.generateQRData({
+      tenantId: userTenantId,
+      visitorRegNo: bus.data.busRegNo,
+      visitorCatId: 5,
+      SecurityCode: bus.data.busRegNo
+    }, 'checkin-checkout');
+    console.log("Generated qrData:", qrData);
+
+    // Generate QR code image
+    console.log("Generating QR code image...");
+    const qrResult = await QRService.generateQRCode(qrData);
+    console.log("QR code generation result:", qrResult);
+
+    if (!qrResult.success) {
+      console.error("Failed to generate QR code.");
+      return res.status(500).json({
+        responseCode: responseUtils.RESPONSE_CODES.ERROR,
+        responseMessage: 'Failed to generate QR code'
+      });
+    }
+
+    // Save QR image
+    const fileName = `bus_qr_${busId}_${Date.now()}.png`;
+    console.log("Saving QR image with filename:", fileName);
+    const filePath = await FileService.saveBase64Image(
+      qrResult.qrBase64,
+      FileService.categories.QR_CODES,
+      fileName
+    );
+    console.log("QR image saved at path:", filePath);
+
+    const responsePayload = {
+      responseCode: responseUtils.RESPONSE_CODES.SUCCESS,
+      responseMessage: 'QR code generated successfully',
+      data: {
+        busId: parseInt(busId),
+        qrData: qrResult.qrData,
+        qrImage: qrResult.qrImage,
+        qrFilePath: filePath,
+        bus: {
+          name: bus.data.busName,
+          regNo: bus.data.busCode,
+          mobile: bus.data.mobile
+        }
+      }
+    };
+
+    console.log("Sending response:", responsePayload);
+    res.json(responsePayload);
+
+  } catch (error) {
+    console.error('Error in generateBusQR:', error);
+    res.status(500).json({
+      responseCode: responseUtils.RESPONSE_CODES.ERROR,
+      responseMessage: 'Internal server error'
+    });
+  }
+}
+
+// POST /api/buses/scan-qr - Process QR code scan and return check-in/check-out status
+static async processBusQRScan(req, res) {
+  console.log(">> Entering processBusQRScan");
+  try {
+    const { qrData } = req.body;
+    const userTenantId = req.user.tenantId;
+    console.log("Received qrData:", qrData);
+    console.log("User tenantId:", userTenantId);
+
+    // Normalize QR input
+    let qrString;
+    if (typeof qrData === 'string') {
+      qrString = qrData;
+    } else if (typeof qrData === 'object') {
+      qrString = JSON.stringify(qrData);
+    } else {
+      console.warn("Invalid QR data format.");
+      return res.status(400).json({
+        responseCode: responseUtils.RESPONSE_CODES.ERROR,
+        responseMessage: 'Invalid QR data format'
+      });
+    }
+
+    console.log("Normalized QR string:", qrString);
+
+    // Parse QR data
+    console.log("Parsing QR string...");
+    const qrParseResult = QRService.parseQRData(qrString);
+    console.log("QR parse result:", qrParseResult);
+
+    if (!qrParseResult.success) {
+      console.warn("Invalid QR code format.");
+      return res.status(400).json({
+        responseCode: responseUtils.RESPONSE_CODES.ERROR,
+        responseMessage: 'Invalid QR code format'
+      });
+    }
+
+    const { tenantid, mainid, type } = qrParseResult.data;
+    console.log("Parsed tenantid:", tenantid, "mainid:", mainid, "type:", type);
+
+    if (parseInt(tenantid) !== userTenantId) {
+      console.warn("Access denied. QR tenant:", tenantid, "User tenant:", userTenantId);
+      return res.status(403).json({
+        responseCode: responseUtils.RESPONSE_CODES.ERROR,
+        responseMessage: 'Access denied for this tenant'
+      });
+    }
+
+    if (type !== 'bus') {
+      console.warn("QR type is not bus:", type);
+      return res.status(400).json({
+        responseCode: responseUtils.RESPONSE_CODES.ERROR,
+        responseMessage: 'QR code is not for a bus'
+      });
+    }
+
+    console.log("Fetching bus by reg no:", mainid);
+    const bus = await BusModel.getBusByRegNo(mainid, userTenantId);
+    console.log("Bus fetched:", bus);
+
+    if (!bus) {
+      console.warn("Bus not found for reg no:", mainid);
+      return res.status(404).json({
+        responseCode: responseUtils.RESPONSE_CODES.ERROR,
+        responseMessage: 'Bus not found'
+      });
+    }
+
+    console.log("Fetching bus status for bus ID:", bus.id);
+    const statusResult = await BusService.getBusStatus(bus.visitorregid, userTenantId);
+    console.log("Bus status result:", statusResult);
+
+    if (statusResult.responseCode !== responseUtils.RESPONSE_CODES.SUCCESS) {
+      console.warn("Bus status fetch failed for ID:", bus.id);
+      return res.status(404).json({
+        responseCode: responseUtils.RESPONSE_CODES.ERROR,
+        responseMessage: 'Bus not found'
+      });
+    }
+
+    let currentStatus;
+    let nextAction;
+
+    if (statusResult.data.action === 'CHECKIN') {
+      currentStatus = 'CHECKED_OUT';
+      nextAction = 'checkin';
+    } else {
+      currentStatus = 'AVAILABLE';
+      nextAction = 'checkout';
+    }
+
+    const responsePayload = {
+      responseCode: responseUtils.RESPONSE_CODES.SUCCESS,
+      responseMessage: 'QR scan processed successfully',
+      data: {
+        busId: statusResult.data.busId,
+        tenantId: parseInt(tenantid),
+        nextAction: nextAction,
+        currentStatus: currentStatus,
+        visitorRegId: statusResult.data.busId,
+        visitorRegNo: mainid,
+        bus: {
+          name: statusResult.data.busName,
+          regNo: statusResult.data.busCode,
+          mobile: statusResult.data.mobile,
+          course: statusResult.data.course || 'N/A',
+          hostel: statusResult.data.hostel || 'N/A'
+        },
+        actionPrompt: nextAction === 'checkin' 
+          ? 'Bus is currently checked out. Do you want to check in?' 
+          : 'Bus is currently available. Do you want to check out?',
+        statusMessage: statusResult.data.message
+      }
+    };
+
+    console.log("Sending response:", responsePayload);
+    res.json(responsePayload);
+
+  } catch (error) {
+    console.error('Error in processBusQRScan:', error);
+    res.status(500).json({
+      responseCode: responseUtils.RESPONSE_CODES.ERROR,
+      responseMessage: 'Internal server error'
+    });
+  }
+}
+
+
 }
 
 module.exports = BusController;

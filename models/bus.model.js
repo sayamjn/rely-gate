@@ -1,6 +1,44 @@
 const { query } = require("../config/database");
 
 class BusModel {
+
+
+    // Get bus by VisitorRegNo instead of VisitorRegID
+  static async getBusByRegNo(visitorRegNo, tenantId) {
+    const sql = `
+      SELECT 
+        vr.VisitorRegID,
+        vr.VisitorRegNo,
+        vr.SecurityCode,
+        vr.VistorName,
+        vr.Mobile,
+        vr.Email,
+        vr.VisitorCatID,
+        vr.VisitorCatName,
+        vr.VisitorSubCatID,
+        vr.VisitorSubCatName,
+        vr.FlatID,
+        vr.FlatName,
+        vr.AssociatedFlat,
+        vr.AssociatedBlock,
+        vr.VehiclelNo,
+        vr.PhotoFlag,
+        vr.PhotoPath,
+        vr.PhotoName,
+        vr.IsActive,
+        COALESCE(bvu.Course, 'N/A') as Course,
+        COALESCE(bvu.Hostel, 'N/A') as Hostel,
+        COALESCE(bvu.StudentID, '') as StudentID
+      FROM VisitorRegistration vr
+      LEFT JOIN BulkVisitorUpload bvu ON vr.Mobile = bvu.Mobile AND bvu.Type = 'student'
+      WHERE vr.VisitorRegNo = $1 
+        AND vr.TenantID = $2 
+        AND vr.IsActive = 'Y'
+        AND vr.VisitorCatID = 5
+    `;
+      const result = await query(sql, [visitorRegNo, tenantId]);
+    return result.rows[0];
+  }
   
   // Get buses with filters
   static async getBusesWithFilters(tenantId, filters = {}) {
@@ -274,7 +312,7 @@ class BusModel {
       ) VALUES (
         $1, 'Y', 'Y', $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13,
         $14, $15, $16, $17,
-        NOW(), TO_CHAR(NOW(), 'HH12:MI AM'), NOW(), NOW(), $18, $18
+        NOW(), TO_CHAR((NOW() AT TIME ZONE 'Asia/Kolkata'), 'DD/MM/YYYY HH12:MI AM'), NOW(), NOW(), $18, $18
       ) RETURNING RegVisitorHistoryID
     `;
 
@@ -307,7 +345,7 @@ class BusModel {
     const sql = `
       UPDATE VisitorRegVisitHistory 
       SET OutTime = NOW(), 
-          OutTimeTxt = TO_CHAR(NOW(), 'HH12:MI AM'),
+          OutTimeTxt = TO_CHAR((NOW() AT TIME ZONE 'Asia/Kolkata'), 'DD/MM/YYYY HH12:MI AM'),
           UpdatedDate = NOW(),
           UpdatedBy = $3
       WHERE RegVisitorHistoryID = $1 AND TenantID = $2

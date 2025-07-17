@@ -204,8 +204,8 @@ router.get('/history/comprehensive', [
   query('pageSize').optional().isNumeric().withMessage('Page size must be numeric'),
   query('visitorCatId').optional().isNumeric().withMessage('VisitorCatId must be numeric'),
   query('visitorSubCatId').optional().isNumeric().withMessage('VisitorSubCatId must be numeric'),
-  query('fromDate').optional().isDate().withMessage('FromDate must be valid date'),
-  query('toDate').optional().isDate().withMessage('ToDate must be valid date')
+  query('fromDate').optional().isInt().withMessage('FromDate must be valid epoch timestamp'),
+  query('toDate').optional().isInt().withMessage('ToDate must be valid epoch timestamp')
 ], handleValidationErrors, VisitorController.getComprehensiveHistory);
 
 
@@ -218,16 +218,16 @@ router.post('/list', [
   body('purposeId').optional().isInt().withMessage('PurposeId must be an integer'),
   body('flatName').optional().isString().trim().withMessage('FlatName must be a string'),
   body('mobile').optional().isString().trim().withMessage('Mobile must be a string'),
-  body('fromDate').optional().isISO8601().withMessage('FromDate must be a valid date'),
-  body('toDate').optional().isISO8601().withMessage('ToDate must be a valid date'),
+  body('fromDate').optional().isInt().withMessage('FromDate must be valid epoch timestamp'),
+  body('toDate').optional().isInt().withMessage('ToDate must be valid epoch timestamp'),
   body('status').optional().isIn(['ACTIVE', 'INACTIVE', 'CHECKED_IN', 'AVAILABLE']).withMessage('Invalid status'),
 ], handleValidationErrors, VisitorController.listVisitors);
 
 // GET /api/visitors - List visitors with pagination and search (legacy)
 router.get('/', [
   query('visitorSubCatId').optional().isInt().withMessage('VisitorSubCatId must be an integer'),
-  query('fromDate').optional().isISO8601().withMessage('FromDate must be a valid date (YYYY-MM-DD)'),
-  query('toDate').optional().isISO8601().withMessage('ToDate must be a valid date (YYYY-MM-DD)'),
+  query('fromDate').optional().isInt().withMessage('FromDate must be valid epoch timestamp'),
+  query('toDate').optional().isInt().withMessage('ToDate must be valid epoch timestamp'),
   query('page').optional().isInt({ min: 1 }).withMessage('Page must be a positive integer'),
   query('pageSize').optional().isInt({ min: 1, max: 100000 }).withMessage('PageSize must be between 1 and 100000'),
   query('search').optional().isString().trim().withMessage('Search must be a string'),
@@ -238,8 +238,8 @@ router.get('/export', [
   query('visitorCatId').optional().isInt().withMessage('VisitorCatId must be an integer'),
   query('visitorSubCatId').optional().isInt().withMessage('VisitorSubCatId must be an integer'),
   query('status').optional().isIn(['CHECKED_IN', 'AVAILABLE']).withMessage('Invalid status'),
-  query('fromDate').optional().isISO8601().withMessage('FromDate must be a valid date'),
-  query('toDate').optional().isISO8601().withMessage('ToDate must be a valid date'),
+  query('fromDate').optional().isInt().withMessage('FromDate must be valid epoch timestamp'),
+  query('toDate').optional().isInt().withMessage('ToDate must be valid epoch timestamp'),
   query('format').optional().isIn(['csv']).withMessage('Invalid format'),
 ], handleValidationErrors, VisitorController.exportVisitors);
 
@@ -258,8 +258,8 @@ router.get('/export', [
   query('visitorCatId').optional().isInt().withMessage('VisitorCatId must be an integer'),
   query('visitorSubCatId').optional().isInt().withMessage('VisitorSubCatId must be an integer'),
   query('status').optional().isIn(['CHECKED_IN', 'AVAILABLE']).withMessage('Invalid status'),
-  query('fromDate').optional().isISO8601().withMessage('FromDate must be a valid date'),
-  query('toDate').optional().isISO8601().withMessage('ToDate must be a valid date'),
+  query('fromDate').optional().isInt().withMessage('FromDate must be valid epoch timestamp'),
+  query('toDate').optional().isInt().withMessage('ToDate must be valid epoch timestamp'),
   query('format').optional().isIn(['csv']).withMessage('Invalid format'),
 ], handleValidationErrors, VisitorController.exportVisitors);
 

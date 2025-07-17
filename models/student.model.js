@@ -89,7 +89,7 @@ static async getStudentsWithFilters(tenantId, filters = {}) {
       END as CurrentStatus,
       COUNT(*) OVER() as total_count
     FROM VisitorRegistration vr
-    LEFT JOIN LATERAL (
+    INNER JOIN LATERAL (
       SELECT vh.VisitPurposeID, vh.VisitPurpose, vh.PurposeCatID, vh.PurposeCatName,
              vh.INTimeTxt, vh.OutTimeTxt, vh.OutTime, vh.INTime, vh.CreatedDate, vh.RegVisitorHistoryID
       FROM VisitorRegVisitHistory vh 
@@ -215,6 +215,44 @@ static async getStudentsWithFilters(tenantId, filters = {}) {
     `;
 
     const result = await query(sql, [studentId, tenantId]);
+    return result.rows[0];
+  }
+
+  // Get student by VisitorRegNo instead of VisitorRegID
+  static async getStudentByRegNo(visitorRegNo, tenantId) {
+    const sql = `
+      SELECT 
+        vr.VisitorRegID,
+        vr.VisitorRegNo,
+        vr.SecurityCode,
+        vr.VistorName,
+        vr.Mobile,
+        vr.Email,
+        vr.VisitorCatID,
+        vr.VisitorCatName,
+        vr.VisitorSubCatID,
+        vr.VisitorSubCatName,
+        vr.FlatID,
+        vr.FlatName,
+        vr.AssociatedFlat,
+        vr.AssociatedBlock,
+        vr.VehiclelNo,
+        vr.PhotoFlag,
+        vr.PhotoPath,
+        vr.PhotoName,
+        vr.IsActive,
+        COALESCE(bvu.Course, 'N/A') as Course,
+        COALESCE(bvu.Hostel, 'N/A') as Hostel,
+        COALESCE(bvu.StudentID, '') as StudentID
+      FROM VisitorRegistration vr
+      LEFT JOIN BulkVisitorUpload bvu ON vr.Mobile = bvu.Mobile AND bvu.Type = 'student'
+      WHERE vr.VisitorRegNo = $1 
+        AND vr.TenantID = $2 
+        AND vr.IsActive = 'Y'
+        AND vr.VisitorCatID = 3
+    `;
+    
+    const result = await query(sql, [visitorRegNo, tenantId]);
     return result.rows[0];
   }
 
@@ -662,6 +700,12 @@ static async getStudentsWithFilters(tenantId, filters = {}) {
       WHERE vr.TenantID = $1
         AND vr.IsActive = 'Y'
         AND vr.VisitorCatID = 3
+        AND EXISTS (
+          SELECT 1 FROM VisitorRegVisitHistory vh 
+          WHERE vh.VisitorRegID = vr.VisitorRegID 
+          AND vh.TenantID = vr.TenantID 
+          AND vh.IsActive = 'Y'
+        )
     `;
     const params = [tenantId];
     let paramIndex = 2;
@@ -721,6 +765,66 @@ static async getStudentsWithFilters(tenantId, filters = {}) {
       };
     } catch (error) {
       throw error;
+    }
+  }
+
+  // Delete student and all related data
+  static async deleteStudent(studentId, tenantId) {
+    const client = await require('../config/database').getClient();
+    try {
+      await client.query('BEGIN');
+
+      // Get student details for file cleanup
+      const studentResult = await client.query(`
+        SELECT photopath, photoname 
+        FROM visitorregistration 
+        WHERE visitorregid = $1 AND tenantid = $2 AND visitorcatid = 3
+      `, [studentId, tenantId]);
+
+      if (studentResult.rows.length === 0) {
+        await client.query('ROLLBACK');
+        return null;
+      }
+
+      const student = studentResult.rows[0];
+
+      // Delete meal records
+      await client.query(`
+        DELETE FROM mealmaster 
+        WHERE studentid = $1 AND tenantid = $2
+      `, [studentId, tenantId]);
+
+      // Delete visit history
+      await client.query(`
+        DELETE FROM visitorregvisithistory 
+        WHERE visitorregid = $1 AND tenantid = $2 AND visitorcatid = 3
+      `, [studentId, tenantId]);
+
+      // Delete bulk upload records
+      await client.query(`
+        DELETE FROM bulkvisitorupload 
+        WHERE visitorregid = $1 AND tenantid = $2 AND type = 'student'
+      `, [studentId, tenantId]);
+
+      // Delete student registration
+      const deleteResult = await client.query(`
+        DELETE FROM visitorregistration 
+        WHERE visitorregid = $1 AND tenantid = $2 AND visitorcatid = 3
+        RETURNING visitorregid, visitorregno
+      `, [studentId, tenantId]);
+
+      await client.query('COMMIT');
+      
+      return {
+        deletedStudent: deleteResult.rows[0],
+        photoPath: student.photopath,
+        photoName: student.photoname
+      };
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
     }
   }
 }

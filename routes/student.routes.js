@@ -166,5 +166,35 @@ router.get('/meal-statistics', [
 // GET /api/students/sub-categories - List of student's sub categories
 router.get('/sub-categories', handleValidationErrors, StudentController.getStudentSubCategories);
 
+// ===== QR CODE ROUTES FOR CHECK-IN/CHECK-OUT =====
+
+// POST /api/students/:studentId/generate-qr - Generate QR code for student
+router.post('/:studentId/generate-qr', [
+  param('studentId').isInt({ min: 1 }).withMessage('Student ID must be a positive integer'),
+], handleValidationErrors, StudentController.generateStudentQR);
+
+// POST /api/students/scan-qr - Process QR code scan and return check-in/check-out status
+router.post('/scan-qr', [
+  body('qrData').notEmpty().withMessage('QR data is required'),
+], handleValidationErrors, StudentController.processStudentQRScan);
+
+// POST /api/students/qr-checkin - QR-based check-in for students
+router.post('/qr-checkin', [
+  body('studentId').isInt({ min: 1 }).withMessage('Student ID must be a positive integer'),
+  body('tenantId').isInt({ min: 1 }).withMessage('Tenant ID must be a positive integer'),
+], handleValidationErrors, StudentController.qrCheckinStudent);
+
+// POST /api/students/qr-checkout - QR-based check-out for students
+router.post('/qr-checkout', [
+  body('studentId').isInt({ min: 1 }).withMessage('Student ID must be a positive integer'),
+  body('tenantId').isInt({ min: 1 }).withMessage('Tenant ID must be a positive integer'),
+  body('purposeId').optional().isInt().withMessage('PurposeId must be an integer'),
+  body('purposeName').optional().isString().trim().withMessage('PurposeName must be a string'),
+], handleValidationErrors, StudentController.qrCheckoutStudent);
+
+// DELETE /api/students/:id - Delete student and all related data
+router.delete('/:id', [
+  param('id').isInt({ min: 1 }).withMessage('Student ID must be a positive integer'),
+], handleValidationErrors, StudentController.deleteStudent);
 
 module.exports = router;

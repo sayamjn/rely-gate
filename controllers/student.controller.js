@@ -1,5 +1,8 @@
 const StudentService = require('../services/student.service');
+const StudentModel = require('../models/student.model');
 const MealService = require('../services/meal.service');
+const QRService = require('../services/qr.service');
+const FileService = require('../services/file.service');
 const responseUtils = require("../utils/constants");
 
 class StudentController {
@@ -328,13 +331,6 @@ static async getPendingCheckout(req, res) {
     
     const userTenantId = req.user.tenantId;
 
-    if (tenantId && parseInt(tenantId) !== userTenantId) {
-      return res.status(403).json({
-        responseCode: responseUtils.RESPONSE_CODES.ERROR,
-        responseMessage: 'Access denied for this tenant'
-      });
-    }
-
     const result = await StudentService.getPendingCheckout(userTenantId);
     res.json(result);
   } catch (error) {
@@ -349,16 +345,9 @@ static async getPendingCheckout(req, res) {
   // POST /api/students/meal-checkin - Meal check-in for students via QR code
   static async mealCheckIn(req, res) {
     try {
-      const { student_id, tenant_id, confirmed = false } = req.body;
+      const { student_id, confirmed = false } = req.body;
       const userTenantId = req.user.tenantId;
 
-      // Validate tenant access
-      if (tenant_id && parseInt(tenant_id) !== userTenantId) {
-        return res.status(403).json({
-          responseCode: responseUtils.RESPONSE_CODES.ERROR,
-          responseMessage: 'Access denied for this tenant'
-        });
-      }
 
       // Validate required fields
       if (!student_id) {
@@ -631,6 +620,290 @@ static async getPendingCheckout(req, res) {
       res.status(500).json({
         responseCode: responseUtils.RESPONSE_CODES.ERROR,
         responseMessage: "Internal server error",
+      });
+    }
+  }
+
+  // ===== QR CODE METHODS FOR CHECK-IN/CHECK-OUT =====
+
+  // POST /api/students/:studentId/generate-qr - Generate QR code for student
+  static async generateStudentQR(req, res) {
+    try {
+      const { studentId } = req.params;
+      const userTenantId = req.user.tenantId;
+      const createdBy = req.user.username || 'System';
+
+      if (!studentId) {
+        return res.status(400).json({
+          responseCode: responseUtils.RESPONSE_CODES.ERROR,
+          responseMessage: 'Student ID is required'
+        });
+      }
+
+      // Get student details to generate QR
+      const student = await StudentService.getStudentStatus(parseInt(studentId), userTenantId);
+      
+      if (student.responseCode !== responseUtils.RESPONSE_CODES.SUCCESS) {
+        return res.status(404).json({
+          responseCode: responseUtils.RESPONSE_CODES.ERROR,
+          responseMessage: 'Student not found'
+        });
+      }
+
+      // Generate QR data with student information
+      const qrData = QRService.generateQRData({
+        tenantId: userTenantId,
+        visitorRegNo: student.data.studentCode, // Use VisitorRegNo as mainid
+        visitorCatId: 3, // Student category
+        SecurityCode: student.data.studentCode
+      }, 'checkin-checkout');
+
+      // Generate QR code image
+      const qrResult = await QRService.generateQRCode(qrData);
+
+      if (!qrResult.success) {
+        return res.status(500).json({
+          responseCode: responseUtils.RESPONSE_CODES.ERROR,
+          responseMessage: 'Failed to generate QR code'
+        });
+      }
+
+      // Save QR code to uploads folder
+      const fileName = `student_qr_${studentId}_${Date.now()}.png`;
+      const filePath = await FileService.saveBase64Image(
+        qrResult.qrBase64,
+        FileService.categories.QR_CODES,
+        fileName
+      );
+
+      res.json({
+        responseCode: responseUtils.RESPONSE_CODES.SUCCESS,
+        responseMessage: 'QR code generated successfully',
+        data: {
+          studentId: parseInt(studentId),
+          qrData: qrResult.qrData,
+          qrImage: qrResult.qrImage,
+          qrFilePath: filePath,
+          student: {
+            name: student.data.studentName,
+            regNo: student.data.studentCode,
+            mobile: student.data.mobile
+          }
+        }
+      });
+    } catch (error) {
+      console.error('Error in generateStudentQR:', error);
+      res.status(500).json({
+        responseCode: responseUtils.RESPONSE_CODES.ERROR,
+        responseMessage: 'Internal server error'
+      });
+    }
+  }
+
+  // POST /api/students/scan-qr - Process QR code scan and return check-in/check-out status
+  static async processStudentQRScan(req, res) {
+    try {
+      const { qrData } = req.body;
+      const userTenantId = req.user.tenantId;
+
+      // Handle both JSON string and JSON object formats
+      let qrString;
+      if (typeof qrData === 'string') {
+        qrString = qrData;
+      } else if (typeof qrData === 'object') {
+        qrString = JSON.stringify(qrData);
+      } else {
+        return res.status(400).json({
+          responseCode: responseUtils.RESPONSE_CODES.ERROR,
+          responseMessage: 'Invalid QR data format'
+        });
+      }
+
+      // Parse QR data
+      const qrParseResult = QRService.parseQRData(qrString);
+      
+      if (!qrParseResult.success) {
+        return res.status(400).json({
+          responseCode: responseUtils.RESPONSE_CODES.ERROR,
+          responseMessage: 'Invalid QR code format'
+        });
+      }
+
+      const { tenantid, mainid, type } = qrParseResult.data;
+
+      // Validate tenant access
+      if (parseInt(tenantid) !== userTenantId) {
+        return res.status(403).json({
+          responseCode: responseUtils.RESPONSE_CODES.ERROR,
+          responseMessage: 'Access denied for this tenant'
+        });
+      }
+
+      // Validate student type
+      if (type !== 'stu') {
+        return res.status(400).json({
+          responseCode: responseUtils.RESPONSE_CODES.ERROR,
+          responseMessage: 'QR code is not for a student'
+        });
+      }
+
+      // Get student ID from VisitorRegNo, then get status
+      const student = await StudentModel.getStudentByRegNo(mainid, userTenantId);
+      
+      if (!student) {
+        return res.status(404).json({
+          responseCode: responseUtils.RESPONSE_CODES.ERROR,
+          responseMessage: 'Student not found'
+        });
+      }
+
+      const statusResult = await StudentService.getStudentStatus(student.visitorregid, userTenantId);
+      
+      if (statusResult.responseCode !== responseUtils.RESPONSE_CODES.SUCCESS) {
+        return res.status(404).json({
+          responseCode: responseUtils.RESPONSE_CODES.ERROR,
+          responseMessage: 'Student not found'
+        });
+      }
+
+      // Use the action from getStudentStatus which is already correct
+      const nextAction = statusResult.data.action === 'CHECKIN' ? 'checkin' : 'checkout';
+      
+      // Determine current status for display
+      let currentStatus;
+      if (statusResult.data.action === 'CHECKIN') {
+        currentStatus = 'CHECKED_OUT'; // Student is checked out, can check in
+      } else {
+        currentStatus = 'AVAILABLE'; // Student is available, can check out
+      }
+
+      res.json({
+        responseCode: responseUtils.RESPONSE_CODES.SUCCESS,
+        responseMessage: 'QR scan processed successfully',
+        data: {
+          studentId: statusResult.data.studentId, // Use actual VisitorRegID
+          tenantId: parseInt(tenantid),
+          nextAction: nextAction,
+          currentStatus: currentStatus,
+          visitorRegId: statusResult.data.studentId, // The actual VisitorRegID for API calls
+          visitorRegNo: mainid, // The VisitorRegNo from QR
+          student: {
+            name: statusResult.data.studentName,
+            regNo: statusResult.data.studentCode,
+            mobile: statusResult.data.mobile,
+            course: statusResult.data.course || 'N/A',
+            hostel: statusResult.data.hostel || 'N/A'
+          },
+          actionPrompt: nextAction === 'checkin' 
+            ? 'Student is currently checked out. Do you want to check in?' 
+            : 'Student is currently available. Do you want to check out?',
+          // Include the status message from getStudentStatus for debugging
+          statusMessage: statusResult.data.message
+        }
+      });
+    } catch (error) {
+      console.error('Error in processStudentQRScan:', error);
+      res.status(500).json({
+        responseCode: responseUtils.RESPONSE_CODES.ERROR,
+        responseMessage: 'Internal server error'
+      });
+    }
+  }
+
+  // POST /api/students/qr-checkin - QR-based check-in for students
+  static async qrCheckinStudent(req, res) {
+    try {
+      const { studentId, tenantId } = req.body;
+      const userTenantId = req.user.tenantId;
+      const updatedBy = req.user.username || 'System';
+
+      // Validate tenant access
+      if (parseInt(tenantId) !== userTenantId) {
+        return res.status(403).json({
+          responseCode: responseUtils.RESPONSE_CODES.ERROR,
+          responseMessage: 'Access denied for this tenant'
+        });
+      }
+
+      const result = await StudentService.checkinStudent(
+        parseInt(studentId),
+        userTenantId,
+        updatedBy
+      );
+
+      res.json(result);
+    } catch (error) {
+      console.error('Error in qrCheckinStudent:', error);
+      res.status(500).json({
+        responseCode: responseUtils.RESPONSE_CODES.ERROR,
+        responseMessage: 'Internal server error'
+      });
+    }
+  }
+
+  // POST /api/students/qr-checkout - QR-based check-out for students
+  static async qrCheckoutStudent(req, res) {
+    try {
+      const { studentId, tenantId, purposeId, purposeName } = req.body;
+      const userTenantId = req.user.tenantId;
+      const createdBy = req.user.username || 'System';
+
+      // Validate tenant access
+      if (parseInt(tenantId) !== userTenantId) {
+        return res.status(403).json({
+          responseCode: responseUtils.RESPONSE_CODES.ERROR,
+          responseMessage: 'Access denied for this tenant'
+        });
+      }
+
+      const result = await StudentService.checkoutStudent(
+        parseInt(studentId),
+        userTenantId,
+        purposeId ? parseInt(purposeId) : null,
+        purposeName,
+        createdBy
+      );
+
+      res.json(result);
+    } catch (error) {
+      console.error('Error in qrCheckoutStudent:', error);
+      res.status(500).json({
+        responseCode: responseUtils.RESPONSE_CODES.ERROR,
+        responseMessage: 'Internal server error'
+      });
+    }
+  }
+
+  // DELETE /api/students/:id - Delete student and all related data
+  static async deleteStudent(req, res) {
+    try {
+      const { id } = req.params;
+      const userTenantId = req.user.tenantId;
+      const deletedBy = req.user.userId;
+
+      if (!id) {
+        return res.status(400).json({
+          responseCode: responseUtils.RESPONSE_CODES.ERROR,
+          responseMessage: 'Student ID is required'
+        });
+      }
+
+      const result = await StudentService.deleteStudent(
+        parseInt(id),
+        userTenantId,
+        deletedBy
+      );
+
+      if (result.responseCode === responseUtils.RESPONSE_CODES.ERROR) {
+        return res.status(404).json(result);
+      }
+
+      res.json(result);
+    } catch (error) {
+      console.error('Error in deleteStudent:', error);
+      res.status(500).json({
+        responseCode: responseUtils.RESPONSE_CODES.ERROR,
+        responseMessage: 'Internal server error'
       });
     }
   }

@@ -151,4 +151,16 @@ router.get('/list', [
 // GET /api/buses/sub-categories - List of bus sub categories
 router.get('/sub-categories', BusController.getBusSubCategories);
 
+
+
+// POST /api/buses/:busId/generate-qr - Generate QR code for bus
+router.post('/:busId/generate-qr', [
+  param('busId').isInt({ min: 1 }).withMessage('Bus ID must be a positive integer'),
+], handleValidationErrors, BusController.generateBusQR);
+
+// POST /api/buses/scan-qr - Process QR code scan and return check-in/check-out status
+router.post('/scan-qr', [
+  body('qrData').notEmpty().withMessage('QR data is required'),
+], handleValidationErrors, BusController.processBusQRScan);
+
 module.exports = router;

@@ -744,11 +744,11 @@ static async getBusesList(tenantId, filters = {}) {
 
       // InTime represents checkout time (when bus leaves)
       InTime: bus.lastcheckintime,
-      InTimeTxt: DateFormatter.formatDateTime(bus.lastcheckintime),
+      InTimeTxt: bus.lastcheckintimetxt || DateFormatter.formatDateTime(bus.lastcheckintime),
 
       // OutTime represents checkin time (when bus returns)
       OutTime: bus.lastcheckouttime,
-      OutTimeTxt: DateFormatter.formatDateTime(bus.lastcheckouttime),
+      OutTimeTxt: bus.lastcheckouttimetxt || DateFormatter.formatDateTime(bus.lastcheckouttime),
 
       // Purpose details
       VisitPurposeID: bus.visitpurposeid || null,

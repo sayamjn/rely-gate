@@ -1,21 +1,6 @@
 Bus Registration,Driver Name,Driver Mobile,Bus Type,Route,Area,Status,Registration Date
-BUS1001008,College Express 03,9876540008,Service Provider,Highway Gate,Entry-O,ACTIVE,2025-06-21
-BUS1001010,College Express 05,9876540010,Service Provider,Central Station,Entry-Q,ACTIVE,2025-06-21
-BUS1001009,College Express 04,9876540009,Service Provider,Ring Road,Entry-P,ACTIVE,2025-06-21
-BUS1001005,School Bus 05,9876540005,Delivery,West Gate,Entry-N,ACTIVE,2025-06-21
-BUS1001004,School Bus 04,9876540004,Delivery,South Gate,Entry-M,ACTIVE,2025-06-21
-BUS1001023,Delivery Van,9876540023,Delivery,Loading Dock,Service-C,ACTIVE,2025-06-20
-BUS1001022,Security Patrol,9876540022,Service Provider,Security HQ,Service-B,ACTIVE,2025-06-19
-BUS1001021,Maintenance Van,9876540021,Service Provider,Maintenance Yard,Service-A,ACTIVE,2025-06-18
-BUS1001020,Event Bus 02,9876540020,Delivery,Auditorium,Entry-L,ACTIVE,2025-06-17
-BUS1001019,Event Bus 01,9876540019,Delivery,Event Hall,Entry-K,ACTIVE,2025-06-16
-BUS1001018,Medical Bus,9876540018,Service Provider,Medical Center,Entry-J,ACTIVE,2025-06-15
-BUS1001017,Emergency Bus 01,9876540017,Service Provider,Emergency Bay,Entry-I,ACTIVE,2025-06-14
-BUS1001015,Campus Shuttle 02,9876540015,Delivery,Hostel Area,Entry-H,ACTIVE,2025-06-13
-BUS1001014,Campus Shuttle 01,9876540014,Delivery,Campus Center,Entry-G,ACTIVE,2025-06-11
-BUS1001011,Staff Transport 01,9876540011,Service Provider,Staff Gate,Entry-F,ACTIVE,2025-06-09
-BUS1001006,College Express 01,9876540006,Service Provider,City Gate,Entry-D,ACTIVE,2025-06-06
-BUS1001007,College Express 02,9876540007,Service Provider,Metro Gate,Entry-E,ACTIVE,2025-06-03
-BUS1001003,School Bus 03,9876540003,Delivery,East Gate,Entry-C,ACTIVE,2025-06-01
-BUS1001002,School Bus 02,9876540002,Delivery,North Gate,Entry-B,ACTIVE,2025-05-27
-BUS1001001,School Bus 01,9876540001,Delivery,Main Gate,Entry-A,ACTIVE,2025-05-22
+10012024201,School Bus Alpha,9876550001,School Bus,Route 1,Main Gate,ACTIVE,1705276800
+10012024202,School Bus Beta,9876550002,School Bus,Route 2,North Gate,ACTIVE,1705276800
+10012024203,School Bus Gamma,9876550003,School Bus,Route 3,South Gate,ACTIVE,1705276800
+10012024204,College Express 01,9876550004,Private Bus,City Route,Main Gate,ACTIVE,1705276800
+10012024205,College Express 02,9876550005,Private Bus,Metro Route,North Gate,ACTIVE,1705276800

@@ -109,7 +109,6 @@ class StaffService {
     try {
       const result = await StaffModel.getStaffList(tenantId, filters);
 
-      // Map/format as needed (minimal, similar to students/buses)
       const mapped = result.data.map(staff => ({
         VisitorRegID: staff.visitorregid,
         VistorName: staff.vistorname,
@@ -136,10 +135,10 @@ class StaffService {
         RegVisitorHistoryID: staff.regvisitorhistoryid,
 
         InTime: staff.lastcheckintime,
-        InTimeTxt: DateFormatter.formatDateTime(staff.lastcheckintime),
+        InTimeTxt: staff.lastcheckintimetxt,
 
         OutTime: staff.lastcheckouttime,
-        OutTimeTxt: DateFormatter.formatDateTime(staff.lastcheckouttime),
+        OutTimeTxt: staff.lastcheckouttimetxt,
         
         VisitPurposeID: staff.visitpurposeid,
 

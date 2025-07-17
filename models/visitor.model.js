@@ -83,74 +83,82 @@ class VisitorModel {
   }
 
   // Create unregistered visitor
-  static async createUnregisteredVisitor(visitorData) {
-    const {
-      tenantId,
-      fname,
-      mobile,
-      vehicleNo,
-      flatName,
-      visitorCatId,
-      visitorCatName,
-      visitorSubCatId,
-      visitorSubCatName,
-      visitPurposeId,
-      visitPurpose,
-      totalVisitor,
-      photoData,
-      vehiclePhotoData,
-      createdBy,
-    } = visitorData;
+static async createUnregisteredVisitor(visitorData) {
+  const {
+    tenantId,
+    fname,
+    mobile,
+    vehicleNo,
+    flatName,
+    visitorCatId,
+    visitorCatName,
+    visitorSubCatId,
+    visitorSubCatName,
+    visitPurposeId,
+    visitPurpose,
+    totalVisitor,
+    photoData,
+    vehiclePhotoData,
+    createdBy,
+  } = visitorData;
 
-    const sql = `
-      INSERT INTO VisitorMaster (
-        TenantID, Fname, Mobile, VehiclelNo, FlatName, VisitorCatID,
-        VisitorCatName, VisitorSubCatID, VisitorSubCatName, VisitPurposeID,
-        VisitPurpose, TotalVisitor, VisitDate, INTime, INTimeTxt,
-        IsActive, StatusID, StatusName, PhotoFlag, PhotoName, PhotoPath,
-        VehiclePhotoFlag, VehiclePhotoName, VehiclePhotoPath,
-        CreatedDate, UpdatedDate, CreatedBy, UpdatedBy
-      ) VALUES (
-        $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, 
-        NOW(), NOW(), TO_CHAR(NOW(), 'HH12:MI AM'), 'Y', 1, 'ACTIVE',
-        $13, $14, $15, $16, $17, $18, NOW(), NOW(), $19, $19
-      ) RETURNING VisitorID
-    `;
+  const sql = `
+    INSERT INTO VisitorMaster (
+      TenantID, Fname, Mobile, VehiclelNo, FlatName, VisitorCatID,
+      VisitorCatName, VisitorSubCatID, VisitorSubCatName, VisitPurposeID,
+      VisitPurpose, TotalVisitor, VisitDate, INTime, INTimeTxt,
+      IsActive, StatusID, StatusName, PhotoFlag, PhotoName, PhotoPath,
+      VehiclePhotoFlag, VehiclePhotoName, VehiclePhotoPath,
+      CreatedDate, UpdatedDate, CreatedBy, UpdatedBy
+    ) VALUES (
+      $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12,
+      NOW(),                                          -- VisitDate
+      NOW(),                                          -- INTime (timestamp)
+      EXTRACT(EPOCH FROM NOW())::TEXT,                -- INTimeTxt (epoch as text)
+      'Y', 1, 'ACTIVE',
+      $13, $14, $15,
+      $16, $17, $18,
+      NOW(), NOW(), $19, $19
+    ) RETURNING VisitorID
+  `;
 
-    const photoFlag = photoData ? "Y" : "N";
-    const photoName = photoData ? `UnRegVisitor_${Date.now()}.jpeg` : null;
-    const photoPath = photoData ? "/uploads/visitors/" : null;
+  const photoFlag = photoData ? "Y" : "N";
+  const photoName = photoData ? `UnRegVisitor_${Date.now()}.jpeg` : null;
+  const photoPath = photoData ? "/uploads/visitors/" : null;
 
-    const vehiclePhotoFlag = vehiclePhotoData ? "Y" : "N";
-    const vehiclePhotoName = vehiclePhotoData
-      ? `Vehicle_${Date.now()}.jpeg`
-      : null;
-    const vehiclePhotoPath = vehiclePhotoData ? "/uploads/vehicles/" : null;
+  const vehiclePhotoFlag = vehiclePhotoData ? "Y" : "N";
+  const vehiclePhotoName = vehiclePhotoData
+    ? `Vehicle_${Date.now()}.jpeg`
+    : null;
+  const vehiclePhotoPath = vehiclePhotoData ? "/uploads/vehicles/" : null;
 
-    const result = await query(sql, [
-      tenantId,
-      fname,
-      mobile,
-      vehicleNo,
-      flatName,
-      visitorCatId,
-      visitorCatName,
-      visitorSubCatId,
-      visitorSubCatName,
-      visitPurposeId,
-      visitPurpose,
-      totalVisitor || 1,
-      photoFlag,
-      photoName,
-      photoPath,
-      vehiclePhotoFlag,
-      vehiclePhotoName,
-      vehiclePhotoPath,
-      createdBy,
-    ]);
+  const result = await query(sql, [
+    tenantId,
+    fname,
+    mobile,
+    vehicleNo,
+    flatName,
+    visitorCatId,
+    visitorCatName,
+    visitorSubCatId,
+    visitorSubCatName,
+    visitPurposeId,
+    visitPurpose,
+    totalVisitor || 1,
+    photoFlag,
+    photoName,
+    photoPath,
+    vehiclePhotoFlag,
+    vehiclePhotoName,
+    vehiclePhotoPath,
+    createdBy,
+  ]);
 
-    return result.rows[0];
-  }
+  return result.rows[0];
+}
+
+
+
 
   // Create registered visitor
   static async createRegisteredVisitor(visitorData) {
@@ -271,7 +279,7 @@ class VisitorModel {
     const sql = `
       UPDATE VisitorMaster 
       SET OutTime = NOW(), 
-          OutTimeTxt = TO_CHAR(NOW(), 'HH12:MI AM'),
+          OutTimeTxt = EXTRACT(EPOCH FROM NOW())::TEXT,
           UpdatedDate = NOW()
       WHERE VisitorID = $1 AND TenantID = $2
       RETURNING VisitorID
@@ -308,7 +316,7 @@ class VisitorModel {
         INTime, INTimeTxt, CreatedDate, UpdatedDate, CreatedBy, UpdatedBy
       ) VALUES (
         $1, 'Y', 'Y', $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13,
-        NOW(), TO_CHAR(NOW(), 'HH12:MI AM'), NOW(), NOW(), $14, $14
+        NOW(), EXTRACT(EPOCH FROM NOW())::TEXT, NOW(), NOW(), $14, $14
       ) RETURNING RegVisitorHistoryID
     `;
 
@@ -337,7 +345,7 @@ class VisitorModel {
     const sql = `
       UPDATE VisitorRegVisitHistory 
       SET OutTime = NOW(), 
-          OutTimeTxt = TO_CHAR(NOW(), 'HH12:MI AM'),
+          OutTimeTxt = EXTRACT(EPOCH FROM NOW())::TEXT,
           UpdatedDate = NOW(),
           UpdatedBy = $3
       WHERE RegVisitorHistoryID = $1 AND TenantID = $2
@@ -401,15 +409,66 @@ class VisitorModel {
   // Get visitors pending checkout
   static async getVisitorsPendingCheckout(tenantId) {
     const sql = `
+      -- Get registered visitors pending checkout
       SELECT 
-        vh.RegVisitorHistoryID, vh.VisitorRegID, vh.VistorName, vh.Mobile,
-        vh.VisitorCatName, vh.VisitorSubCatName, vh.AssociatedFlat,
-        vh.INTime, vh.INTimeTxt, vr.PhotoPath, vr.PhotoName
+        'registered' as visitor_type,
+        vh.RegVisitorHistoryID, 
+        vh.VisitorRegID, 
+        vh.VistorName, 
+        vh.Mobile,
+        vh.VisitorCatName, 
+        vh.VisitorSubCatName, 
+        vh.AssociatedFlat,
+        vh.INTime, 
+        vh.INTimeTxt, 
+        vr.PhotoPath, 
+        vr.PhotoName,
+        null as VisitorID,
+        null as VehicleNumber,
+        null as Fname,
+        null as Mname,
+        null as Lname,
+        null as VisitDate,
+        null as VisitorSubCatId,
+        null as visitorSubCatName,
+        null as FlatName,
+        null as VehiclePhotoName
       FROM VisitorRegVisitHistory vh
       JOIN VisitorRegistration vr ON vh.VisitorRegID = vr.VisitorRegID
       WHERE vh.TenantID = $1 AND vh.IsActive = 'Y'
         AND (vh.OutTime IS NULL OR vh.OutTimeTxt IS NULL OR vh.OutTimeTxt = '')
-      ORDER BY vh.INTime DESC
+      
+      UNION ALL
+      
+      -- Get unregistered visitors pending checkout
+      SELECT 
+        'unregistered' as visitor_type,
+        null as RegVisitorHistoryID,
+        null as VisitorRegID,
+        vm.Fname as VistorName,
+        vm.Mobile,
+        vm.VisitorCatName,
+        vm.VisitorSubCatName,
+        vm.FlatName as AssociatedFlat,
+        vm.INTime,
+        vm.INTimeTxt,
+        vm.PhotoPath,
+        vm.PhotoName,
+        vm.VisitorID,
+        COALESCE(vm.VehiclelNo, '') as VehicleNumber,
+        COALESCE(vm.Fname, '') as Fname,
+        COALESCE(vm.Mname, '') as Mname,
+        COALESCE(vm.Lname, '') as Lname,
+        vm.VisitDate,
+        vm.VisitorSubCatID as VisitorSubCatId,
+        vm.VisitorSubCatName as visitorSubCatName,
+        vm.FlatName,
+        COALESCE(vm.VehiclePhotoName, '') as VehiclePhotoName
+      FROM VisitorMaster vm
+      WHERE vm.TenantID = $1 AND vm.IsActive = 'Y'
+        AND (vm.OutTime IS NULL OR vm.OutTimeTxt IS NULL OR vm.OutTimeTxt = '')
+      
+      ORDER BY INTime DESC
     `;
 
     const result = await query(sql, [tenantId]);
@@ -585,13 +644,13 @@ class VisitorModel {
 
     // Date filters
     if (fromDate) {
-      sql += ` AND DATE(vh.CreatedDate) >= $${paramIndex}`;
+      sql += ` AND vh.CreatedDate >= TO_TIMESTAMP($${paramIndex})`;
       params.push(fromDate);
       paramIndex++;
     }
 
     if (toDate) {
-      sql += ` AND DATE(vh.CreatedDate) <= $${paramIndex}`;
+      sql += ` AND vh.CreatedDate <= TO_TIMESTAMP($${paramIndex})`;
       params.push(toDate);
       paramIndex++;
     }
@@ -650,7 +709,7 @@ class VisitorModel {
           COUNT(CASE WHEN OutTime IS NULL OR OutTimeTxt IS NULL OR OutTimeTxt = '' THEN 1 END) as currently_inside,
           COUNT(CASE WHEN OutTime IS NOT NULL AND OutTimeTxt IS NOT NULL AND OutTimeTxt != '' THEN 1 END) as completed_visits_today
         FROM VisitorRegVisitHistory 
-        WHERE TenantID = $1 AND DATE(CreatedDate) = $2 AND IsActive = 'Y'
+        WHERE TenantID = $1 AND CreatedDate >= TO_TIMESTAMP($2) AND CreatedDate < TO_TIMESTAMP($2) + INTERVAL '1 day' AND IsActive = 'Y'
       ),
       category_stats AS (
         SELECT 
@@ -658,22 +717,22 @@ class VisitorModel {
           VisitorCatName,
           COUNT(*) as visit_count
         FROM VisitorRegVisitHistory 
-        WHERE TenantID = $1 AND DATE(CreatedDate) = $2 AND IsActive = 'Y'
+        WHERE TenantID = $1 AND CreatedDate >= TO_TIMESTAMP($2) AND CreatedDate < TO_TIMESTAMP($2) + INTERVAL '1 day' AND IsActive = 'Y'
         GROUP BY VisitorCatID, VisitorCatName
       ),
       weekly_stats AS (
         SELECT 
-          DATE(CreatedDate) as visit_date,
+          CreatedDate::DATE as visit_date,
           COUNT(*) as daily_count
         FROM VisitorRegVisitHistory 
         WHERE TenantID = $1 AND CreatedDate >= (CURRENT_DATE - INTERVAL '7 days') AND IsActive = 'Y'
-        GROUP BY DATE(CreatedDate)
+        GROUP BY CreatedDate::DATE
         ORDER BY visit_date
       ),
       unregistered_today AS (
         SELECT COUNT(*) as unregistered_count
         FROM VisitorMaster 
-        WHERE TenantID = $1 AND DATE(CreatedDate) = $2 AND IsActive = 'Y'
+        WHERE TenantID = $1 AND CreatedDate >= TO_TIMESTAMP($2) AND CreatedDate < TO_TIMESTAMP($2) + INTERVAL '1 day' AND IsActive = 'Y'
       )
       SELECT 
         (SELECT json_build_object(
@@ -734,15 +793,15 @@ class VisitorModel {
   static async getPeakHoursAnalytics(tenantId, days = 7) {
     const sql = `
       SELECT 
-        EXTRACT(HOUR FROM INTime) as hour_of_day,
+        EXTRACT(HOUR FROM TO_TIMESTAMP(INTime)) as hour_of_day,
         COUNT(*) as visit_count,
-        AVG(EXTRACT(EPOCH FROM (OutTime - INTime))/3600) as avg_duration_hours
+        AVG(CASE WHEN OutTime IS NOT NULL THEN (OutTime - INTime)/3600.0 ELSE NULL END) as avg_duration_hours
       FROM VisitorRegVisitHistory
       WHERE TenantID = $1 
         AND CreatedDate >= (CURRENT_DATE - INTERVAL '${days} days')
         AND IsActive = 'Y'
         AND INTime IS NOT NULL
-      GROUP BY EXTRACT(HOUR FROM INTime)
+      GROUP BY EXTRACT(HOUR FROM TO_TIMESTAMP(INTime))
       ORDER BY hour_of_day
     `;
 
@@ -757,7 +816,7 @@ class VisitorModel {
         AssociatedFlat as flat_name,
         COUNT(*) as total_visits,
         COUNT(DISTINCT VisitorRegID) as unique_visitors,
-        AVG(EXTRACT(EPOCH FROM (OutTime - INTime))/3600) as avg_duration_hours,
+        AVG(CASE WHEN OutTime IS NOT NULL THEN (OutTime - INTime)/3600.0 ELSE NULL END) as avg_duration_hours,
         MAX(CreatedDate) as last_visit
       FROM VisitorRegVisitHistory
       WHERE TenantID = $1 
@@ -982,13 +1041,13 @@ class VisitorModel {
 
     // Date range filters
     if (from) {
-      sql += ` AND DATE(VisitDate) >= $${paramIndex}`;
+      sql += ` AND VisitDate >= TO_TIMESTAMP($${paramIndex})`;
       params.push(from);
       paramIndex++;
     }
 
     if (to) {
-      sql += ` AND DATE(VisitDate) <= $${paramIndex}`;
+      sql += ` AND VisitDate <= TO_TIMESTAMP($${paramIndex})`;
       params.push(to);
       paramIndex++;
     }
@@ -1039,13 +1098,13 @@ class VisitorModel {
 
     // Date range filters
     if (fromDate) {
-      whereConditions.push(`DATE(vm.CreatedDate) >= $${paramIndex}`);
+      whereConditions.push(`vm.CreatedDate >= TO_TIMESTAMP($${paramIndex})`);
       params.push(fromDate);
       paramIndex++;
     }
 
     if (toDate) {
-      whereConditions.push(`DATE(vm.CreatedDate) <= $${paramIndex}`);
+      whereConditions.push(`vm.CreatedDate <= TO_TIMESTAMP($${paramIndex})`);
       params.push(toDate);
       paramIndex++;
     }
@@ -1070,10 +1129,10 @@ class VisitorModel {
         COALESCE(vm.Fname, '') as "Fname",
         COALESCE(vm.Mname, '') as "Mname",
         COALESCE(vm.Lname, '') as "Lname",
-        CASE WHEN vm.INTime IS NOT NULL THEN TO_CHAR(vm.INTime, 'DD/MM/YYYY') ELSE '' END as "INTime",
-        COALESCE(vm.INTimeTxt, '') as "INTimeTxt",
-        CASE WHEN vm.OutTime IS NOT NULL THEN TO_CHAR(vm.OutTime, 'DD/MM/YYYY') ELSE '' END as "OutTime",
-        COALESCE(vm.OutTimeTxt, '') as "OutTimeTxt",
+        vm.INTime as "INTime",
+        COALESCE(vm.INTimeTxt::TEXT, '') as "INTimeTxt",
+        vm.OutTime as "OutTime",
+        COALESCE(vm.OutTimeTxt::TEXT, '') as "OutTimeTxt",
         vm.VisitDate as "VisitDate",
         vm.VisitorSubCatID as "VisitorSubCatId",
         vm.VisitorSubCatName as "visitorSubCatName",

@@ -1,348 +1,293 @@
-# 🏢 Rely Gate - Multi-Tenant Visitor Management System
+ 🔄 Complete QR Check-In/Check-Out Flow & API 
+  Documentation
 
-A comprehensive, multi-tenant management system built with Node.js, Express, and PostgreSQL. Features include visitor registration, gatepass management, student tracking, staff management, and bus monitoring with real-time check-in/check-out functionality.
+  Flow Overview:
 
-## ✨ Features
+  1. Generate QR → 2. Scan QR → 3. Get Action Prompt → 4.
+  Execute Action
 
-- **Multi-tenant**
-- **Visitor Management** 
-- **Gatepass System**
-- **Student Tracking**
-- **Staff Management**
-- **Bus Management**
-- **Bulk Operations** 
-- **Real-time Dashboard** 
-- **SMS Integration** 
-- **File Upload**
-- **Export Functionality** 
+  ---
+  Step 1: Generate QR Code for Student
 
-## 🚀 Quick Start with Docker
+  API: POST /api/students/:studentId/generate-qr
 
-```bash
-# 1. Clone the repository
-git https://github.com/sayamjn/rely-gate
-cd rely-gate
+  Request:
+  curl -X POST
+  "http://localhost:3000/api/students/136/generate-qr" \
+    -H "Authorization: Bearer YOUR_JWT_TOKEN" \
+    -H "Content-Type: application/json"
 
-# 2. Create environment file
-cp .env.example .env
-# Edit .env with your settings
-
-# 3. Start the application
-docker-compose up -d
-
-# 4. Test the application
-curl http://localhost:3000/health
-```
-
-## 📋 Prerequisites
-
-- **Docker Desktop 4.0+**
-- **Docker Compose 2.0+**
-- **Git**
-- **4GB RAM minimum**
-- **10GB free disk space**
-
-### Installation
-
-```bash
-# macOS
-brew install --cask docker
-
-# Windows
-# Download from https://docker.com/products/docker-desktop
-
-# Verify installation
-docker --version
-docker-compose --version
-```
-
-## ⚙️ Configuration
-
-### Environment Variables
-
-Create a `.env` file with the following configuration:
-
-```bash
-PORT=3000
-
-DB_HOST=localhost
-DB_PORT=5432
-DB_USER=postgres
-DB_PASSWORD=password
-DB_NAME=relygate
-
-JWT_SECRET=supersecretjwtkey
-JWT_EXPIRES_IN=24h
-
-NODE_ENV=development
-
-MAX_FILE_SIZE=50mb
-UPLOAD_DIR=./uploads
-
-# SMS Configuration (for OTP)
-SMS_ENABLED=false
-SMS_GATEWAY_URL=https://your-sms-gateway.com/api/send
-SMS_API_KEY=your-sms-api-key
-SMS_SENDER_ID=RELYGAT
-
-# Firebase Configuration (for push notifications)
-FIREBASE_SERVER_KEY=your-firebase-server-key
-FCM_SERVER_KEY=your-fcm-server-key
-
-# API Configuration
-API_URL=http://localhost:3000
-BASE_URL=http://localhost:3000
-
-FILE_CLEANUP_ENABLED=true
-FILE_MAX_AGE_DAYS=30
-MAX_FILE_SIZE=10485760
-
-
-# File Upload Configuration
-ALLOWED_FILE_TYPES=image/jpeg,image/jpg,image/png,text/csv
-
-# CORS Configuration
-ALLOWED_ORIGINS=http://localhost:3000,http://localhost:3001,http://localhost:3065
-```
-
-## 🏗️ Architecture
-
-```
-┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
-│   Client App    │────│   Express API   │────│   PostgreSQL    │
-│   (Frontend)    │    │   (Backend)     │    │   (Database)    │
-└─────────────────┘    └─────────────────┘    └─────────────────┘
-                              │
-                       ┌─────────────────┐
-                       │   File Storage  │
-                       │   (Uploads)     │
-                       └─────────────────┘
-```
-
-## 🐳 Docker Setup
-
-### Development Environment
-
-```bash
-# Start development environment
-docker-compose up -d
-
-# View logs
-docker-compose logs -f app
-
-# Stop services
-docker-compose down
-
-# Reset everything (including data)
-docker-compose down -v
-```
-
-### Docker Files Structure
-
-```
-rely-gate/
-├── Dockerfile                 # Application container
-├── docker-compose.yml         # Multi-service setup
-├── .dockerignore             # Files to exclude from build
-├── .env                      # Environment variables
-└── scripts/
-    └── rely_gate_postgres.sql # Database initialization
-```
-
-## 📊 API Endpoints
-
-### Authentication
-```
-POST   /api/auth/login              - User authentication
-POST   /api/auth/register           - User registration
-GET    /api/auth/profile            - Get user profile
-```
-
-# API ENDPOINTS SUMMARY
-
-## VISITOR MANAGEMENT APIs
-```
-GET    /api/visitors/purposes              - Get visitor purposes by category
-GET    /api/visitors/subcategories         - Get visitor subcategories
-GET    /api/visitors                       - List visitors (legacy)
-POST   /api/visitors/list                  - List visitors with advanced filtering
-GET    /api/visitors/pending-checkout      - Get visitors currently checked in
-POST   /api/visitors/send-otp              - Send OTP for visitor registration
-POST   /api/visitors/send-unregistered-otp - Send OTP for unregistered visitor
-POST   /api/visitors/verify-otp            - Verify OTP and complete registration
-PUT    /api/visitors/checkin               - Check-in registered visitor
-PUT    /api/visitors/history/:id/checkout  - Check-out visitor
-GET    /api/visitors/:id/history           - Get visitor history
-GET    /api/visitors/export                - Export visitors data
-GET    /api/visitors/template              - Download CSV template
-```
-
-## STUDENT MANAGEMENT APIs
-```
-GET    /api/students/purposes              - Get student purposes by category
-GET    /api/students/purpose-categories    - Get purpose categories
-GET    /api/students/subcategories         - Get student subcategories ✨ MISSING
-GET    /api/students                       - List students (legacy)
-POST   /api/students/list                  - List students with advanced filtering
-GET    /api/students/pending-checkin       - Get students currently checked out
-GET    /api/students/pending-checkout      - Get students currently checked in
-GET    /api/students/:id/status            - Get student's current status
-POST   /api/students/:id/checkout          - Check-out student
-POST   /api/students/:id/checkin           - Check-in student
-GET    /api/students/:id/history           - Get student visit history
-GET    /api/students/export                - Export students data
-GET    /api/students/template              - Download CSV template
-```
-
-## BUS MANAGEMENT APIs
-```
-GET    /api/buses/purposes                 - Get available purposes for buses
-GET    /api/buses                          - List buses (legacy) ✨ MISSING
-POST   /api/buses/list                     - List buses with filters
-GET    /api/buses/pending-checkin          - Get buses currently checked out
-GET    /api/buses/pending-checkout         - Get buses currently checked in ✨ MISSING
-GET    /api/buses/:id/status               - Check bus current status
-POST   /api/buses/:id/checkout             - Checkout bus with purpose
-POST   /api/buses/:id/checkin              - Checkin bus
-GET    /api/buses/:id/history              - Get bus visit history
-GET    /api/buses/export                   - Export buses data
-GET    /api/buses/template                 - Download CSV template
-```
-
-## STAFF MANAGEMENT APIs
-```
-GET    /api/staff/designations             - Get available designations
-GET    /api/staff                          - List staff (legacy)
-POST   /api/staff/list                     - List staff with advanced filtering
-GET    /api/staff/pending-checkout         - Get staff currently checked in
-GET    /api/staff/:id/status               - Get staff's current status
-POST   /api/staff/:id/checkin              - Check-in staff member
-POST   /api/staff/:id/checkout             - Check-out staff member
-POST   /api/staff/register                 - Staff registration (OTP-based)
-POST   /api/staff/verify-registration      - Verify OTP and complete registration
-GET    /api/staff/:id/history              - Get staff visit history
-GET    /api/staff/export                   - Export staff data to CSV
-GET    /api/staff/template                 - Download CSV template
-```
-
-### Dashboard
-```
-GET    /api/dashboard/summary      - Get dashboard statistics
-GET    /api/dashboard/visitor-details - Get visitor details
-```
-
-### Bulk Operations
-```
-POST   /api/bulk/visitors          - Upload visitor data via CSV
-POST   /api/bulk/students          - Upload student data via CSV
-POST   /api/bulk/staff             - Upload staff data via CSV
-POST   /api/bulk/buses             - Upload bus data via CSV
-```
-
-
-### Response Format
-
-All APIs return a consistent response format:
-
-```json
-{
-  "responseCode": "S",
-  "responseMessage": "Success",
-  "data": {},
-  "count": 10,
-  "pagination": {
-    "page": 1,
-    "pageSize": 20,
-    "totalPages": 5,
-    "totalItems": 100
+  Response:
+  {
+    "responseCode": "S",
+    "responseMessage": "QR code generated successfully",
+    "data": {
+      "studentId": 136,
+      "qrData": {
+        "tenantid": 1001,
+        "mainid": "STU1001175248607649476",
+        "type": "stu",
+        "rtype": "checkin-checkout"
+      },
+      "qrImage":
+  "data:image/png;base64,iVBORw0KGgoAAAANS...",
+      "qrFilePath":
+  "/uploads/qr_codes/student_qr_136_1642234567890.png",
+      "student": {
+        "name": "Sayam",
+        "regNo": "STU1001175248607649476",
+        "mobile": "1212121213"
+      }
+    }
   }
-}
-```
 
-## 🧪 Testing
+  ---
+  Step 2: Scan QR Code
 
-### Health Check
-```bash
-curl http://localhost:3000/health
-```
+  API: POST /api/students/scan-qr
 
-### API Testing with JWT
-```bash
-# 1. Login to get JWT token
-curl -X POST http://localhost:3000/api/auth/login \
-  -H "Content-Type: application/json" \
-  -d '{"username": "admin", "password": "password"}'
+  Request Data (what gets posted after scanning):
+  curl -X POST "http://localhost:3000/api/students/scan-qr"
+   \
+    -H "Authorization: Bearer YOUR_JWT_TOKEN" \
+    -H "Content-Type: application/json" \
+    -d '{
+      "qrData": 
+  "{\"tenantid\":1001,\"mainid\":\"STU1001175248607649476\"
+  ,\"type\":\"stu\",\"rtype\":\"checkin-checkout\"}"
+    }'
 
-# 2. Use token for authenticated requests
-export JWT_TOKEN="your-jwt-token"
+  Response:
+  {
+    "responseCode": "S",
+    "responseMessage": "QR scan processed successfully",
+    "data": {
+      "studentId": 136,
+      "tenantId": 1001,
+      "nextAction": "checkout",
+      "currentStatus": "AVAILABLE",
+      "visitorRegId": 136,
+      "visitorRegNo": "STU1001175248607649476",
+      "student": {
+        "name": "Sayam",
+        "regNo": "STU1001175248607649476",
+        "mobile": "1212121213",
+        "course": "Hostel10",
+        "hostel": "N/A"
+      },
+      "actionPrompt": "Student is currently available. Do 
+  you want to check out?"
+    }
+  }
 
-# 3. Test visitor endpoint
-curl -X GET "http://localhost:3000/api/visitors/purposes" \
-  -H "Authorization: Bearer $JWT_TOKEN"
-```
+  ---
+  Step 3A: Execute Check-Out (if nextAction = "checkout")
+
+  API: POST /api/students/qr-checkout
+
+  Request:
+  curl -X POST
+  "http://localhost:3000/api/students/qr-checkout" \
+    -H "Authorization: Bearer YOUR_JWT_TOKEN" \
+    -H "Content-Type: application/json" \
+    -d '{
+      "studentId": 136,
+      "tenantId": 1001,
+      "purposeId": 5,
+      "purposeName": "Library Visit"
+    }'
+
+  Response:
+  {
+    "responseCode": "S",
+    "responseMessage": "Student checked out successfully",
+    "data": {
+      "studentId": 136,
+      "studentName": "Sayam",
+      "action": "CHECKOUT",
+      "checkOutTime": "15/07/2025 02:30 PM",
+      "purpose": "Library Visit",
+      "historyId": 123
+    }
+  }
+
+  ---
+  Step 3B: Execute Check-In (if nextAction = "checkin")
+
+  API: POST /api/students/qr-checkin
+
+  Request:
+  curl -X POST
+  "http://localhost:3000/api/students/qr-checkin" \
+    -H "Authorization: Bearer YOUR_JWT_TOKEN" \
+    -H "Content-Type: application/json" \
+    -d '{
+      "studentId": 136,
+      "tenantId": 1001
+    }'
+
+  Response:
+  {
+    "responseCode": "S",
+    "responseMessage": "Student checked in successfully",
+    "data": {
+      "studentId": 136,
+      "studentName": "Sayam",
+      "action": "CHECKIN",
+      "checkInTime": "15/07/2025 04:45 PM",
+      "duration": "2h 15m",
+      "historyId": 123
+    }
+  }
+
+  ---
+  🔄 Complete Flow Examples
+
+  Scenario 1: Student Available → Check Out
+
+  1. Scan QR → nextAction: "checkout"
+  2. UI shows: "Student is currently available. Do you want
+   to check out?"
+  3. User confirms → Call POST /api/students/qr-checkout
+
+  Scenario 2: Student Checked Out → Check In
+
+  1. Scan QR → nextAction: "checkin"
+  2. UI shows: "Student is currently checked out. Do you
+  want to check in?"
+  3. User confirms → Call POST /api/students/qr-checkin
+
+  ---
+  📱 QR Code Content
+
+  The QR code contains a JSON string:
+  {
+    "tenantid": 1001,
+    "mainid": "STU1001175248607649476",
+    "type": "stu",
+    "rtype": "checkin-checkout"
+  }
+
+  ---
+  🧪 Complete Testing Script
+
+  #!/bin/bash
+
+  # Set your JWT token
+  JWT_TOKEN="YOUR_JWT_TOKEN_HERE"
+  BASE_URL="http://localhost:3000"
+
+  echo "=== QR Code Feature Testing ==="
+
+  # 1. Generate QR for student
+  echo "1. Generating QR for student 136..."
+  curl -X POST "$BASE_URL/api/students/136/generate-qr" \
+    -H "Authorization: Bearer $JWT_TOKEN" \
+    -H "Content-Type: application/json" | jq '.'
+
+  echo -e "\n2. Scanning QR code..."
+  # 2. Scan QR code
+  curl -X POST "$BASE_URL/api/students/scan-qr" \
+    -H "Authorization: Bearer $JWT_TOKEN" \
+    -H "Content-Type: application/json" \
+    -d '{
+      "qrData": 
+  "{\"tenantid\":1001,\"mainid\":\"STU1001175248607649476\"
+  ,\"type\":\"stu\",\"rtype\":\"checkin-checkout\"}"
+    }' | jq '.'
+
+  echo -e "\n3. Executing check-out..."
+  # 3. Check out student
+  curl -X POST "$BASE_URL/api/students/qr-checkout" \
+    -H "Authorization: Bearer $JWT_TOKEN" \
+    -H "Content-Type: application/json" \
+    -d '{
+      "studentId": 136,
+      "tenantId": 1001,
+      "purposeId": 5,
+      "purposeName": "Library Visit"
+    }' | jq '.'
+
+  echo -e "\n4. Scanning QR again (should show check-in 
+  option)..."
+  # 4. Scan again to see check-in option
+  curl -X POST "$BASE_URL/api/students/scan-qr" \
+    -H "Authorization: Bearer $JWT_TOKEN" \
+    -H "Content-Type: application/json" \
+    -d '{
+      "qrData": 
+  "{\"tenantid\":1001,\"mainid\":\"STU1001175248607649476\"
+  ,\"type\":\"stu\",\"rtype\":\"checkin-checkout\"}"
+    }' | jq '.'
+
+  echo -e "\n5. Executing check-in..."
+  # 5. Check in student
+  curl -X POST "$BASE_URL/api/students/qr-checkin" \
+    -H "Authorization: Bearer $JWT_TOKEN" \
+    -H "Content-Type: application/json" \
+    -d '{
+      "studentId": 136,
+      "tenantId": 1001
+    }' | jq '.'
+
+  echo -e "\n=== Testing Complete ==="
+
+  ---
+  📋 Error Handling
+
+  Invalid QR Code:
+
+  {
+    "responseCode": "E",
+    "responseMessage": "Invalid QR code format"
+  }
+
+  Student Not Found:
+
+  {
+    "responseCode": "E",
+    "responseMessage": "Student not found"
+  }
+
+  Wrong Tenant:
+
+  {
+    "responseCode": "E",
+    "responseMessage": "Access denied for this tenant"
+  }
+
+  Non-Student QR:
+
+  {
+    "responseCode": "E",
+    "responseMessage": "QR code is not for a student"
+  }
+
+  ---
+  🔑 Key Points
+
+  1. QR Data: Always contains JSON string with tenantid,
+  mainid (VisitorRegNo), type, rtype
+  2. Smart Logic: System automatically determines check-in
+  vs check-out based on current status
+  3. Security: All requests validate tenant access and JWT
+  authentication
+  4. Flexible: Supports both predefined purposes and custom
+   purpose names
+  5. Consistent: Uses existing response format patterns
+  throughout the system
+
+  This implementation provides a complete, secure, and
+  user-friendly QR-based check-in/check-out system for
+  students.
+
+╭──────────────────────────────────────────────────────────────╮
+│ >                                                            │
+╰──────────────────────────────────────────────────────────────╯
+  ⏵⏵ auto-accept edits on              ⧉ In student.service.js
+  (shift+tab to cycle)                     Context left until 
+                                           auto-compact: 14%
 
 
 
 
-### Environment-Specific Configurations
-
-#### Development
-```bash
-NODE_ENV=development
-LOG_LEVEL=debug
-DB_SSL=false
-```
-
-#### Production
-```bash
-NODE_ENV=production
-LOG_LEVEL=info
-DB_SSL=true
-# CORS_ORIGIN=https://yourdomain.com
-```
-
-## 🔧 Development
-
-### Local Development Setup
-```bash
-# Install dependencies
-npm install
-
-# Start development server
-npm run dev
-
-# Start with Docker
-docker-compose up -d
-```
-
-### Database Management
-```bash
-# Access PostgreSQL shell
-docker-compose exec postgres psql -U postgres -d relygate
-
-# Backup database
-docker-compose exec postgres pg_dump -U postgres relygate > backup.sql
-
-# Restore database
-docker-compose exec -T postgres psql -U postgres relygate < backup.sql
-```
-
-
-
-## 📄 License
-
-This project is licensed under the ISC License - see the LICENSE file for details.
-
-## 📊 Technology Stack
-
-- **Backend**: Node.js, Express.js
-- **Database**: PostgreSQL
-- **Authentication**: JWT
-- **File Processing**: Multer, Sharp
-- **Containerization**: Docker, Docker Compose
-- **Deployment**: Railway, Render, Fly.io
-- **Development**: Nodemon, ESLint
-
----
-
-**Built with ❤️ for Rely**
