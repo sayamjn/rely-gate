@@ -26,8 +26,8 @@ class GatePassModel {
         Fname, Mobile, TotalVisitor, VisitDate, VisitDateTxt, OTPVerifiedDate,
         Remark, CreatedDate, UpdatedDate, CreatedBy, UpdatedBy
       ) VALUES (
-        $1, 'Y', $2, $3, 6, 'Gate Pass', 0, NULL, $4, $5, $6, $7, 1, $8, $9, NOW(),
-        $10, NOW(), NOW(), $11, $12
+        $1, 'Y', $2, $3, 6, 'Gate Pass', null, NULL, $4, $5, $6, $7, 1, $8, $9, NOW(),
+        $10, NOW(), NOW(), $11, $11
       ) RETURNING VisitorID
     `;
 
@@ -42,9 +42,10 @@ class GatePassModel {
       visitDate,
       visitDateTxt,
       securityCode,
-      remark,
       createdBy,
     ]);
+
+    console.log(result, "result in createGatePass");
 
     return result.rows[0];
   }

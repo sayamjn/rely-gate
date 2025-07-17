@@ -16,7 +16,7 @@ class GatepassController {
         tenantId,
         remark = "",
       } = req.body;
-
+      console.log("purposeName : ", purposeName)
       const finalTenantId = tenantId || (req.user ? req.user.tenantId : null);
       const createdBy = (req.user ? req.user.username : null) || "System";
 
@@ -32,46 +32,32 @@ class GatepassController {
       let finalPurposeName;
       const parsedPurposeId = parseInt(purposeId);
 
-      if (parsedPurposeId === -1) {
-        // Custom purpose - use provided purposeName
-        if (!purposeName || purposeName.trim() === "") {
-          return res.status(400).json({
-            responseCode: responseUtils.RESPONSE_CODES.ERROR,
-            responseMessage: "Purpose name is required for custom purpose",
-          });
-        }
-        finalPurposeName = purposeName.trim();
-      } else {
-        // Fetch purpose from database - ONLY gate pass purposes (PurposeCatID = 6)
-        const purposeResult = await GatepassService.getPurposeById(
-          parsedPurposeId,
-          finalTenantId
-        );
-
-        if (!purposeResult) {
-          return res.status(400).json({
-            responseCode: responseUtils.RESPONSE_CODES.ERROR,
-            responseMessage:
-              "Invalid purpose ID or purpose not available for gate pass",
-          });
-        }
-
-        finalPurposeName = purposeResult.purposeName;
-      }
-
+      // if (parsedPurposeId === -1) {
+      //   // Custom purpose - use provided purposeName
+      //   if (!purposeName || purposeName.trim() === "") {
+      //     return res.status(400).json({
+      //       responseCode: responseUtils.RESPONSE_CODES.ERROR,
+      //       responseMessage: "Purpose name is required for custom purpose",
+      //     });
+      //   }
+      //   finalPurposeName = purposeName.trim();
+      // }
       const gatepassData = {
         fname: fname.trim(),
         mobile: mobile.trim(),
         visitDate,
-        purposeId: parsedPurposeId,
-        purposeName: finalPurposeName,
+        purposeId: purposeId,
+        purposeName: purposeName,
         statusId: parseInt(statusId),
         tenantId: finalTenantId,
         remark: remark.trim(),
         createdBy,
       };
 
+      console.log(gatepassData.purposeName, "gatepassData.purposeName")
+
       const result = await GatepassService.createGatepass(gatepassData);
+      console.log(result, "result in createGatepass")
       res.json(result);
     } catch (error) {
       console.error("Error in createGatepass:", error);

@@ -24,6 +24,8 @@ class GatepassService {
         createdBy,
       } = gatepassData;
 
+      console.log(purposeName, "purposeName in createGatepass");
+
       const securityCode = this.generateSecurityCode();
       const statusName = statusId === 2 ? "Approved" : "Pending";
       const visitDateTxt = DateFormatter.formatDate(visitDate);
@@ -42,7 +44,7 @@ class GatepassService {
         remark,
         createdBy,
       });
-
+      console.log(result, "result in createGatepass");
       if (result) {
         const visitorId = result.visitorid || result.VisitorID;
 
