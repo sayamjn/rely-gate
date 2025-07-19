@@ -1,4 +1,6 @@
 const StaffService = require('../services/staff.service');
+const QRService = require('../services/qr.service');
+const FileService = require('../services/file.service');
 const responseUtils = require('../utils/constants');
 
 class StaffController {
@@ -532,6 +534,197 @@ static async downloadTemplate(req, res) {
         responseCode: 'E',
         responseMessage: 'Internal server error',
         error: process.env.NODE_ENV === 'development' ? error.message : undefined
+      });
+    }
+  }
+
+  // POST /api/staff/:staffId/generate-qr - Generate QR code for staff
+  static async generateStaffQR(req, res) {
+    try {
+      const { staffId } = req.params;
+      const userTenantId = req.user.tenantId;
+
+      if (!staffId) {
+        return res.status(400).json({
+          responseCode: responseUtils.RESPONSE_CODES.ERROR,
+          responseMessage: "Staff ID is required",
+        });
+      }
+
+      // Get staff details
+      const staff = await StaffService.getStaffById(parseInt(staffId), userTenantId);
+
+      if (!staff || staff.responseCode !== responseUtils.RESPONSE_CODES.SUCCESS) {
+        return res.status(404).json({
+          responseCode: responseUtils.RESPONSE_CODES.ERROR,
+          responseMessage: "Staff not found",
+        });
+      }
+
+      // Generate QR data with staff information
+      const qrData = QRService.generateQRData(
+        {
+          tenantId: userTenantId,
+          visitorRegNo: staff.data.staffCode, // Use staffCode as mainid
+          visitorCatId: 1, // Staff category
+          SecurityCode: staff.data.staffCode,
+        },
+        "checkin-checkout"
+      );
+
+      // Generate QR code image
+      const qrResult = await QRService.generateQRCode(qrData);
+
+      if (!qrResult.success) {
+        return res.status(500).json({
+          responseCode: responseUtils.RESPONSE_CODES.ERROR,
+          responseMessage: "Failed to generate QR code",
+        });
+      }
+
+      // Save QR code to uploads folder
+      const fileName = `staff_qr_${staffId}_${Date.now()}.png`;
+      const filePath = await FileService.saveBase64Image(
+        qrResult.qrBase64,
+        FileService.categories.QR_CODES,
+        fileName
+      );
+
+      res.json({
+        responseCode: responseUtils.RESPONSE_CODES.SUCCESS,
+        responseMessage: "QR code generated successfully",
+        data: {
+          staffId: staff.data.staffId,
+          staffCode: staff.data.staffCode,
+          staffName: staff.data.staffName,
+          qrData: qrResult.qrData,
+          qrImage: qrResult.qrImage,
+          qrFilePath: filePath,
+          fileName: fileName,
+        },
+      });
+    } catch (error) {
+      console.error("Error in generateStaffQR:", error);
+      res.status(500).json({
+        responseCode: responseUtils.RESPONSE_CODES.ERROR,
+        responseMessage: "Internal server error",
+      });
+    }
+  }
+
+  // POST /api/staff/scan-qr - Process QR code scan and return check-in/check-out status
+  static async scanStaffQR(req, res) {
+    try {
+      const { qrData } = req.body;
+      const userTenantId = req.user.tenantId;
+
+      if (!qrData) {
+        return res.status(400).json({
+          responseCode: responseUtils.RESPONSE_CODES.ERROR,
+          responseMessage: "QR data is required",
+        });
+      }
+
+      // Parse QR data - handle both string and object formats
+      let parsedData;
+      if (typeof qrData === 'string') {
+        const parsedQR = QRService.parseQRData(qrData);
+        if (!parsedQR.success) {
+          return res.status(400).json({
+            responseCode: responseUtils.RESPONSE_CODES.ERROR,
+            responseMessage: "Invalid QR code format",
+          });
+        }
+        parsedData = parsedQR.data;
+      } else if (typeof qrData === 'object' && qrData.tenantid && qrData.mainid && qrData.type) {
+        // QR data is already an object
+        parsedData = qrData;
+      } else {
+        return res.status(400).json({
+          responseCode: responseUtils.RESPONSE_CODES.ERROR,
+          responseMessage: "Invalid QR code format",
+        });
+      }
+
+      const { tenantid, mainid, type } = parsedData;
+
+      // Verify tenant and type
+      if (parseInt(tenantid) !== userTenantId || type !== "sta") {
+        return res.status(400).json({
+          responseCode: responseUtils.RESPONSE_CODES.ERROR,
+          responseMessage: "Invalid QR code or unauthorized access",
+        });
+      }
+
+      // Get staff details by staff code
+      const staff = await StaffService.getStaffByCode(mainid, userTenantId);
+
+      if (!staff || staff.responseCode !== responseUtils.RESPONSE_CODES.SUCCESS) {
+        return res.status(404).json({
+          responseCode: responseUtils.RESPONSE_CODES.ERROR,
+          responseMessage: "Staff not found",
+        });
+      }
+
+      res.json({
+        responseCode: responseUtils.RESPONSE_CODES.SUCCESS,
+        responseMessage: "QR code scanned successfully",
+        data: {
+          staffId: staff.data.staffId,
+          staffCode: staff.data.staffCode,
+          staffName: staff.data.staffName,
+          designation: staff.data.designation,
+          canCheckin: true,
+          canCheckout: true,
+        },
+      });
+    } catch (error) {
+      console.error("Error in scanStaffQR:", error);
+      res.status(500).json({
+        responseCode: responseUtils.RESPONSE_CODES.ERROR,
+        responseMessage: "Internal server error",
+      });
+    }
+  }
+
+  // POST /api/staff/qr-checkin - QR-based check-in for staff
+  static async qrCheckinStaff(req, res) {
+    try {
+      const { staffId, tenantId } = req.body;
+      const userTenantId = tenantId || req.user.tenantId;
+      const createdBy = req.user.username || "System";
+
+      const result = await StaffService.checkinStaff(parseInt(staffId), userTenantId, createdBy);
+      res.json(result);
+    } catch (error) {
+      console.error("Error in qrCheckinStaff:", error);
+      res.status(500).json({
+        responseCode: responseUtils.RESPONSE_CODES.ERROR,
+        responseMessage: "Internal server error",
+      });
+    }
+  }
+
+  // POST /api/staff/qr-checkout - QR-based check-out for staff
+  static async qrCheckoutStaff(req, res) {
+    try {
+      const { staffId, tenantId, purposeId, purposeName } = req.body;
+      const userTenantId = tenantId || req.user.tenantId;
+      const createdBy = req.user.username || "System";
+
+      const result = await StaffService.checkoutStaff(
+        parseInt(staffId),
+        userTenantId,
+        purposeId ? parseInt(purposeId) : null,
+        purposeName,
+        createdBy
+      );
+      res.json(result);
+    } catch (error) {
+      console.error("Error in qrCheckoutStaff:", error);
+      res.status(500).json({
+        responseCode: responseUtils.RESPONSE_CODES.ERROR,
+        responseMessage: "Internal server error",
       });
     }
   }

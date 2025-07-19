@@ -943,6 +943,74 @@ console.log("predefinedResult: ", predefinedResult)
       };
     }
   }
+
+  // Get staff by ID (for QR generation)
+  static async getStaffById(staffId, tenantId) {
+    try {
+      const staff = await StaffModel.getStaffById(staffId, tenantId);
+      
+      if (!staff) {
+        return {
+          responseCode: responseUtils.RESPONSE_CODES.ERROR,
+          responseMessage: "Staff not found",
+        };
+      }
+
+      return {
+        responseCode: responseUtils.RESPONSE_CODES.SUCCESS,
+        responseMessage: "Staff retrieved successfully",
+        data: {
+          staffId: staff.visitorregid,
+          staffCode: staff.visitorregno,
+          staffName: staff.vistorname,
+          mobile: staff.mobile,
+          designation: staff.visitorsubcatname,
+          department: staff.associatedblock,
+        },
+      };
+    } catch (error) {
+      console.error("Error in getStaffById service:", error);
+      return {
+        responseCode: responseUtils.RESPONSE_CODES.ERROR,
+        responseMessage: responseUtils.RESPONSE_MESSAGES.ERROR,
+        error: process.env.NODE_ENV === "development" ? error.message : undefined,
+      };
+    }
+  }
+
+  // Get staff by staff code (for QR scanning)
+  static async getStaffByCode(staffCode, tenantId) {
+    try {
+      const staff = await StaffModel.getStaffByCode(staffCode, tenantId);
+      
+      if (!staff) {
+        return {
+          responseCode: responseUtils.RESPONSE_CODES.ERROR,
+          responseMessage: "Staff not found",
+        };
+      }
+
+      return {
+        responseCode: responseUtils.RESPONSE_CODES.SUCCESS,
+        responseMessage: "Staff retrieved successfully",
+        data: {
+          staffId: staff.visitorregid,
+          staffCode: staff.visitorregno,
+          staffName: staff.vistorname,
+          mobile: staff.mobile,
+          designation: staff.visitorsubcatname,
+          department: staff.associatedblock,
+        },
+      };
+    } catch (error) {
+      console.error("Error in getStaffByCode service:", error);
+      return {
+        responseCode: responseUtils.RESPONSE_CODES.ERROR,
+        responseMessage: responseUtils.RESPONSE_MESSAGES.ERROR,
+        error: process.env.NODE_ENV === "development" ? error.message : undefined,
+      };
+    }
+  }
 }
 
 module.exports = StaffService;

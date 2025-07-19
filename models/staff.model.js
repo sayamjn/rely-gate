@@ -696,6 +696,42 @@ class StaffModel {
     const result = await query(sql, [tenantId]);
     return result.rows;
   }
+
+  // Get staff by staff code (visitor reg no) for QR scanning
+  static async getStaffByCode(staffCode, tenantId) {
+    const sql = `
+      SELECT 
+        vr.VisitorRegID as visitorregid,
+        vr.VistorName as vistorname,
+        vr.Mobile as mobile,
+        vr.Email as email,
+        vr.VisitorRegNo as visitorregno,
+        vr.SecurityCode as securitycode,
+        vr.VisitorCatID as visitorcatid,
+        vr.VisitorCatName as visitorcatname,
+        vr.VisitorSubCatID as visitorsubcatid,
+        vr.VisitorSubCatName as visitorsubcatname,
+        vr.FlatID as flatid,
+        vr.FlatName as flatname,
+        vr.AssociatedFlat as associatedflat,
+        vr.AssociatedBlock as associatedblock,
+        vr.VehiclelNo as vehiclelno,
+        vr.PhotoFlag as photoflag,
+        vr.PhotoPath as photopath,
+        vr.PhotoName as photoname,
+        vr.IsActive as isactive,
+        vr.CreatedDate as createddate,
+        vr.CreatedBy as createdby
+      FROM VisitorRegistration vr
+      WHERE vr.VisitorRegNo = $1 
+        AND vr.TenantID = $2 
+        AND vr.VisitorCatID = 1 
+        AND vr.IsActive = 'Y'
+    `;
+
+    const result = await query(sql, [staffCode, tenantId]);
+    return result.rows[0];
+  }
 }
 
 module.exports = StaffModel;

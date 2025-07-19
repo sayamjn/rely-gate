@@ -147,4 +147,30 @@ router.delete('/designations/:purposeId', [
     .withMessage('Designation ID must be numeric'),
 ], handleValidationErrors, StaffController.deleteStaffPurpose);
 
+// ===== QR CODE ROUTES =====
+
+// POST /api/staff/:staffId/generate-qr - Generate QR code for staff
+router.post('/:staffId/generate-qr', [
+  param('staffId').isInt({ min: 1 }).withMessage('Staff ID must be a positive integer'),
+], handleValidationErrors, StaffController.generateStaffQR);
+
+// POST /api/staff/scan-qr - Process QR code scan and return check-in/check-out status
+router.post('/scan-qr', [
+  body('qrData').notEmpty().withMessage('QR data is required'),
+], handleValidationErrors, StaffController.scanStaffQR);
+
+// POST /api/staff/qr-checkin - QR-based check-in for staff
+router.post('/qr-checkin', [
+  body('staffId').isInt({ min: 1 }).withMessage('Staff ID must be a positive integer'),
+  body('tenantId').isInt({ min: 1 }).withMessage('Tenant ID must be a positive integer'),
+], handleValidationErrors, StaffController.qrCheckinStaff);
+
+// POST /api/staff/qr-checkout - QR-based check-out for staff
+router.post('/qr-checkout', [
+  body('staffId').isInt({ min: 1 }).withMessage('Staff ID must be a positive integer'),
+  body('tenantId').isInt({ min: 1 }).withMessage('Tenant ID must be a positive integer'),
+  body('purposeId').optional().isInt().withMessage('PurposeId must be an integer'),
+  body('purposeName').optional().isString().trim().withMessage('PurposeName must be a string'),
+], handleValidationErrors, StaffController.qrCheckoutStaff);
+
 module.exports = router;
