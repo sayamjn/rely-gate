@@ -22,8 +22,8 @@ router.get('/list', [
   query('firstName').optional().isString().trim().withMessage('FirstName must be a string'),
   query('course').optional().isString().trim().withMessage('Course must be a string'),
   query('hostel').optional().isString().trim().withMessage('Hostel must be a string'),
-  query('fromDate').optional().matches(/^(\d{2}\/\d{2}\/\d{4}|\d{4}-\d{2}-\d{2})$/).withMessage('FromDate must be in DD/MM/YYYY or YYYY-MM-DD format'),
-  query('toDate').optional().matches(/^(\d{2}\/\d{2}\/\d{4}|\d{4}-\d{2}-\d{2})$/).withMessage('ToDate must be in DD/MM/YYYY or YYYY-MM-DD format')
+  query('fromDate').optional().isInt().withMessage('FromDate must be valid epoch timestamp'),
+  query('toDate').optional().isInt().withMessage('ToDate must be valid epoch timestamp'),
 ], handleValidationErrors, StudentController.listStudents);
 
 // GET /api/students/purposes - Get available purposes for students

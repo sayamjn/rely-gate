@@ -434,9 +434,9 @@ INSERT INTO VisitorPuposeMaster (
 (1001, 3, 'Bus', 'Student Transport', 'Y', '/images/purposes/transport.jpg', 'transport.jpg', 'http://localhost:3333/images/purposes/transport.jpg', 'Y', 'SYSTEM', 'SYSTEM'),
 (1001, 3, 'Bus', 'Staff Transport', 'Y', '/images/purposes/staff_transport.jpg', 'staff_transport.jpg', 'http://localhost:3333/images/purposes/staff_transport.jpg', 'Y', 'SYSTEM', 'SYSTEM'),
 -- GatePass purposes (Category 4)
-(1001, 4, 'GatePass', 'Emergency Exit', 'Y', '/images/purposes/emergency.jpg', 'emergency.jpg', 'http://localhost:3333/images/purposes/emergency.jpg', 'Y', 'SYSTEM', 'SYSTEM'),
-(1001, 4, 'GatePass', 'Medical Emergency', 'Y', '/images/purposes/medical_emergency.jpg', 'medical_emergency.jpg', 'http://localhost:3333/images/purposes/medical_emergency.jpg', 'Y', 'SYSTEM', 'SYSTEM'),
-(1001, 4, 'GatePass', 'Short Outing', 'Y', '/images/purposes/outing.jpg', 'outing.jpg', 'http://localhost:3333/images/purposes/outing.jpg', 'Y', 'SYSTEM', 'SYSTEM'),
+(1001, 6, 'GatePass', 'Emergency Exit', 'Y', '/images/purposes/emergency.jpg', 'emergency.jpg', 'http://localhost:3333/images/purposes/emergency.jpg', 'Y', 'SYSTEM', 'SYSTEM'),
+(1001, 6, 'GatePass', 'Medical Emergency', 'Y', '/images/purposes/medical_emergency.jpg', 'medical_emergency.jpg', 'http://localhost:3333/images/purposes/medical_emergency.jpg', 'Y', 'SYSTEM', 'SYSTEM'),
+(1001, 6, 'GatePass', 'Short Outing', 'Y', '/images/purposes/outing.jpg', 'outing.jpg', 'http://localhost:3333/images/purposes/outing.jpg', 'Y', 'SYSTEM', 'SYSTEM'),
 
 -- Sunrise Residency Purposes
 (1002, 1, 'General', 'Guest Visit', 'Y', '/images/purposes/guest.jpg', 'guest.jpg', 'http://localhost:3333/images/purposes/guest.jpg', 'Y', 'SYSTEM', 'SYSTEM'),
@@ -445,7 +445,7 @@ INSERT INTO VisitorPuposeMaster (
 (1002, 1, 'General', 'House Viewing', 'Y', '/images/purposes/viewing.jpg', 'viewing.jpg', 'http://localhost:3333/images/purposes/viewing.jpg', 'Y', 'SYSTEM', 'SYSTEM'),
 (1002, 2, 'Student', 'Tuition Class', 'Y', '/images/purposes/tuition.jpg', 'tuition.jpg', 'http://localhost:3333/images/purposes/tuition.jpg', 'Y', 'SYSTEM', 'SYSTEM'),
 (1002, 3, 'Bus', 'Shuttle Service', 'Y', '/images/purposes/shuttle.jpg', 'shuttle.jpg', 'http://localhost:3333/images/purposes/shuttle.jpg', 'Y', 'SYSTEM', 'SYSTEM'),
-(1002, 4, 'GatePass', 'Emergency Exit', 'Y', '/images/purposes/emergency.jpg', 'emergency.jpg', 'http://localhost:3333/images/purposes/emergency.jpg', 'Y', 'SYSTEM', 'SYSTEM'),
+(1002, 6, 'GatePass', 'Emergency Exit', 'Y', '/images/purposes/emergency.jpg', 'emergency.jpg', 'http://localhost:3333/images/purposes/emergency.jpg', 'Y', 'SYSTEM', 'SYSTEM'),
 
 -- TechCorp Purposes
 (1003, 1, 'General', 'Business Meeting', 'Y', '/images/purposes/business.jpg', 'business.jpg', 'http://localhost:3333/images/purposes/business.jpg', 'Y', 'SYSTEM', 'SYSTEM'),
@@ -454,7 +454,7 @@ INSERT INTO VisitorPuposeMaster (
 (1003, 1, 'General', 'Client Visit', 'Y', '/images/purposes/client.jpg', 'client.jpg', 'http://localhost:3333/images/purposes/client.jpg', 'Y', 'SYSTEM', 'SYSTEM'),
 (1003, 2, 'Student', 'Internship', 'Y', '/images/purposes/internship.jpg', 'internship.jpg', 'http://localhost:3333/images/purposes/internship.jpg', 'Y', 'SYSTEM', 'SYSTEM'),
 (1003, 3, 'Bus', 'Employee Transport', 'Y', '/images/purposes/emp_transport.jpg', 'emp_transport.jpg', 'http://localhost:3333/images/purposes/emp_transport.jpg', 'Y', 'SYSTEM', 'SYSTEM'),
-(1003, 4, 'GatePass', 'Emergency Exit', 'Y', '/images/purposes/emergency.jpg', 'emergency.jpg', 'http://localhost:3333/images/purposes/emergency.jpg', 'Y', 'SYSTEM', 'SYSTEM'),
+(1003, 6, 'GatePass', 'Emergency Exit', 'Y', '/images/purposes/emergency.jpg', 'emergency.jpg', 'http://localhost:3333/images/purposes/emergency.jpg', 'Y', 'SYSTEM', 'SYSTEM'),
 
 -- Hospital Purposes
 (1004, 1, 'General', 'Patient Visit', 'Y', '/images/purposes/patient.jpg', 'patient.jpg', 'http://localhost:3333/images/purposes/patient.jpg', 'Y', 'SYSTEM', 'SYSTEM'),
@@ -463,7 +463,7 @@ INSERT INTO VisitorPuposeMaster (
 (1004, 1, 'General', 'Medical Supply', 'Y', '/images/purposes/med_supply.jpg', 'med_supply.jpg', 'http://localhost:3333/images/purposes/med_supply.jpg', 'Y', 'SYSTEM', 'SYSTEM'),
 (1004, 2, 'Student', 'Medical Training', 'Y', '/images/purposes/training.jpg', 'training.jpg', 'http://localhost:3333/images/purposes/training.jpg', 'Y', 'SYSTEM', 'SYSTEM'),
 (1004, 3, 'Bus', 'Patient Transport', 'Y', '/images/purposes/patient_transport.jpg', 'patient_transport.jpg', 'http://localhost:3333/images/purposes/patient_transport.jpg', 'Y', 'SYSTEM', 'SYSTEM'),
-(1004, 4, 'GatePass', 'Medical Emergency', 'Y', '/images/purposes/medical_emergency.jpg', 'medical_emergency.jpg', 'http://localhost:3333/images/purposes/medical_emergency.jpg', 'Y', 'SYSTEM', 'SYSTEM'),
+(1004, 6, 'GatePass', 'Medical Emergency', 'Y', '/images/purposes/medical_emergency.jpg', 'medical_emergency.jpg', 'http://localhost:3333/images/purposes/medical_emergency.jpg', 'Y', 'SYSTEM', 'SYSTEM'),
 
 -- Shopping Mall Purposes
 (1005, 1, 'General', 'Shopping', 'Y', '/images/purposes/shopping.jpg', 'shopping.jpg', 'http://localhost:3333/images/purposes/shopping.jpg', 'Y', 'SYSTEM', 'SYSTEM'),
@@ -472,7 +472,7 @@ INSERT INTO VisitorPuposeMaster (
 (1005, 1, 'General', 'Food Court', 'Y', '/images/purposes/food.jpg', 'food.jpg', 'http://localhost:3333/images/purposes/food.jpg', 'Y', 'SYSTEM', 'SYSTEM'),
 (1005, 2, 'Student', 'Part Time Work', 'Y', '/images/purposes/work.jpg', 'work.jpg', 'http://localhost:3333/images/purposes/work.jpg', 'Y', 'SYSTEM', 'SYSTEM'),
 (1005, 3, 'Bus', 'Shuttle Service', 'Y', '/images/purposes/shuttle.jpg', 'shuttle.jpg', 'http://localhost:3333/images/purposes/shuttle.jpg', 'Y', 'SYSTEM', 'SYSTEM'),
-(1005, 4, 'GatePass', 'Emergency Exit', 'Y', '/images/purposes/emergency.jpg', 'emergency.jpg', 'http://localhost:3333/images/purposes/emergency.jpg', 'Y', 'SYSTEM', 'SYSTEM');
+(1005, 6, 'GatePass', 'Emergency Exit', 'Y', '/images/purposes/emergency.jpg', 'emergency.jpg', 'http://localhost:3333/images/purposes/emergency.jpg', 'Y', 'SYSTEM', 'SYSTEM');
 
 -- ================================================================================
 -- SECTION 5: BULK UPLOAD DATA

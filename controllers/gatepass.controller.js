@@ -334,14 +334,19 @@ class GatepassController {
     }
   }
 
-  // GET /api/gatepass/purposes - Get available purposes
+  // GET /api/gatepass/purposes/:tenantId - Get available purposes
   static async getGatepassPurposes(req, res) {
     try {
-      
+      // Get tenantId from path parameters
+      const pathTenantId = req.params.tenantId ? parseInt(req.params.tenantId) : null;
+      console.log("pathTenantId: ", req.params.tenantId)
+      // Get tenantId from user object in request as fallback
       const userTenantId = req.user?.tenantId;
-
-
-      const result = await GatepassService.getGatepassPurposes(userTenantId);
+      
+      // Use path param tenantId if provided, otherwise use the user's tenantId
+      const tenantId = pathTenantId || userTenantId;
+    
+      const result = await GatepassService.getGatepassPurposes(tenantId);
       res.json(result);
     } catch (error) {
       console.error("Error in getGatepassPurposes:", error);
@@ -360,12 +365,16 @@ class GatepassController {
         statusId = null,
         fromDate = null,
         toDate = null,
-        tenantId,
       } = req.query;
 
       const userTenantId = req.user?.tenantId;
 
-
+      if (!userTenantId) {
+        return res.status(401).json({
+          responseCode: responseUtils.RESPONSE_CODES.ERROR,
+          responseMessage: "Authentication required. Please login again.",
+        });
+      }
 
       const filters = {
         purposeId: purposeId ? parseInt(purposeId) : null,
@@ -425,14 +434,25 @@ class GatepassController {
   // POST /api/gatepass/purposes - Add new purpose
   static async addGatePassPurpose(req, res) {
     try {
-      const { purposeName, tenantId } = req.body;
+      const { purposeName, tenantId: bodyTenantId } = req.body;
+      
+      // Check for tenantId in body, query params, or user object (in that order of precedence)
+      const queryTenantId = req.query.tenantId ? parseInt(req.query.tenantId) : null;
       const userTenantId = req.user?.tenantId;
+      
+      // Use tenantId from body if provided, then query param, then user's tenantId
+      const tenantId = bodyTenantId ? parseInt(bodyTenantId) : (queryTenantId || userTenantId);
       const createdBy = (req.user ? req.user.username : null) || "System";
 
-
+      if (!tenantId) {
+        return res.status(400).json({
+          responseCode: responseUtils.RESPONSE_CODES.ERROR,
+          responseMessage: "Tenant ID is required. Please provide it in the request body, as a query parameter, or login.",
+        });
+      }
 
       const purposeData = {
-        tenantId: userTenantId,
+        tenantId: tenantId,
         purposeName: purposeName.trim(),
         createdBy,
         imageFile: req.file || null
@@ -440,10 +460,10 @@ class GatepassController {
 
       const result = await GatepassService.addGatePassPurpose(purposeData);
 
-      const statusCode = result.responseCode === "S" ? 201 : 400;
+      const statusCode = result.responseCode === responseUtils.RESPONSE_CODES.SUCCESS ? 201 : 400;
       res.status(statusCode).json(result);
     } catch (error) {
-      console.error("Error in addBusPurpose:", error);
+      console.error("Error in addGatePassPurpose:", error);
       res.status(500).json({
         responseCode: responseUtils.RESPONSE_CODES.ERROR,
         responseMessage: "Internal server error",
@@ -454,20 +474,31 @@ class GatepassController {
   static async updateGatePassPurpose(req, res) {
     try {
       const { purposeId } = req.params;
-      const { purposeName } = req.body;
+      const { purposeName, tenantId: bodyTenantId } = req.body;
+      
+      // Check for tenantId in body, query params, or user object (in that order of precedence)
+      const queryTenantId = req.query.tenantId ? parseInt(req.query.tenantId) : null;
       const userTenantId = req.user?.tenantId;
+      
+      // Use tenantId from body if provided, then query param, then user's tenantId
+      const tenantId = bodyTenantId ? parseInt(bodyTenantId) : (queryTenantId || userTenantId);
       const updatedBy = (req.user ? req.user.username : null) || "System";
 
-
+      if (!tenantId) {
+        return res.status(400).json({
+          responseCode: responseUtils.RESPONSE_CODES.ERROR,
+          responseMessage: "Tenant ID is required. Please provide it in the request body, as a query parameter, or login.",
+        });
+      }
 
       const result = await GatepassService.updateGatePassPurpose(
         parseInt(purposeId),
-        userTenantId,
+        tenantId,
         purposeName.trim(),
         updatedBy
       );
 
-      const statusCode = result.responseCode === "S" ? 200 : 400;
+      const statusCode = result.responseCode === responseUtils.RESPONSE_CODES.SUCCESS ? 200 : 400;
       res.status(statusCode).json(result);
     } catch (error) {
       console.error("Error in updateGatePassPurpose:", error);
@@ -482,9 +513,15 @@ class GatepassController {
   static async deleteGatePassPurpose(req, res) {
     try {
       const { purposeId } = req.params;
-      const tenantId = req.user?.tenantId;
-
-      const updatedBy = "System";
+      
+      // Check for tenantId in body, query params, or user object (in that order of precedence)
+      const bodyTenantId = req.body.tenantId ? parseInt(req.body.tenantId) : null;
+      const queryTenantId = req.query.tenantId ? parseInt(req.query.tenantId) : null;
+      const userTenantId = req.user?.tenantId;
+      
+      // Use tenantId from body if provided, then query param, then user's tenantId
+      const tenantId = bodyTenantId ? parseInt(bodyTenantId) : (queryTenantId || userTenantId);
+      const updatedBy = (req.user ? req.user.username : null) || "System";
 
       if (!purposeId) {
         return res.status(400).json({
@@ -493,14 +530,20 @@ class GatepassController {
         });
       }
 
+      if (!tenantId) {
+        return res.status(400).json({
+          responseCode: responseUtils.RESPONSE_CODES.ERROR,
+          responseMessage: "Tenant ID is required. Please provide it in the request body, as a query parameter, or login.",
+        });
+      }
 
       const result = await GatepassService.deleteGatePassPurpose(
         parseInt(purposeId),
-        parseInt(tenantId),
+        tenantId,
         updatedBy
       );
-
-      const statusCode = result.responseCode === "S" ? 200 : 400;
+      
+      const statusCode = result.responseCode === responseUtils.RESPONSE_CODES.SUCCESS ? 200 : 400;
       res.status(statusCode).json(result);
     } catch (error) {
       console.error("Error in deleteGatePassPurpose:", error);

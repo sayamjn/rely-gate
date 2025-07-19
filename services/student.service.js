@@ -67,8 +67,8 @@ class StudentService {
         Remark: s.remark || s.Remark || null,
         RegVisitorHistoryID: s.lasthistoryid || s.LastHistoryID || null,
         CurrentStatus: s.CurrentStatus || 'UNKNOWN',
-        LastVisitPurpose: s.LastVisitPurpose || '',
-        LastVisitPurposeID: s.LastVisitPurposeID || null
+        visitPurpose: s.visitpurpose || '',
+        visitPurposeID: s.visitpurposeid || null
       }));
       
       return {
@@ -343,11 +343,7 @@ class StudentService {
           historyId: visitHistory.regvisitorhistoryid,
           studentName: student.vistorname,
           studentCode: student.visitorregno,
-          checkOutTime: new Date().toLocaleTimeString("en-IN", {
-            hour: "2-digit",
-            minute: "2-digit",
-            hour12: true,
-          }),
+          checkOutTime: Math.floor(Date.now() / 1000),
           purpose: {
             purposeId: finalPurposeId,
             purposeName: finalPurposeName,
@@ -405,11 +401,7 @@ class StudentService {
           responseMessage: "Student checked in successfully",
           data: {
             historyId: result.regvisitorhistoryid,
-            checkInTime: new Date().toLocaleTimeString("en-IN", {
-              hour: "2-digit",
-              minute: "2-digit",
-              hour12: true,
-            }),
+            checkInTime: Math.floor(Date.now() / 1000),
             purpose: {
               purposeId: activeVisit.visitpurposeid,
               purposeName: activeVisit.visitpurpose,

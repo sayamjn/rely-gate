@@ -83,82 +83,90 @@ class VisitorModel {
   }
 
   // Create unregistered visitor
-static async createUnregisteredVisitor(visitorData) {
-  const {
-    tenantId,
-    fname,
-    mobile,
-    vehicleNo,
-    flatName,
-    visitorCatId,
-    visitorCatName,
-    visitorSubCatId,
-    visitorSubCatName,
-    visitPurposeId,
-    visitPurpose,
-    totalVisitor,
-    photoData,
-    vehiclePhotoData,
-    createdBy,
-  } = visitorData;
+  static async createUnregisteredVisitor(visitorData) {
+    const {
+      tenantId,
+      fname,
+      mobile,
+      flatId,
+      flatName,
+      blockId,
+      blockName,
+      vehicleNo,
+      visitorCatId,
+      visitorCatName,
+      visitorSubCatId,
+      visitorSubCatName,
+      visitPurposeId,
+      visitPurpose,
+      purposeCatId,
+      purposeCatName,
+      totalVisitor,
+      photoData,
+      vehiclePhotoData,
+      idPhotoData,
+      createdBy,
+    } = visitorData;
 
-  const sql = `
+    console.log("visitorCatId: ", visitorCatId);
+
+    const sql = `
     INSERT INTO VisitorMaster (
-      TenantID, Fname, Mobile, VehiclelNo, FlatName, VisitorCatID,
+      TenantID, Fname, Mobile, FlatID, FlatName, VisitorCatID,
       VisitorCatName, VisitorSubCatID, VisitorSubCatName, VisitPurposeID,
-      VisitPurpose, TotalVisitor, VisitDate, INTime, INTimeTxt,
-      IsActive, StatusID, StatusName, PhotoFlag, PhotoName, PhotoPath,
-      VehiclePhotoFlag, VehiclePhotoName, VehiclePhotoPath,
+      VisitPurpose, TotalVisitor, VehiclelNo, 
+      PhotoFlag, PhotoPath, PhotoName,
+      VehiclePhotoFlag, VehiclePhotoPath, VehiclePhotoName,
+      INTime, INTimeTxt, OutTime, OutTimeTxt,
+      IsActive, StatusID, StatusName,
       CreatedDate, UpdatedDate, CreatedBy, UpdatedBy
     ) VALUES (
-      $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12,
-      NOW(),                                          -- VisitDate
-      NOW(),                                          -- INTime (timestamp)
-      EXTRACT(EPOCH FROM NOW())::TEXT,                -- INTimeTxt (epoch as text)
+      $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13,
+      $14, $15, $16, 
+      $17, $18, $19,
+      NOW(), EXTRACT(EPOCH FROM NOW())::TEXT, NULL, NULL,
       'Y', 1, 'ACTIVE',
-      $13, $14, $15,
-      $16, $17, $18,
-      NOW(), NOW(), $19, $19
-    ) RETURNING VisitorID
+      NOW(), NOW(), $20, $20
+    ) RETURNING VisitorID, INTime, INTimeTxt
   `;
 
-  const photoFlag = photoData ? "Y" : "N";
-  const photoName = photoData ? `UnRegVisitor_${Date.now()}.jpeg` : null;
-  const photoPath = photoData ? "/uploads/visitors/" : null;
+    const photoFlag = photoData ? "Y" : "N";
+    const photoName = photoData ? `UnRegVisitor_${Date.now()}.jpeg` : null;
+    const photoPath = photoData ? "/uploads/visitors/" : null;
 
-  const vehiclePhotoFlag = vehiclePhotoData ? "Y" : "N";
-  const vehiclePhotoName = vehiclePhotoData
-    ? `Vehicle_${Date.now()}.jpeg`
-    : null;
-  const vehiclePhotoPath = vehiclePhotoData ? "/uploads/vehicles/" : null;
+    const vehiclePhotoFlag = vehiclePhotoData ? "Y" : "N";
+    const vehiclePhotoName = vehiclePhotoData
+      ? `Vehicle_${Date.now()}.jpeg`
+      : null;
+    const vehiclePhotoPath = vehiclePhotoData ? "/uploads/vehicles/" : null;
 
-  const result = await query(sql, [
-    tenantId,
-    fname,
-    mobile,
-    vehicleNo,
-    flatName,
-    visitorCatId,
-    visitorCatName,
-    visitorSubCatId,
-    visitorSubCatName,
-    visitPurposeId,
-    visitPurpose,
-    totalVisitor || 1,
-    photoFlag,
-    photoName,
-    photoPath,
-    vehiclePhotoFlag,
-    vehiclePhotoName,
-    vehiclePhotoPath,
-    createdBy,
-  ]);
+    const result = await query(sql, [
+      tenantId,
+      fname,
+      mobile,
+      flatId || null,
+      flatName || "",
+      visitorCatId,
+      visitorCatName || "Visitor",
+      visitorSubCatId,
+      visitorSubCatName || "General",
+      visitPurposeId || null,
+      visitPurpose || "Visit",
+      totalVisitor || 1,
+      vehicleNo || "",
+      photoFlag,
+      photoPath,
+      photoName,
+      vehiclePhotoFlag,
+      vehiclePhotoPath,
+      vehiclePhotoName,
+      createdBy || "System",
+    ]);
 
-  return result.rows[0];
-}
+    console.log("result: ", result);
 
-
-
+    return result.rows[0];
+  }
 
   // Create registered visitor
   static async createRegisteredVisitor(visitorData) {
@@ -596,7 +604,7 @@ static async createUnregisteredVisitor(visitorData) {
     return result.rows;
   }
 
-    // Get comprehensive visit history with filters
+  // Get comprehensive visit history with filters
   static async getComprehensiveVisitHistory(tenantId, filters = {}) {
     const {
       fromDate,
@@ -605,9 +613,9 @@ static async createUnregisteredVisitor(visitorData) {
       visitorSubCatId,
       flatName,
       visitorRegId,
-      status = 'all', // 'checked_in', 'checked_out', 'all'
+      status = "all", // 'checked_in', 'checked_out', 'all'
       page = 1,
-      pageSize = 50
+      pageSize = 50,
     } = filters;
 
     let sql = `
@@ -683,24 +691,26 @@ static async createUnregisteredVisitor(visitorData) {
     }
 
     // Status filter
-    if (status === 'checked_in') {
+    if (status === "checked_in") {
       sql += ` AND (vh.OutTime IS NULL OR vh.OutTimeTxt IS NULL OR vh.OutTimeTxt = '')`;
-    } else if (status === 'checked_out') {
+    } else if (status === "checked_out") {
       sql += ` AND vh.OutTime IS NOT NULL AND vh.OutTimeTxt IS NOT NULL AND vh.OutTimeTxt != ''`;
     }
 
     // Pagination
     const offset = (page - 1) * pageSize;
-    sql += ` ORDER BY vh.INTime DESC LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`;
+    sql += ` ORDER BY vh.INTime DESC LIMIT $${paramIndex} OFFSET $${
+      paramIndex + 1
+    }`;
     params.push(pageSize, offset);
 
     const result = await query(sql, params);
     return result.rows;
   }
 
-   // Get dashboard analytics
+  // Get dashboard analytics
   static async getDashboardAnalytics(tenantId, date = null) {
-    const targetDate = date || new Date().toISOString().split('T')[0];
+    const targetDate = date || new Date().toISOString().split("T")[0];
 
     const sql = `
       WITH today_stats AS (
@@ -870,7 +880,7 @@ static async createUnregisteredVisitor(visitorData) {
   // Add new visitor purpose
   static async addVisitorPurpose(purposeData) {
     const { tenantId, purposeName, createdBy, imageData } = purposeData;
-    
+
     const sql = `
       INSERT INTO VisitorPuposeMaster (
         TenantID, 
@@ -899,21 +909,26 @@ static async createUnregisteredVisitor(visitorData) {
     const result = await query(sql, [
       tenantId,
       1, // Visitor category ID
-      'Visitor',
+      "Visitor",
       purposeName,
-      'Y',
+      "Y",
       createdBy,
-      imageData ? imageData.flag : 'N',
+      imageData ? imageData.flag : "N",
       imageData ? imageData.path : null,
       imageData ? imageData.name : null,
-      imageData ? imageData.url : null
+      imageData ? imageData.url : null,
     ]);
 
     return result.rows[0];
   }
 
   // Update visitor purpose
-  static async updateVisitorPurpose(purposeId, tenantId, purposeName, updatedBy) {
+  static async updateVisitorPurpose(
+    purposeId,
+    tenantId,
+    purposeName,
+    updatedBy
+  ) {
     const sql = `
       UPDATE VisitorPuposeMaster 
       SET VisitPurpose = $1,
@@ -929,7 +944,12 @@ static async createUnregisteredVisitor(visitorData) {
         PurposeCatName as "purposeCatName"
     `;
 
-    const result = await query(sql, [purposeName, updatedBy, purposeId, tenantId]);
+    const result = await query(sql, [
+      purposeName,
+      updatedBy,
+      purposeId,
+      tenantId,
+    ]);
     return result.rows[0];
   }
 
@@ -961,9 +981,9 @@ static async createUnregisteredVisitor(visitorData) {
         AND PurposeCatID = 1
         AND IsActive = 'Y'
     `;
-    
+
     const params = [tenantId, purposeName];
-    
+
     if (excludeId) {
       sql += ` AND VisitPurposeID != $3`;
       params.push(excludeId);
@@ -991,12 +1011,12 @@ static async createUnregisteredVisitor(visitorData) {
   static async getUnregisteredVisitorsList(tenantId, filters = {}) {
     const {
       subcatid = 0,
-      from = '',
-      to = '',
-      flatname = '',
+      from = "",
+      to = "",
+      flatname = "",
       flatid = 0,
       page = 1,
-      pageSize = 50
+      pageSize = 50,
     } = filters;
 
     let sql = `
@@ -1067,7 +1087,9 @@ static async createUnregisteredVisitor(visitorData) {
 
     // Pagination
     const offset = (page - 1) * pageSize;
-    sql += ` ORDER BY VisitDate DESC, INTime DESC LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`;
+    sql += ` ORDER BY VisitDate DESC, INTime DESC LIMIT $${paramIndex} OFFSET $${
+      paramIndex + 1
+    }`;
     params.push(pageSize, offset);
 
     const result = await query(sql, params);
@@ -1075,7 +1097,15 @@ static async createUnregisteredVisitor(visitorData) {
   }
 
   // Get visitors with pagination, search and filters (for GET /api/visitors)
-  static async getVisitors(tenantId, page = 1, pageSize = 20, search = '', visitorSubCatId = 0, fromDate = null, toDate = null) {
+  static async getVisitors(
+    tenantId,
+    page = 1,
+    pageSize = 20,
+    search = "",
+    visitorSubCatId = 0,
+    fromDate = null,
+    toDate = null
+  ) {
     let whereConditions = ["vm.TenantID = $1", "vm.IsActive = 'Y'"];
     let params = [tenantId];
     let paramIndex = 2;
@@ -1152,8 +1182,111 @@ static async createUnregisteredVisitor(visitorData) {
     return {
       data: dataResult.rows,
       totalCount,
-      totalPages: Math.ceil(totalCount / pageSize)
+      totalPages: Math.ceil(totalCount / pageSize),
     };
+  }
+
+  // Get unregistered visitors by status (checked_in, checked_out, all)
+  static async getUnregisteredVisitorsByStatus(tenantId, filters = {}) {
+    const {
+      subcatid = 0,
+      from = "",
+      to = "",
+      flatname = "",
+      flatid = 0,
+      page = 1,
+      pageSize = 50,
+      status = "all", // 'checked_in', 'checked_out', 'all'
+    } = filters;
+
+    let sql = `
+      SELECT 
+        VisitorID,
+        Fname,
+        Mobile,
+        FlatName,
+        VehiclelNo as "VehicleNo",
+        VisitorCatID,
+        VisitorCatName,
+        VisitorSubCatID,
+        VisitorSubCatName,
+        VisitPurposeID,
+        VisitPurpose,
+        TotalVisitor,
+        INTime,
+        INTimeTxt,
+        OutTime,
+        OutTimeTxt,
+        PhotoFlag,
+        PhotoPath,
+        PhotoName,
+        VehiclePhotoFlag,
+        VehiclePhotoPath,
+        VehiclePhotoName,
+        CreatedDate,
+        CASE 
+          WHEN OutTime IS NULL OR OutTimeTxt IS NULL OR OutTimeTxt = '' 
+          THEN 'CHECKED_IN' 
+          ELSE 'CHECKED_OUT' 
+        END as status,
+        COUNT(*) OVER() as total_count
+      FROM VisitorMaster
+      WHERE TenantID = $1 AND IsActive = 'Y'
+    `;
+
+    const params = [tenantId];
+    let paramIndex = 2;
+
+    // Status filter
+    if (status === "checked_in") {
+      sql += ` AND (OutTime IS NULL OR OutTimeTxt IS NULL OR OutTimeTxt = '')`;
+    } else if (status === "checked_out") {
+      sql += ` AND OutTime IS NOT NULL AND OutTimeTxt IS NOT NULL AND OutTimeTxt != ''`;
+    }
+
+    // Subcategory filter
+    if (subcatid > 0) {
+      sql += ` AND VisitorSubCatID = $${paramIndex}`;
+      params.push(subcatid);
+      paramIndex++;
+    }
+
+    // Date range filters
+    if (from) {
+      sql += ` AND CreatedDate >= TO_TIMESTAMP($${paramIndex})`;
+      params.push(from);
+      paramIndex++;
+    }
+
+    if (to) {
+      sql += ` AND CreatedDate <= TO_TIMESTAMP($${paramIndex})`;
+      params.push(to);
+      paramIndex++;
+    }
+
+    // Flat name filter
+    if (flatname) {
+      sql += ` AND FlatName ILIKE $${paramIndex}`;
+      params.push(`%${flatname}%`);
+      paramIndex++;
+    }
+
+    // Flat ID filter
+    if (flatid > 0) {
+      sql += ` AND FlatID = $${paramIndex}`;
+      params.push(flatid);
+      paramIndex++;
+    }
+
+    // Pagination
+    const offset = (page - 1) * pageSize;
+    sql += ` ORDER BY CreatedDate DESC LIMIT $${paramIndex} OFFSET $${
+      paramIndex + 1
+    }`;
+    params.push(pageSize, offset);
+
+    const result = await query(sql, params);
+    return result.rows;
   }
 }
 

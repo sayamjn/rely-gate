@@ -2,19 +2,19 @@ const { query } = require("../config/database");
 
 class StudentModel {
   // Get students with filters
-static async getStudentsWithFilters(tenantId, filters = {}) {
-  const {
-    page = 1,
-    pageSize = 20,
-    search = "",
-    purposeId = null,
-    studentId = "",
-    firstName = "",
-    fromDate = null,
-    toDate = null,
-  } = filters;
+  static async getStudentsWithFilters(tenantId, filters = {}) {
+    const {
+      page = 1,
+      pageSize = 20,
+      search = "",
+      purposeId = null,
+      studentId = "",
+      firstName = "",
+      fromDate = null,
+      toDate = null,
+    } = filters;
 
-  let sql = `
+    let sql = `
     SELECT 
       vr.VisitorRegID,
       vr.VisitorRegNo,
@@ -37,19 +37,19 @@ static async getStudentsWithFilters(tenantId, filters = {}) {
       vr.UpdatedDate,
       vr.IsActive,
       -- Latest visit purpose info
-      vh_latest.VisitPurposeID as LastVisitPurposeID,
-      vh_latest.VisitPurpose as LastVisitPurpose,
+      vh_latest.VisitPurposeID as VisitPurposeID,
+      vh_latest.VisitPurpose as VisitPurpose,
       vh_latest.PurposeCatID as LastPurposeCatID,
       vh_latest.PurposeCatName as LastPurposeCatName,
-      -- Convert times to IST (UTC+5:30)
+      -- Return epoch timestamps for INTimeTxt and OutTimeTxt
       CASE 
         WHEN vh_latest.INTime IS NOT NULL 
-        THEN TO_CHAR((vh_latest.INTime AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata'), 'DD/MM/YYYY HH12:MI AM')
+        THEN EXTRACT(EPOCH FROM vh_latest.INTime)::text
         ELSE vh_latest.INTimeTxt
       END as LastCheckOutTime,
       CASE 
         WHEN vh_latest.OutTime IS NOT NULL 
-        THEN TO_CHAR((vh_latest.OutTime AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata'), 'DD/MM/YYYY HH12:MI AM')
+        THEN EXTRACT(EPOCH FROM vh_latest.OutTime)::text
         ELSE vh_latest.OutTimeTxt
       END as LastCheckInTime,
       vh_latest.RegVisitorHistoryID as LastHistoryID,
@@ -104,64 +104,73 @@ static async getStudentsWithFilters(tenantId, filters = {}) {
       AND vr.VisitorCatID = 3
   `;
 
-  const params = [tenantId];
-  let paramIndex = 2;
+    const params = [tenantId];
+    let paramIndex = 2;
 
-  // Apply filters
-  if (search) {
-    sql += ` AND (
+    // Apply filters
+    if (search) {
+      sql += ` AND (
       vr.VistorName ILIKE $${paramIndex} OR 
       vr.Mobile ILIKE $${paramIndex} OR 
       vr.VisitorRegNo ILIKE $${paramIndex} OR
       vr.SecurityCode ILIKE $${paramIndex}
     )`;
-    params.push(`%${search}%`);
-    paramIndex++;
-  }
+      params.push(`%${search}%`);
+      paramIndex++;
+    }
 
-  if (studentId) {
-    sql += ` AND vr.VisitorRegNo ILIKE $${paramIndex}`;
-    params.push(`%${studentId}%`);
-    paramIndex++;
-  }
+    if (studentId) {
+      sql += ` AND vr.VisitorRegNo ILIKE $${paramIndex}`;
+      params.push(`%${studentId}%`);
+      paramIndex++;
+    }
 
-  if (filters.VisitorSubCatID) {
-    sql += ` AND vr.VisitorSubCatID = $${paramIndex}`;
-    params.push(filters.VisitorSubCatID);
-    paramIndex++;
-  }
+    if (filters.VisitorSubCatID) {
+      sql += ` AND vr.VisitorSubCatID = $${paramIndex}`;
+      params.push(filters.VisitorSubCatID);
+      paramIndex++;
+    }
 
-  if (firstName) {
-    sql += ` AND vr.VistorName ILIKE $${paramIndex}`;
-    params.push(`%${firstName}%`);
-    paramIndex++;
-  }
+    if (firstName) {
+      sql += ` AND vr.VistorName ILIKE $${paramIndex}`;
+      params.push(`%${firstName}%`);
+      paramIndex++;
+    }
 
-  if (purposeId && purposeId > 0) {
-    sql += ` AND vh_latest.VisitPurposeID = $${paramIndex}`;
-    params.push(purposeId);
-    paramIndex++;
-  }
+    if (purposeId && purposeId > 0) {
+      sql += ` AND vh_latest.VisitPurposeID = $${paramIndex}`;
+      params.push(purposeId);
+      paramIndex++;
+    }
 
-  if (fromDate && toDate) {
-    sql += ` AND vr.CreatedDate BETWEEN $${paramIndex} AND $${
+    if (fromDate && toDate) {
+      // Check if fromDate and toDate are epoch timestamps (numbers or numeric strings)
+      if (/^\d+$/.test(fromDate) && /^\d+$/.test(toDate)) {
+        // Convert epoch timestamps to PostgreSQL timestamp format
+        sql += ` AND vr.CreatedDate BETWEEN to_timestamp($${paramIndex}) AND to_timestamp($${
+          paramIndex + 1
+        })`;
+      } else {
+        // Use as regular date strings
+        sql += ` AND vr.CreatedDate BETWEEN $${paramIndex} AND $${
+          paramIndex + 1
+        }`;
+      }
+      params.push(fromDate, toDate);
+      paramIndex += 2;
+    }
+
+    // Pagination
+    const offset = (page - 1) * pageSize;
+    sql += ` ORDER BY vr.CreatedDate DESC LIMIT $${paramIndex} OFFSET $${
       paramIndex + 1
     }`;
-    params.push(fromDate, toDate);
-    paramIndex += 2;
+    params.push(pageSize, offset);
+
+    const result = await query(sql, params);
+
+    return result.rows;
   }
-
-  // Pagination
-  const offset = (page - 1) * pageSize;
-  sql += ` ORDER BY vr.CreatedDate DESC LIMIT $${paramIndex} OFFSET $${
-    paramIndex + 1
-  }`;
-  params.push(pageSize, offset);
-
-  const result = await query(sql, params);
-  
-  return result.rows;
-}
   // Get all unique student subcategories for a tenant
   static async getStudentSubCategories(tenantId) {
     const sql = `
@@ -251,7 +260,7 @@ static async getStudentsWithFilters(tenantId, filters = {}) {
         AND vr.IsActive = 'Y'
         AND vr.VisitorCatID = 3
     `;
-    
+
     const result = await query(sql, [visitorRegNo, tenantId]);
     return result.rows[0];
   }
@@ -319,7 +328,7 @@ static async getStudentsWithFilters(tenantId, filters = {}) {
       ) VALUES (
         $1, 'Y', 'Y', $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13,
         $14, $15, $16, $17,
-        NOW(), TO_CHAR((NOW() AT TIME ZONE 'Asia/Kolkata'), 'DD/MM/YYYY HH12:MI AM'), NOW(), NOW(), $18, $18
+        NOW(), EXTRACT(EPOCH FROM NOW())::text, NOW(), NOW(), $18, $18
       ) RETURNING RegVisitorHistoryID
     `;
 
@@ -352,7 +361,7 @@ static async getStudentsWithFilters(tenantId, filters = {}) {
     const sql = `
       UPDATE VisitorRegVisitHistory 
       SET OutTime = NOW(), 
-          OutTimeTxt = TO_CHAR((NOW() AT TIME ZONE 'Asia/Kolkata'), 'DD/MM/YYYY HH12:MI AM'),
+          OutTimeTxt = EXTRACT(EPOCH FROM NOW())::text,
           UpdatedDate = NOW(),
           UpdatedBy = $3
       WHERE RegVisitorHistoryID = $1 AND TenantID = $2
@@ -382,13 +391,13 @@ static async getStudentsWithFilters(tenantId, filters = {}) {
         INTime AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata' as INTime,
         CASE 
           WHEN INTime IS NOT NULL 
-          THEN TO_CHAR((INTime AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata'), 'DD/MM/YYYY HH12:MI AM')
+          THEN EXTRACT(EPOCH FROM INTime)::text
           ELSE INTimeTxt
         END as INTimeTxt,
         OutTime AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata' as OutTime,
         CASE 
           WHEN OutTime IS NOT NULL 
-          THEN TO_CHAR((OutTime AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata'), 'DD/MM/YYYY HH12:MI AM')
+          THEN EXTRACT(EPOCH FROM OutTime)::text
           ELSE OutTimeTxt
         END as OutTimeTxt,
         CreatedDate,
@@ -429,7 +438,7 @@ static async getStudentsWithFilters(tenantId, filters = {}) {
         vh.INTime AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata' as INTime,
         CASE 
           WHEN vh.INTime IS NOT NULL 
-          THEN TO_CHAR((vh.INTime AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata'), 'DD/MM/YYYY HH12:MI AM')
+          THEN EXTRACT(EPOCH FROM vh.INTime)::text
           ELSE vh.INTimeTxt
         END as INTimeTxt,
         vr.PhotoPath,
@@ -523,7 +532,7 @@ static async getStudentsWithFilters(tenantId, filters = {}) {
         vh.INTime AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata' as checkInTime,
         CASE 
           WHEN vh.INTime IS NOT NULL 
-          THEN TO_CHAR((vh.INTime AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata'), 'DD/MM/YYYY HH12:MI AM')
+          THEN EXTRACT(EPOCH FROM vh.INTime)::text
           ELSE vh.INTimeTxt
         END as checkInTimeText,
         EXTRACT(EPOCH FROM ((NOW() AT TIME ZONE 'Asia/Kolkata') - (vh.INTime AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata')))/3600 as hoursCheckedIn
@@ -566,7 +575,7 @@ static async getStudentsWithFilters(tenantId, filters = {}) {
   // Add new student purpose
   static async addStudentPurpose(purposeData) {
     const { tenantId, purposeName, createdBy, imageData } = purposeData;
-    
+
     const sql = `
       INSERT INTO VisitorPuposeMaster (
         TenantID, 
@@ -595,21 +604,26 @@ static async getStudentsWithFilters(tenantId, filters = {}) {
     const result = await query(sql, [
       tenantId,
       3, // Student category ID
-      'Student',
+      "Student",
       purposeName,
-      'Y',
+      "Y",
       createdBy,
-      imageData ? imageData.flag : 'N',
+      imageData ? imageData.flag : "N",
       imageData ? imageData.path : null,
       imageData ? imageData.name : null,
-      imageData ? imageData.url : null
+      imageData ? imageData.url : null,
     ]);
 
     return result.rows[0];
   }
 
   // Update student purpose
-  static async updateStudentPurpose(purposeId, tenantId, purposeName, updatedBy) {
+  static async updateStudentPurpose(
+    purposeId,
+    tenantId,
+    purposeName,
+    updatedBy
+  ) {
     const sql = `
       UPDATE VisitorPuposeMaster 
       SET VisitPurpose = $1,
@@ -625,7 +639,12 @@ static async getStudentsWithFilters(tenantId, filters = {}) {
         PurposeCatName as "purposeCatName"
     `;
 
-    const result = await query(sql, [purposeName, updatedBy, purposeId, tenantId]);
+    const result = await query(sql, [
+      purposeName,
+      updatedBy,
+      purposeId,
+      tenantId,
+    ]);
     return result.rows[0];
   }
 
@@ -657,9 +676,9 @@ static async getStudentsWithFilters(tenantId, filters = {}) {
         AND PurposeCatID = 3
         AND IsActive = 'Y'
     `;
-    
+
     const params = [tenantId, purposeName];
-    
+
     if (excludeId) {
       sql += ` AND VisitPurposeID != $3`;
       params.push(excludeId);
@@ -684,7 +703,13 @@ static async getStudentsWithFilters(tenantId, filters = {}) {
   }
 
   // Get students for legacy GET /api/students (simple, paginated, search, subcatid)
-  static async getStudentsBasic(tenantId, page = 1, pageSize = 20, search = '', visitorSubCatId = null) {
+  static async getStudentsBasic(
+    tenantId,
+    page = 1,
+    pageSize = 20,
+    search = "",
+    visitorSubCatId = null
+  ) {
     let sql = `
       SELECT 
         vr.VisitorRegID as visitorregid,
@@ -727,7 +752,9 @@ static async getStudentsWithFilters(tenantId, filters = {}) {
     }
 
     const offset = (page - 1) * pageSize;
-    sql += ` ORDER BY vr.CreatedDate DESC LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`;
+    sql += ` ORDER BY vr.CreatedDate DESC LIMIT $${paramIndex} OFFSET $${
+      paramIndex + 1
+    }`;
     params.push(pageSize, offset);
 
     const result = await query(sql, params);
@@ -735,33 +762,48 @@ static async getStudentsWithFilters(tenantId, filters = {}) {
   }
 
   // Get students with pagination and mapping logic (following bus model pattern)
-  static async getStudentsWithPagination(tenantId, page = 1, pageSize = 20, search = '', visitorSubCatId = null) {
+  static async getStudentsWithPagination(
+    tenantId,
+    page = 1,
+    pageSize = 20,
+    search = "",
+    visitorSubCatId = null
+  ) {
     try {
       // Get students data with total count
-      const students = await this.getStudentsBasic(tenantId, page, pageSize, search, visitorSubCatId);
-      
+      const students = await this.getStudentsBasic(
+        tenantId,
+        page,
+        pageSize,
+        search,
+        visitorSubCatId
+      );
+
       // Get total count from the first row (if any)
-      const totalCount = students.length > 0 ? parseInt(students[0].total_count) : 0;
+      const totalCount =
+        students.length > 0 ? parseInt(students[0].total_count) : 0;
       const totalPages = Math.ceil(totalCount / pageSize);
-      
+
       // Map the data to required format
       const mapped = students.map((s) => ({
         VisitorRegID: s.visitorregid,
         VistorName: s.vistorname,
-        CreatedDateTxt: s.createddate ? new Date(s.createddate).toLocaleDateString('en-GB') : '',
-        CreatedBy: s.createdby || '',
-        VisitorSubCatName: s.visitorsubcatname || '',
-        VisitorRegNo: s.visitorregno || '',
-        Mobile: s.mobile || '',
-        FlatName: s.flatname || '',
+        CreatedDateTxt: s.createddate
+          ? new Date(s.createddate).toLocaleDateString("en-GB")
+          : "",
+        CreatedBy: s.createdby || "",
+        VisitorSubCatName: s.visitorsubcatname || "",
+        VisitorRegNo: s.visitorregno || "",
+        Mobile: s.mobile || "",
+        FlatName: s.flatname || "",
       }));
-      
+
       return {
         students: mapped,
         totalCount,
         totalPages,
         currentPage: page,
-        pageSize
+        pageSize,
       };
     } catch (error) {
       throw error;
@@ -770,58 +812,73 @@ static async getStudentsWithFilters(tenantId, filters = {}) {
 
   // Delete student and all related data
   static async deleteStudent(studentId, tenantId) {
-    const client = await require('../config/database').getClient();
+    const client = await require("../config/database").getClient();
     try {
-      await client.query('BEGIN');
+      await client.query("BEGIN");
 
       // Get student details for file cleanup
-      const studentResult = await client.query(`
+      const studentResult = await client.query(
+        `
         SELECT photopath, photoname 
         FROM visitorregistration 
         WHERE visitorregid = $1 AND tenantid = $2 AND visitorcatid = 3
-      `, [studentId, tenantId]);
+      `,
+        [studentId, tenantId]
+      );
 
       if (studentResult.rows.length === 0) {
-        await client.query('ROLLBACK');
+        await client.query("ROLLBACK");
         return null;
       }
 
       const student = studentResult.rows[0];
 
       // Delete meal records
-      await client.query(`
+      await client.query(
+        `
         DELETE FROM mealmaster 
         WHERE studentid = $1 AND tenantid = $2
-      `, [studentId, tenantId]);
+      `,
+        [studentId, tenantId]
+      );
 
       // Delete visit history
-      await client.query(`
+      await client.query(
+        `
         DELETE FROM visitorregvisithistory 
         WHERE visitorregid = $1 AND tenantid = $2 AND visitorcatid = 3
-      `, [studentId, tenantId]);
+      `,
+        [studentId, tenantId]
+      );
 
       // Delete bulk upload records
-      await client.query(`
+      await client.query(
+        `
         DELETE FROM bulkvisitorupload 
         WHERE visitorregid = $1 AND tenantid = $2 AND type = 'student'
-      `, [studentId, tenantId]);
+      `,
+        [studentId, tenantId]
+      );
 
       // Delete student registration
-      const deleteResult = await client.query(`
+      const deleteResult = await client.query(
+        `
         DELETE FROM visitorregistration 
         WHERE visitorregid = $1 AND tenantid = $2 AND visitorcatid = 3
         RETURNING visitorregid, visitorregno
-      `, [studentId, tenantId]);
+      `,
+        [studentId, tenantId]
+      );
 
-      await client.query('COMMIT');
-      
+      await client.query("COMMIT");
+
       return {
         deletedStudent: deleteResult.rows[0],
         photoPath: student.photopath,
-        photoName: student.photoname
+        photoName: student.photoname,
       };
     } catch (error) {
-      await client.query('ROLLBACK');
+      await client.query("ROLLBACK");
       throw error;
     } finally {
       client.release();

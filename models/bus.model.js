@@ -1,9 +1,7 @@
 const { query } = require("../config/database");
 
 class BusModel {
-
-
-    // Get bus by VisitorRegNo instead of VisitorRegID
+  // Get bus by VisitorRegNo instead of VisitorRegID
   static async getBusByRegNo(visitorRegNo, tenantId) {
     const sql = `
       SELECT 
@@ -36,22 +34,22 @@ class BusModel {
         AND vr.IsActive = 'Y'
         AND vr.VisitorCatID = 5
     `;
-      const result = await query(sql, [visitorRegNo, tenantId]);
+    const result = await query(sql, [visitorRegNo, tenantId]);
     return result.rows[0];
   }
-  
+
   // Get buses with filters
   static async getBusesWithFilters(tenantId, filters = {}) {
     const {
       page = 1,
       pageSize = 20,
-      search = '',
+      search = "",
       purposeId = null,
-      busNumber = '',
-      registrationNumber = '',
-      driverName = '',
+      busNumber = "",
+      registrationNumber = "",
+      driverName = "",
       fromDate = null,
-      toDate = null
+      toDate = null,
     } = filters;
 
     let sql = `
@@ -82,8 +80,8 @@ class BusModel {
         COALESCE(bvu.Course, 'N/A') as DriverName,
         COALESCE(bvu.Hostel, 'N/A') as BusType,
         -- Latest visit purpose info
-        vh_latest.VisitPurposeID as LastVisitPurposeID,
-        vh_latest.VisitPurpose as LastVisitPurpose,
+        vh_latest.VisitPurposeID as VisitPurposeID,
+        vh_latest.VisitPurpose as VisitPurpose,
         vh_latest.PurposeCatID as LastPurposeCatID,
         vh_latest.PurposeCatName as LastPurposeCatName,
         vh_latest.INTimeTxt as LastCheckOutTime,
@@ -136,9 +134,9 @@ class BusModel {
     const params = [tenantId];
     let paramIndex = 2;
 
-    if (search && search.trim() !== '') {
+    if (search && search.trim() !== "") {
       const searchTerm = search.trim();
-      
+
       sql += ` AND (
         -- Bus Number exact match (highest priority)
         UPPER(COALESCE(bvu.Name, '')) = UPPER($${paramIndex}) OR
@@ -166,7 +164,7 @@ class BusModel {
         vr.Mobile::text LIKE '%' || $${paramIndex} || '%' OR
         UPPER(COALESCE(bvu.Hostel, '')) LIKE '%' || UPPER($${paramIndex}) || '%'
       )`;
-      
+
       params.push(searchTerm);
       paramIndex++;
     }
@@ -196,14 +194,18 @@ class BusModel {
     }
 
     if (fromDate && toDate) {
-      sql += ` AND vr.CreatedDate BETWEEN $${paramIndex} AND $${paramIndex + 1}`;
+      sql += ` AND vr.CreatedDate BETWEEN $${paramIndex} AND $${
+        paramIndex + 1
+      }`;
       params.push(fromDate, toDate);
       paramIndex += 2;
     }
 
     // Pagination
     const offset = (page - 1) * pageSize;
-    sql += ` ORDER BY vr.CreatedDate DESC LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`;
+    sql += ` ORDER BY vr.CreatedDate DESC LIMIT $${paramIndex} OFFSET $${
+      paramIndex + 1
+    }`;
     params.push(pageSize, offset);
 
     const result = await query(sql, params);
@@ -302,6 +304,10 @@ class BusModel {
       createdBy,
     } = visitData;
 
+    // Handle custom purpose case (visitPurposeId = -1)
+    // For custom purposes, we need to set visitPurposeId to NULL to avoid foreign key constraint
+    const finalPurposeId = visitPurposeId === -1 ? null : visitPurposeId;
+
     const sql = `
       INSERT INTO VisitorRegVisitHistory (
         TenantID, IsActive, IsRegFlag, VisitorRegID, VisitorRegNo, SecurityCode,
@@ -312,7 +318,7 @@ class BusModel {
       ) VALUES (
         $1, 'Y', 'Y', $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13,
         $14, $15, $16, $17,
-        NOW(), TO_CHAR((NOW() AT TIME ZONE 'Asia/Kolkata'), 'DD/MM/YYYY HH12:MI AM'), NOW(), NOW(), $18, $18
+        NOW(), EXTRACT(EPOCH FROM NOW())::bigint, NOW(), NOW(), $18, $18
       ) RETURNING RegVisitorHistoryID
     `;
 
@@ -330,7 +336,7 @@ class BusModel {
       visitorSubCatName,
       associatedFlat,
       associatedBlock,
-      visitPurposeId,
+      finalPurposeId, // Use NULL for custom purposes
       visitPurpose,
       purposeCatId,
       purposeCatName,
@@ -345,7 +351,7 @@ class BusModel {
     const sql = `
       UPDATE VisitorRegVisitHistory 
       SET OutTime = NOW(), 
-          OutTimeTxt = TO_CHAR((NOW() AT TIME ZONE 'Asia/Kolkata'), 'DD/MM/YYYY HH12:MI AM'),
+          OutTimeTxt = EXTRACT(EPOCH FROM NOW())::bigint,
           UpdatedDate = NOW(),
           UpdatedBy = $3
       WHERE RegVisitorHistoryID = $1 AND TenantID = $2
@@ -478,7 +484,7 @@ class BusModel {
   // Add new bus purpose
   static async addBusPurpose(purposeData) {
     const { tenantId, purposeName, createdBy, imageData } = purposeData;
-    
+
     const sql = `
       INSERT INTO VisitorPuposeMaster (
         TenantID, 
@@ -507,14 +513,14 @@ class BusModel {
     const result = await query(sql, [
       tenantId,
       2, // Bus category ID
-      'Bus',
+      "Bus",
       purposeName,
-      'Y',
+      "Y",
       createdBy,
-      imageData ? imageData.flag : 'N',
+      imageData ? imageData.flag : "N",
       imageData ? imageData.path : null,
       imageData ? imageData.name : null,
-      imageData ? imageData.url : null
+      imageData ? imageData.url : null,
     ]);
 
     return result.rows[0];
@@ -537,7 +543,12 @@ class BusModel {
         PurposeCatName as "purposeCatName"
     `;
 
-    const result = await query(sql, [purposeName, updatedBy, purposeId, tenantId]);
+    const result = await query(sql, [
+      purposeName,
+      updatedBy,
+      purposeId,
+      tenantId,
+    ]);
     return result.rows[0];
   }
 
@@ -569,9 +580,9 @@ class BusModel {
         AND PurposeCatID = 2
         AND IsActive = 'Y'
     `;
-    
+
     const params = [tenantId, purposeName];
-    
+
     if (excludeId) {
       sql += ` AND VisitPurposeID != $3`;
       params.push(excludeId);
@@ -600,22 +611,22 @@ class BusModel {
     const {
       page = 1,
       pageSize = 20,
-      search = '',
+      search = "",
       purposeId = 0,
-      busNumber = '',
+      busNumber = "",
       VisitorSubCatID = 0,
-      registrationNumber = '',
-      driverName = '',
-      busType = '',
-      route = '',
-      fromDate = '',
-      toDate = ''
+      registrationNumber = "",
+      driverName = "",
+      busType = "",
+      route = "",
+      fromDate = "",
+      toDate = "",
     } = filters;
 
     let whereConditions = [
-      'vr.TenantID = $1',
+      "vr.TenantID = $1",
       "vr.IsActive = 'Y'",
-      'vr.VisitorCatID = 5'
+      "vr.VisitorCatID = 5",
     ];
     let params = [tenantId];
     let paramIndex = 2;
@@ -690,8 +701,11 @@ class BusModel {
 
     // Date range filter (for visit history)
     if (fromDate && fromDate.trim()) {
-      const [day, month, year] = fromDate.split('/');
-      const formattedFromDate = `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+      const [day, month, year] = fromDate.split("/");
+      const formattedFromDate = `${year}-${month.padStart(
+        2,
+        "0"
+      )}-${day.padStart(2, "0")}`;
       whereConditions.push(`EXISTS (
         SELECT 1 FROM VisitorRegVisitHistory vh 
         WHERE vh.VisitorRegID = vr.VisitorRegID 
@@ -704,8 +718,11 @@ class BusModel {
     }
 
     if (toDate && toDate.trim()) {
-      const [day, month, year] = toDate.split('/');
-      const formattedToDate = `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+      const [day, month, year] = toDate.split("/");
+      const formattedToDate = `${year}-${month.padStart(2, "0")}-${day.padStart(
+        2,
+        "0"
+      )}`;
       whereConditions.push(`EXISTS (
         SELECT 1 FROM VisitorRegVisitHistory vh 
         WHERE vh.VisitorRegID = vr.VisitorRegID 
@@ -717,14 +734,14 @@ class BusModel {
       paramIndex++;
     }
 
-        // Visitor Sub Category ID filter
+    // Visitor Sub Category ID filter
     if (VisitorSubCatID && VisitorSubCatID > 0) {
       whereConditions.push(`vr.VisitorSubCatID = $${paramIndex}`);
       params.push(VisitorSubCatID);
       paramIndex++;
     }
-    
-    const whereClause = whereConditions.join(' AND ');
+
+    const whereClause = whereConditions.join(" AND ");
     const offset = (page - 1) * pageSize;
 
     // Count query for pagination
@@ -813,7 +830,7 @@ class BusModel {
 
     const [countResult, dataResult] = await Promise.all([
       query(countSql, countParams),
-      query(sql, params)
+      query(sql, params),
     ]);
 
     const totalCount = parseInt(countResult.rows[0]?.total_count || 0);
@@ -827,9 +844,9 @@ class BusModel {
         totalItems: totalCount,
         totalPages,
         hasNext: parseInt(page) < totalPages,
-        hasPrev: parseInt(page) > 1
-    }
-  }
+        hasPrev: parseInt(page) > 1,
+      },
+    };
   }
 
   // Get all unique bus subcategories for a tenant
@@ -852,7 +869,11 @@ class BusModel {
 
   // Export buses method moved from service
   static async exportBuses(tenantId, filters = {}) {
-    let whereConditions = ['vr.TenantID = $1', "vr.IsActive = 'Y'", "vr.VisitorCatName = 'Bus'"];
+    let whereConditions = [
+      "vr.TenantID = $1",
+      "vr.IsActive = 'Y'",
+      "vr.VisitorCatName = 'Bus'",
+    ];
     let params = [tenantId];
     let paramIndex = 2;
 
@@ -881,7 +902,7 @@ class BusModel {
       paramIndex++;
     }
 
-    const whereClause = whereConditions.join(' AND ');
+    const whereClause = whereConditions.join(" AND ");
 
     // Fixed SQL without DISTINCT conflict
     const sql = `
@@ -904,14 +925,26 @@ class BusModel {
   }
 
   // Get buses with pagination (legacy method moved from service)
-  static async getBusesBasic(tenantId, page = 1, pageSize = 20, search = '', category = 0) {
+  static async getBusesBasic(
+    tenantId,
+    page = 1,
+    pageSize = 20,
+    search = "",
+    category = 0
+  ) {
     const offset = (page - 1) * pageSize;
-    let whereConditions = ['TenantID = $1', "IsActive = 'Y'", "VisitorCatName = 'Bus'"];
+    let whereConditions = [
+      "TenantID = $1",
+      "IsActive = 'Y'",
+      "VisitorCatName = 'Bus'",
+    ];
     let params = [tenantId];
     let paramIndex = 2;
 
     if (search && search.trim()) {
-      whereConditions.push(`(VistorName ILIKE $${paramIndex} OR VisitorRegNo ILIKE $${paramIndex} OR Mobile ILIKE $${paramIndex})`);
+      whereConditions.push(
+        `(VistorName ILIKE $${paramIndex} OR VisitorRegNo ILIKE $${paramIndex} OR Mobile ILIKE $${paramIndex})`
+      );
       params.push(`%${search.trim()}%`);
       paramIndex++;
     }
@@ -923,7 +956,7 @@ class BusModel {
       paramIndex++;
     }
 
-    const whereClause = whereConditions.join(' AND ');
+    const whereClause = whereConditions.join(" AND ");
 
     // Get total count
     const countSql = `
@@ -954,7 +987,7 @@ class BusModel {
 
     return {
       rows: dataResult.rows,
-      totalCount
+      totalCount,
     };
   }
 

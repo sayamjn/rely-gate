@@ -139,7 +139,7 @@ class StaffModel {
         INTime, INTimeTxt, CreatedDate, UpdatedDate, CreatedBy, UpdatedBy
       ) VALUES (
         $1, 'Y', 'Y', $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13,
-        NOW(), TO_CHAR((NOW() AT TIME ZONE 'Asia/Kolkata'), 'DD/MM/YYYY HH12:MI AM'), NOW(), NOW(), $14, $14
+        NOW(), EXTRACT(EPOCH FROM NOW())::text, NOW(), NOW(), $14, $14
       )
       RETURNING RegVisitorHistoryID as regvisitorhistoryid, INTime as intime, INTimeTxt as intimetxt
     `;
@@ -170,7 +170,7 @@ class StaffModel {
       UPDATE VisitorRegVisitHistory 
       SET 
         OutTime = NOW(),
-        OutTimeTxt = TO_CHAR((NOW() AT TIME ZONE 'Asia/Kolkata'), 'DD/MM/YYYY HH12:MI AM'),
+        OutTimeTxt = EXTRACT(EPOCH FROM NOW())::text,
         UpdatedDate = NOW(),
         UpdatedBy = $3
       WHERE RegVisitorHistoryID = $1 
@@ -206,9 +206,17 @@ class StaffModel {
         vh.AssociatedFlat as associatedFlat,
         vh.AssociatedBlock as associatedBlock,
         vh.INTime as checkinTime,
-        vh.INTimeTxt as checkinTimeTxt,
+        CASE 
+          WHEN vh.INTime IS NOT NULL 
+          THEN EXTRACT(EPOCH FROM vh.INTime)::text
+          ELSE vh.INTimeTxt
+        END as checkinTimeTxt,
         vh.OutTime as checkoutTime,
-        vh.OutTimeTxt as checkoutTimeTxt,
+        CASE 
+          WHEN vh.OutTime IS NOT NULL 
+          THEN EXTRACT(EPOCH FROM vh.OutTime)::text
+          ELSE vh.OutTimeTxt
+        END as checkoutTimeTxt,
         vh.CreatedDate as createdDate,
         
         -- Calculate duration if checked out
@@ -249,7 +257,11 @@ class StaffModel {
         vr.AssociatedBlock as associatedBlock,
         vh.RegVisitorHistoryID as historyId,
         vh.INTime as checkinTime,
-        vh.INTimeTxt as checkinTimeTxt,
+        CASE 
+          WHEN vh.INTime IS NOT NULL 
+          THEN EXTRACT(EPOCH FROM vh.INTime)::text
+          ELSE vh.INTimeTxt
+        END as checkinTimeTxt,
         
         -- Calculate how long they've been checked in
         EXTRACT(EPOCH FROM (NOW() - vh.INTime))/3600.0 as hoursCheckedIn
@@ -593,9 +605,17 @@ class StaffModel {
         vr.StatusName,
         latest_visit.RegVisitorHistoryID,
         latest_visit.INTime as LastCheckinTime,
-        latest_visit.INTimeTxt as LastCheckinTimeTxt,
+        CASE 
+          WHEN latest_visit.INTime IS NOT NULL 
+          THEN EXTRACT(EPOCH FROM latest_visit.INTime)::text
+          ELSE latest_visit.INTimeTxt
+        END as LastCheckinTimeTxt,
         latest_visit.OutTime as LastCheckoutTime,
-        latest_visit.OutTimeTxt as LastCheckoutTimeTxt,
+        CASE 
+          WHEN latest_visit.OutTime IS NOT NULL 
+          THEN EXTRACT(EPOCH FROM latest_visit.OutTime)::text
+          ELSE latest_visit.OutTimeTxt
+        END as LastCheckoutTimeTxt,
         latest_visit.VisitPurposeID,
         latest_visit.VisitPurpose,
         latest_visit.PurposeCatID,

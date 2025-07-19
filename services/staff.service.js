@@ -467,7 +467,7 @@ console.log("result: ", result)
       FROM VisitorSubCategory
       WHERE TenantID = $1 
         AND IsActive = 'Y'
-        AND VisitorCatID = 1  -- Staff category
+        AND VisitorCatID = 3  -- Staff category
       ORDER BY VisitorSubCatName
     `;
 

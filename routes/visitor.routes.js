@@ -111,7 +111,29 @@ router.get('/registered', [
   query('visitorSubCatId').optional().isNumeric().withMessage('VisitorSubCatId must be numeric')
 ], handleValidationErrors, VisitorController.getRegisteredVisitors);
 
-// GET /api/visitors/unregistered - Get unregistered visitors flat-wise list (legacy format)
+// GET /api/visitors/unregistered/checkins - Get unregistered visitor check-in records
+router.get('/unregistered/checkins', [
+  query('subcatid').optional().isNumeric().withMessage('Subcatid must be numeric'),
+  query('from').optional().isString().withMessage('From date must be a string'),
+  query('to').optional().isString().withMessage('To date must be a string'),
+  query('flatname').optional().isString().withMessage('Flatname must be a string'),
+  query('flatid').optional().isNumeric().withMessage('Flatid must be numeric'),
+  query('page').optional().isNumeric().withMessage('Page must be numeric'),
+  query('pageSize').optional().isNumeric().withMessage('PageSize must be numeric')
+], handleValidationErrors, VisitorController.getUnregisteredCheckins);
+
+// GET /api/visitors/unregistered/checkouts - Get unregistered visitor check-out records
+router.get('/unregistered/checkouts', [
+  query('subcatid').optional().isNumeric().withMessage('Subcatid must be numeric'),
+  query('from').optional().isString().withMessage('From date must be a string'),
+  query('to').optional().isString().withMessage('To date must be a string'),
+  query('flatname').optional().isString().withMessage('Flatname must be a string'),
+  query('flatid').optional().isNumeric().withMessage('Flatid must be numeric'),
+  query('page').optional().isNumeric().withMessage('Page must be numeric'),
+  query('pageSize').optional().isNumeric().withMessage('PageSize must be numeric')
+], handleValidationErrors, VisitorController.getUnregisteredCheckouts);
+
+// GET /api/visitors/unregistered - Get all unregistered visitors (both checked in and out)
 router.get('/unregistered', [
   query('subcatid').optional().isNumeric().withMessage('Subcatid must be numeric'),
   query('from').optional().isString().withMessage('From date must be a string'),
@@ -120,7 +142,7 @@ router.get('/unregistered', [
   query('flatid').optional().isNumeric().withMessage('Flatid must be numeric'),
   query('page').optional().isNumeric().withMessage('Page must be numeric'),
   query('pageSize').optional().isNumeric().withMessage('PageSize must be numeric')
-], handleValidationErrors, VisitorController.getUnregisteredVisitorsList);
+], handleValidationErrors, VisitorController.getUnregisteredVisitors);
 
 // PUT /api/visitors/:visitorId/checkout - Checkout visitor
 router.put('/:visitorId/checkout', [

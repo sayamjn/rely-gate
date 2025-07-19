@@ -1,8 +1,8 @@
-const StudentService = require('../services/student.service');
-const StudentModel = require('../models/student.model');
-const MealService = require('../services/meal.service');
-const QRService = require('../services/qr.service');
-const FileService = require('../services/file.service');
+const StudentService = require("../services/student.service");
+const StudentModel = require("../models/student.model");
+const MealService = require("../services/meal.service");
+const QRService = require("../services/qr.service");
+const FileService = require("../services/file.service");
 const responseUtils = require("../utils/constants");
 
 class StudentController {
@@ -12,34 +12,19 @@ class StudentController {
       const {
         page = 1,
         pageSize = 20,
-        search = '',
+        search = "",
         purposeId = null,
-        studentId = '',
+        studentId = "",
         VisitorSubCatID = null,
-        firstName = '',
-        course = '',
-        hostel = '',
+        firstName = "",
+        course = "",
+        hostel = "",
         fromDate = null,
-        toDate = null
+        toDate = null,
       } = req.query;
 
       const userTenantId = req.user.tenantId;
 
-      // Convert DD/MM/YYYY or YYYY-MM-DD to full datetime range for SQL
-      function convertDate(dateStr, isEnd = false) {
-        if (!dateStr) return null;
-        // DD/MM/YYYY
-        if (/^\d{2}\/\d{2}\/\d{4}$/.test(dateStr)) {
-          const [d, m, y] = dateStr.split('/');
-          return isEnd ? `${y}-${m}-${d} 23:59:59` : `${y}-${m}-${d} 00:00:00`;
-        }
-        // YYYY-MM-DD
-        if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
-          return isEnd ? `${dateStr} 23:59:59` : `${dateStr} 00:00:00`;
-        }
-        // If already has time, return as is
-        return dateStr;
-      }
 
       const filters = {
         page: parseInt(page),
@@ -51,18 +36,22 @@ class StudentController {
         firstName,
         course,
         hostel,
-        fromDate: convertDate(fromDate, false),
-        toDate: convertDate(toDate, true)
+        fromDate,
+        toDate: toDate
       };
 
-      const result = await StudentService.getStudentsWithFilters(userTenantId, filters);
+      const result = await StudentService.getStudentsWithFilters(
+        userTenantId,
+        filters
+      );
       res.json(result);
     } catch (error) {
-      console.error('Error in listStudents:', error);
+      console.error("Error in listStudents:", error);
       res.status(500).json({
         responseCode: responseUtils.RESPONSE_CODES.ERROR,
-        responseMessage: 'Internal server error',
-        error: process.env.NODE_ENV === 'development' ? error.message : undefined
+        responseMessage: "Internal server error",
+        error:
+          process.env.NODE_ENV === "development" ? error.message : undefined,
       });
     }
   }
@@ -70,13 +59,13 @@ class StudentController {
   // GET /api/students - List students with pagination and search (kept for backward compatibility)
   static async getStudents(req, res) {
     try {
-      const { 
-        page = 1, 
-        pageSize = 20, 
-        search = '', 
-        visitorSubCatId = null
+      const {
+        page = 1,
+        pageSize = 20,
+        search = "",
+        visitorSubCatId = null,
       } = req.query;
-      
+
       const userTenantId = req.user.tenantId;
 
       const result = await StudentService.getStudents(
@@ -93,14 +82,15 @@ class StudentController {
         responseMessage: result.responseMessage,
         count: result.count,
         data: result.data,
-        pagination: result.pagination
+        pagination: result.pagination,
       });
     } catch (error) {
-      console.error('Error in getStudents:', error);
+      console.error("Error in getStudents:", error);
       res.status(500).json({
         responseCode: responseUtils.RESPONSE_CODES.ERROR,
-        responseMessage: 'Internal server error',
-        error: process.env.NODE_ENV === 'development' ? error.message : undefined
+        responseMessage: "Internal server error",
+        error:
+          process.env.NODE_ENV === "development" ? error.message : undefined,
       });
     }
   }
@@ -112,11 +102,12 @@ class StudentController {
       const result = await StudentService.getStudentSubCategories(userTenantId);
       res.json(result);
     } catch (error) {
-      console.error('Error in getStudentSubCategories:', error);
+      console.error("Error in getStudentSubCategories:", error);
       res.status(500).json({
         responseCode: responseUtils.RESPONSE_CODES.ERROR,
-        responseMessage: 'Internal server error',
-        error: process.env.NODE_ENV === 'development' ? error.message : undefined
+        responseMessage: "Internal server error",
+        error:
+          process.env.NODE_ENV === "development" ? error.message : undefined,
       });
     }
   }
@@ -125,14 +116,13 @@ class StudentController {
   static async getStudentStatus(req, res) {
     try {
       const { studentId } = req.params;
-      
-      const userTenantId = req.user.tenantId;
 
+      const userTenantId = req.user.tenantId;
 
       if (!studentId) {
         return res.status(400).json({
           responseCode: responseUtils.RESPONSE_CODES.ERROR,
-          responseMessage: 'Student ID is required'
+          responseMessage: "Student ID is required",
         });
       }
 
@@ -143,10 +133,10 @@ class StudentController {
 
       res.json(result);
     } catch (error) {
-      console.error('Error in getStudentStatus:', error);
+      console.error("Error in getStudentStatus:", error);
       res.status(500).json({
         responseCode: responseUtils.RESPONSE_CODES.ERROR,
-        responseMessage: 'Internal server error'
+        responseMessage: "Internal server error",
       });
     }
   }
@@ -159,18 +149,17 @@ class StudentController {
       const userTenantId = req.user.tenantId;
       const createdBy = req.user.username;
 
-
       if (!studentId) {
         return res.status(400).json({
           responseCode: responseUtils.RESPONSE_CODES.ERROR,
-          responseMessage: 'Student ID is required'
+          responseMessage: "Student ID is required",
         });
       }
 
-      if (purposeId === -1 && (!purposeName || purposeName.trim() === '')) {
+      if (purposeId === -1 && (!purposeName || purposeName.trim() === "")) {
         return res.status(400).json({
           responseCode: responseUtils.RESPONSE_CODES.ERROR,
-          responseMessage: 'Purpose name is required when using custom purpose'
+          responseMessage: "Purpose name is required when using custom purpose",
         });
       }
 
@@ -184,10 +173,10 @@ class StudentController {
 
       res.json(result);
     } catch (error) {
-      console.error('Error in checkoutStudent:', error);
+      console.error("Error in checkoutStudent:", error);
       res.status(500).json({
         responseCode: responseUtils.RESPONSE_CODES.ERROR,
-        responseMessage: 'Internal server error'
+        responseMessage: "Internal server error",
       });
     }
   }
@@ -199,11 +188,10 @@ class StudentController {
       const userTenantId = req.user.tenantId;
       const updatedBy = req.user.username;
 
-
       if (!studentId) {
         return res.status(400).json({
           responseCode: responseUtils.RESPONSE_CODES.ERROR,
-          responseMessage: 'Student ID is required'
+          responseMessage: "Student ID is required",
         });
       }
 
@@ -215,10 +203,10 @@ class StudentController {
 
       res.json(result);
     } catch (error) {
-      console.error('Error in checkinStudent:', error);
+      console.error("Error in checkinStudent:", error);
       res.status(500).json({
         responseCode: responseUtils.RESPONSE_CODES.ERROR,
-        responseMessage: 'Internal server error'
+        responseMessage: "Internal server error",
       });
     }
   }
@@ -230,7 +218,6 @@ class StudentController {
       const { tenantId, limit = 10 } = req.query;
       const userTenantId = req.user.tenantId;
 
-
       const result = await StudentService.getStudentHistory(
         parseInt(studentId),
         userTenantId,
@@ -239,10 +226,10 @@ class StudentController {
 
       res.json(result);
     } catch (error) {
-      console.error('Error in getStudentHistory:', error);
+      console.error("Error in getStudentHistory:", error);
       res.status(500).json({
         responseCode: responseUtils.RESPONSE_CODES.ERROR,
-        responseMessage: 'Internal server error'
+        responseMessage: "Internal server error",
       });
     }
   }
@@ -250,23 +237,23 @@ class StudentController {
   // GET /api/students/pending-checkin - Get students currently checked out (pending check-in)
   static async getPendingCheckin(req, res) {
     try {
-      
       const userTenantId = req.user.tenantId;
 
-
-      const result = await StudentService.getStudentsPendingCheckin(userTenantId);
+      const result = await StudentService.getStudentsPendingCheckin(
+        userTenantId
+      );
 
       res.json(result);
     } catch (error) {
-      console.error('Error in getPendingCheckin:', error);
+      console.error("Error in getPendingCheckin:", error);
       res.status(500).json({
         responseCode: responseUtils.RESPONSE_CODES.ERROR,
-        responseMessage: 'Internal server error'
+        responseMessage: "Internal server error",
       });
     }
   }
-// GET /api/students/export - Export students data
-    static async exportStudents(req, res) {
+  // GET /api/students/export - Export students data
+  static async exportStudents(req, res) {
     try {
       const {
         course,
@@ -274,73 +261,78 @@ class StudentController {
         status,
         fromDate,
         toDate,
-        format = 'csv',
-        tenantId
+        format = "csv",
+        tenantId,
       } = req.query;
-      
-      const userTenantId = req.user.tenantId;
 
+      const userTenantId = req.user.tenantId;
 
       const filters = {
         course,
         hostel,
         status,
         fromDate,
-        toDate
+        toDate,
       };
 
       const result = await StudentService.exportStudents(userTenantId, filters);
-      
+
       if (result.responseCode === responseUtils.RESPONSE_CODES.SUCCESS) {
-        res.setHeader('Content-Type', 'text/csv');
-        res.setHeader('Content-Disposition', `attachment; filename="students_${new Date().toISOString().split('T')[0]}.csv"`);
+        res.setHeader("Content-Type", "text/csv");
+        res.setHeader(
+          "Content-Disposition",
+          `attachment; filename="students_${
+            new Date().toISOString().split("T")[0]
+          }.csv"`
+        );
         res.send(result.csvData);
       } else {
         res.status(400).json(result);
       }
     } catch (error) {
-      console.error('Error in exportStudents:', error);
+      console.error("Error in exportStudents:", error);
       res.status(500).json({
         responseCode: responseUtils.RESPONSE_CODES.ERROR,
-        responseMessage: 'Internal server error'
+        responseMessage: "Internal server error",
       });
     }
   }
 
-    // GET /api/students/template - Download CSV template for bulk upload
+  // GET /api/students/template - Download CSV template for bulk upload
   static async downloadTemplate(req, res) {
     try {
-      const template = 'Student_ID,Name,Mobile,Course,Hostel\n';
-      
-      res.setHeader('Content-Type', 'text/csv');
-      res.setHeader('Content-Disposition', 'attachment; filename="student_template.csv"');
+      const template = "Student_ID,Name,Mobile,Course,Hostel\n";
+
+      res.setHeader("Content-Type", "text/csv");
+      res.setHeader(
+        "Content-Disposition",
+        'attachment; filename="student_template.csv"'
+      );
       res.send(template);
     } catch (error) {
-      console.error('Error in downloadTemplate:', error);
+      console.error("Error in downloadTemplate:", error);
       res.status(500).json({
         responseCode: responseUtils.RESPONSE_CODES.ERROR,
-        responseMessage: 'Internal server error'
+        responseMessage: "Internal server error",
       });
     }
   }
 
-
   // GET /api/students/pending-checkout - Get students currently checked in
-static async getPendingCheckout(req, res) {
-  try {
-    
-    const userTenantId = req.user.tenantId;
+  static async getPendingCheckout(req, res) {
+    try {
+      const userTenantId = req.user.tenantId;
 
-    const result = await StudentService.getPendingCheckout(userTenantId);
-    res.json(result);
-  } catch (error) {
-    console.error('Error in getPendingCheckout:', error);
-    res.status(500).json({
-      responseCode: responseUtils.RESPONSE_CODES.ERROR,
-      responseMessage: 'Internal server error'
-    });
+      const result = await StudentService.getPendingCheckout(userTenantId);
+      res.json(result);
+    } catch (error) {
+      console.error("Error in getPendingCheckout:", error);
+      res.status(500).json({
+        responseCode: responseUtils.RESPONSE_CODES.ERROR,
+        responseMessage: "Internal server error",
+      });
+    }
   }
-}
 
   // POST /api/students/meal-checkin - Meal check-in for students via QR code
   static async mealCheckIn(req, res) {
@@ -348,21 +340,23 @@ static async getPendingCheckout(req, res) {
       const { student_id, confirmed = false } = req.body;
       const userTenantId = req.user.tenantId;
 
-
       // Validate required fields
       if (!student_id) {
         return res.status(400).json({
           responseCode: responseUtils.RESPONSE_CODES.ERROR,
-          responseMessage: 'Student ID is required'
+          responseMessage: "Student ID is required",
         });
       }
 
       // Validate QR data structure
-      const qrValidation = MealService.validateQRData({ student_id, tenant_id });
+      const qrValidation = MealService.validateQRData({
+        student_id,
+        tenant_id,
+      });
       if (!qrValidation.valid) {
         return res.status(400).json({
           responseCode: responseUtils.RESPONSE_CODES.ERROR,
-          responseMessage: qrValidation.message
+          responseMessage: qrValidation.message,
         });
       }
 
@@ -374,15 +368,19 @@ static async getPendingCheckout(req, res) {
       );
 
       // Set appropriate HTTP status code
-      const statusCode = result.responseCode === responseUtils.RESPONSE_CODES.SUCCESS ? 200 : 400;
-      
+      const statusCode =
+        result.responseCode === responseUtils.RESPONSE_CODES.SUCCESS
+          ? 200
+          : 400;
+
       res.status(statusCode).json(result);
     } catch (error) {
-      console.error('Error in mealCheckIn:', error);
+      console.error("Error in mealCheckIn:", error);
       res.status(500).json({
         responseCode: responseUtils.RESPONSE_CODES.ERROR,
-        responseMessage: 'Internal server error',
-        error: process.env.NODE_ENV === 'development' ? error.message : undefined
+        responseMessage: "Internal server error",
+        error:
+          process.env.NODE_ENV === "development" ? error.message : undefined,
       });
     }
   }
@@ -394,11 +392,10 @@ static async getPendingCheckout(req, res) {
       const { tenantId, limit = 10 } = req.query;
       const userTenantId = req.user.tenantId;
 
-
       if (!studentId) {
         return res.status(400).json({
           responseCode: responseUtils.RESPONSE_CODES.ERROR,
-          responseMessage: 'Student ID is required'
+          responseMessage: "Student ID is required",
         });
       }
 
@@ -410,11 +407,12 @@ static async getPendingCheckout(req, res) {
 
       res.json(result);
     } catch (error) {
-      console.error('Error in getStudentMealHistory:', error);
+      console.error("Error in getStudentMealHistory:", error);
       res.status(500).json({
         responseCode: responseUtils.RESPONSE_CODES.ERROR,
-        responseMessage: 'Internal server error',
-        error: process.env.NODE_ENV === 'development' ? error.message : undefined
+        responseMessage: "Internal server error",
+        error:
+          process.env.NODE_ENV === "development" ? error.message : undefined,
       });
     }
   }
@@ -425,15 +423,18 @@ static async getPendingCheckout(req, res) {
       const { tenantId, mealType } = req.query;
       const userTenantId = req.user.tenantId;
 
-
-      const result = await MealService.getCurrentMealQueue(userTenantId, mealType);
+      const result = await MealService.getCurrentMealQueue(
+        userTenantId,
+        mealType
+      );
       res.json(result);
     } catch (error) {
-      console.error('Error in getCurrentMealQueue:', error);
+      console.error("Error in getCurrentMealQueue:", error);
       res.status(500).json({
         responseCode: responseUtils.RESPONSE_CODES.ERROR,
-        responseMessage: 'Internal server error',
-        error: process.env.NODE_ENV === 'development' ? error.message : undefined
+        responseMessage: "Internal server error",
+        error:
+          process.env.NODE_ENV === "development" ? error.message : undefined,
       });
     }
   }
@@ -444,66 +445,71 @@ static async getPendingCheckout(req, res) {
       const { tenantId, fromDate, toDate } = req.query;
       const userTenantId = req.user.tenantId;
 
-
       // Helper function to convert DD/MM/YYYY to YYYY-MM-DD
       const convertDateFormat = (dateStr) => {
         if (!dateStr) return null;
-        const [day, month, year] = dateStr.split('/');
-        return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+        const [day, month, year] = dateStr.split("/");
+        return `${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`;
       };
 
       // Default to last 7 days if no dates provided
       let startDate, endDate;
-      
+
       if (fromDate) {
         startDate = convertDateFormat(fromDate);
       } else {
-        startDate = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+        startDate = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
+          .toISOString()
+          .split("T")[0];
       }
 
       if (toDate) {
         endDate = convertDateFormat(toDate);
       } else {
-        endDate = new Date().toISOString().split('T')[0];
+        endDate = new Date().toISOString().split("T")[0];
       }
 
       // Validate converted dates
       if ((fromDate && !startDate) || (toDate && !endDate)) {
         return res.status(400).json({
           responseCode: responseUtils.RESPONSE_CODES.ERROR,
-          responseMessage: 'Invalid date format. Please use DD/MM/YYYY format'
+          responseMessage: "Invalid date format. Please use DD/MM/YYYY format",
         });
       }
 
-      const result = await MealService.getMealStatistics(userTenantId, startDate, endDate);
+      const result = await MealService.getMealStatistics(
+        userTenantId,
+        startDate,
+        endDate
+      );
       res.json(result);
     } catch (error) {
-      console.error('Error in getMealStatistics:', error);
+      console.error("Error in getMealStatistics:", error);
       res.status(500).json({
         responseCode: responseUtils.RESPONSE_CODES.ERROR,
-        responseMessage: 'Internal server error',
-        error: process.env.NODE_ENV === 'development' ? error.message : undefined
+        responseMessage: "Internal server error",
+        error:
+          process.env.NODE_ENV === "development" ? error.message : undefined,
       });
     }
   }
 
-    // GET /api/students/purposes - Get available purposes for students
+  // GET /api/students/purposes - Get available purposes for students
   static async getStudentPurposes(req, res) {
     try {
-      const { tenantId, purposeCatId = 3 } = req.query;
+      const { tenantId, purposeCatId = 2 } = req.query;
       const userTenantId = req.user.tenantId;
 
-
       const result = await StudentService.getStudentPurposes(
-        userTenantId, 
+        userTenantId,
         parseInt(purposeCatId)
       );
       res.json(result);
     } catch (error) {
-      console.error('Error in getStudentPurposes:', error);
+      console.error("Error in getStudentPurposes:", error);
       res.status(500).json({
         responseCode: responseUtils.RESPONSE_CODES.ERROR,
-        responseMessage: 'Internal server error'
+        responseMessage: "Internal server error",
       });
     }
   }
@@ -511,21 +517,19 @@ static async getPendingCheckout(req, res) {
   // GET /api/students/purpose-categories - Get purpose categories
   static async getPurposeCategories(req, res) {
     try {
-      
       const userTenantId = req.user.tenantId;
-
 
       const result = await StudentService.getPurposeCategories(userTenantId);
       res.json(result);
     } catch (error) {
-      console.error('Error in getPurposeCategories:', error);
+      console.error("Error in getPurposeCategories:", error);
       res.status(500).json({
         responseCode: responseUtils.RESPONSE_CODES.ERROR,
-        responseMessage: 'Internal server error'
+        responseMessage: "Internal server error",
       });
     }
   }
-  
+
   // POST /api/students/purposes - Add new purpose
   static async addStudentPurpose(req, res) {
     try {
@@ -544,7 +548,7 @@ static async getPendingCheckout(req, res) {
         tenantId: userTenantId,
         purposeName: purposeName.trim(),
         createdBy,
-        imageFile: req.file || null
+        imageFile: req.file || null,
       };
 
       const result = await StudentService.addStudentPurpose(purposeData);
@@ -631,32 +635,38 @@ static async getPendingCheckout(req, res) {
     try {
       const { studentId } = req.params;
       const userTenantId = req.user.tenantId;
-      const createdBy = req.user.username || 'System';
+      const createdBy = req.user.username || "System";
 
       if (!studentId) {
         return res.status(400).json({
           responseCode: responseUtils.RESPONSE_CODES.ERROR,
-          responseMessage: 'Student ID is required'
+          responseMessage: "Student ID is required",
         });
       }
 
       // Get student details to generate QR
-      const student = await StudentService.getStudentStatus(parseInt(studentId), userTenantId);
-      
+      const student = await StudentService.getStudentStatus(
+        parseInt(studentId),
+        userTenantId
+      );
+
       if (student.responseCode !== responseUtils.RESPONSE_CODES.SUCCESS) {
         return res.status(404).json({
           responseCode: responseUtils.RESPONSE_CODES.ERROR,
-          responseMessage: 'Student not found'
+          responseMessage: "Student not found",
         });
       }
 
       // Generate QR data with student information
-      const qrData = QRService.generateQRData({
-        tenantId: userTenantId,
-        visitorRegNo: student.data.studentCode, // Use VisitorRegNo as mainid
-        visitorCatId: 3, // Student category
-        SecurityCode: student.data.studentCode
-      }, 'checkin-checkout');
+      const qrData = QRService.generateQRData(
+        {
+          tenantId: userTenantId,
+          visitorRegNo: student.data.studentCode, // Use VisitorRegNo as mainid
+          visitorCatId: 3, // Student category
+          SecurityCode: student.data.studentCode,
+        },
+        "checkin-checkout"
+      );
 
       // Generate QR code image
       const qrResult = await QRService.generateQRCode(qrData);
@@ -664,7 +674,7 @@ static async getPendingCheckout(req, res) {
       if (!qrResult.success) {
         return res.status(500).json({
           responseCode: responseUtils.RESPONSE_CODES.ERROR,
-          responseMessage: 'Failed to generate QR code'
+          responseMessage: "Failed to generate QR code",
         });
       }
 
@@ -678,7 +688,7 @@ static async getPendingCheckout(req, res) {
 
       res.json({
         responseCode: responseUtils.RESPONSE_CODES.SUCCESS,
-        responseMessage: 'QR code generated successfully',
+        responseMessage: "QR code generated successfully",
         data: {
           studentId: parseInt(studentId),
           qrData: qrResult.qrData,
@@ -687,15 +697,15 @@ static async getPendingCheckout(req, res) {
           student: {
             name: student.data.studentName,
             regNo: student.data.studentCode,
-            mobile: student.data.mobile
-          }
-        }
+            mobile: student.data.mobile,
+          },
+        },
       });
     } catch (error) {
-      console.error('Error in generateStudentQR:', error);
+      console.error("Error in generateStudentQR:", error);
       res.status(500).json({
         responseCode: responseUtils.RESPONSE_CODES.ERROR,
-        responseMessage: 'Internal server error'
+        responseMessage: "Internal server error",
       });
     }
   }
@@ -708,24 +718,24 @@ static async getPendingCheckout(req, res) {
 
       // Handle both JSON string and JSON object formats
       let qrString;
-      if (typeof qrData === 'string') {
+      if (typeof qrData === "string") {
         qrString = qrData;
-      } else if (typeof qrData === 'object') {
+      } else if (typeof qrData === "object") {
         qrString = JSON.stringify(qrData);
       } else {
         return res.status(400).json({
           responseCode: responseUtils.RESPONSE_CODES.ERROR,
-          responseMessage: 'Invalid QR data format'
+          responseMessage: "Invalid QR data format",
         });
       }
 
       // Parse QR data
       const qrParseResult = QRService.parseQRData(qrString);
-      
+
       if (!qrParseResult.success) {
         return res.status(400).json({
           responseCode: responseUtils.RESPONSE_CODES.ERROR,
-          responseMessage: 'Invalid QR code format'
+          responseMessage: "Invalid QR code format",
         });
       }
 
@@ -735,51 +745,58 @@ static async getPendingCheckout(req, res) {
       if (parseInt(tenantid) !== userTenantId) {
         return res.status(403).json({
           responseCode: responseUtils.RESPONSE_CODES.ERROR,
-          responseMessage: 'Access denied for this tenant'
+          responseMessage: "Access denied for this tenant",
         });
       }
 
       // Validate student type
-      if (type !== 'stu') {
+      if (type !== "stu") {
         return res.status(400).json({
           responseCode: responseUtils.RESPONSE_CODES.ERROR,
-          responseMessage: 'QR code is not for a student'
+          responseMessage: "QR code is not for a student",
         });
       }
 
       // Get student ID from VisitorRegNo, then get status
-      const student = await StudentModel.getStudentByRegNo(mainid, userTenantId);
-      
+      const student = await StudentModel.getStudentByRegNo(
+        mainid,
+        userTenantId
+      );
+
       if (!student) {
         return res.status(404).json({
           responseCode: responseUtils.RESPONSE_CODES.ERROR,
-          responseMessage: 'Student not found'
+          responseMessage: "Student not found",
         });
       }
 
-      const statusResult = await StudentService.getStudentStatus(student.visitorregid, userTenantId);
-      
+      const statusResult = await StudentService.getStudentStatus(
+        student.visitorregid,
+        userTenantId
+      );
+
       if (statusResult.responseCode !== responseUtils.RESPONSE_CODES.SUCCESS) {
         return res.status(404).json({
           responseCode: responseUtils.RESPONSE_CODES.ERROR,
-          responseMessage: 'Student not found'
+          responseMessage: "Student not found",
         });
       }
 
       // Use the action from getStudentStatus which is already correct
-      const nextAction = statusResult.data.action === 'CHECKIN' ? 'checkin' : 'checkout';
-      
+      const nextAction =
+        statusResult.data.action === "CHECKIN" ? "checkin" : "checkout";
+
       // Determine current status for display
       let currentStatus;
-      if (statusResult.data.action === 'CHECKIN') {
-        currentStatus = 'CHECKED_OUT'; // Student is checked out, can check in
+      if (statusResult.data.action === "CHECKIN") {
+        currentStatus = "CHECKED_OUT"; // Student is checked out, can check in
       } else {
-        currentStatus = 'AVAILABLE'; // Student is available, can check out
+        currentStatus = "AVAILABLE"; // Student is available, can check out
       }
 
       res.json({
         responseCode: responseUtils.RESPONSE_CODES.SUCCESS,
-        responseMessage: 'QR scan processed successfully',
+        responseMessage: "QR scan processed successfully",
         data: {
           studentId: statusResult.data.studentId, // Use actual VisitorRegID
           tenantId: parseInt(tenantid),
@@ -791,21 +808,22 @@ static async getPendingCheckout(req, res) {
             name: statusResult.data.studentName,
             regNo: statusResult.data.studentCode,
             mobile: statusResult.data.mobile,
-            course: statusResult.data.course || 'N/A',
-            hostel: statusResult.data.hostel || 'N/A'
+            course: statusResult.data.course || "N/A",
+            hostel: statusResult.data.hostel || "N/A",
           },
-          actionPrompt: nextAction === 'checkin' 
-            ? 'Student is currently checked out. Do you want to check in?' 
-            : 'Student is currently available. Do you want to check out?',
+          actionPrompt:
+            nextAction === "checkin"
+              ? "Student is currently checked out. Do you want to check in?"
+              : "Student is currently available. Do you want to check out?",
           // Include the status message from getStudentStatus for debugging
-          statusMessage: statusResult.data.message
-        }
+          statusMessage: statusResult.data.message,
+        },
       });
     } catch (error) {
-      console.error('Error in processStudentQRScan:', error);
+      console.error("Error in processStudentQRScan:", error);
       res.status(500).json({
         responseCode: responseUtils.RESPONSE_CODES.ERROR,
-        responseMessage: 'Internal server error'
+        responseMessage: "Internal server error",
       });
     }
   }
@@ -815,13 +833,13 @@ static async getPendingCheckout(req, res) {
     try {
       const { studentId, tenantId } = req.body;
       const userTenantId = req.user.tenantId;
-      const updatedBy = req.user.username || 'System';
+      const updatedBy = req.user.username || "System";
 
       // Validate tenant access
       if (parseInt(tenantId) !== userTenantId) {
         return res.status(403).json({
           responseCode: responseUtils.RESPONSE_CODES.ERROR,
-          responseMessage: 'Access denied for this tenant'
+          responseMessage: "Access denied for this tenant",
         });
       }
 
@@ -833,10 +851,10 @@ static async getPendingCheckout(req, res) {
 
       res.json(result);
     } catch (error) {
-      console.error('Error in qrCheckinStudent:', error);
+      console.error("Error in qrCheckinStudent:", error);
       res.status(500).json({
         responseCode: responseUtils.RESPONSE_CODES.ERROR,
-        responseMessage: 'Internal server error'
+        responseMessage: "Internal server error",
       });
     }
   }
@@ -846,13 +864,13 @@ static async getPendingCheckout(req, res) {
     try {
       const { studentId, tenantId, purposeId, purposeName } = req.body;
       const userTenantId = req.user.tenantId;
-      const createdBy = req.user.username || 'System';
+      const createdBy = req.user.username || "System";
 
       // Validate tenant access
       if (parseInt(tenantId) !== userTenantId) {
         return res.status(403).json({
           responseCode: responseUtils.RESPONSE_CODES.ERROR,
-          responseMessage: 'Access denied for this tenant'
+          responseMessage: "Access denied for this tenant",
         });
       }
 
@@ -866,10 +884,10 @@ static async getPendingCheckout(req, res) {
 
       res.json(result);
     } catch (error) {
-      console.error('Error in qrCheckoutStudent:', error);
+      console.error("Error in qrCheckoutStudent:", error);
       res.status(500).json({
         responseCode: responseUtils.RESPONSE_CODES.ERROR,
-        responseMessage: 'Internal server error'
+        responseMessage: "Internal server error",
       });
     }
   }
@@ -884,7 +902,7 @@ static async getPendingCheckout(req, res) {
       if (!id) {
         return res.status(400).json({
           responseCode: responseUtils.RESPONSE_CODES.ERROR,
-          responseMessage: 'Student ID is required'
+          responseMessage: "Student ID is required",
         });
       }
 
@@ -900,10 +918,10 @@ static async getPendingCheckout(req, res) {
 
       res.json(result);
     } catch (error) {
-      console.error('Error in deleteStudent:', error);
+      console.error("Error in deleteStudent:", error);
       res.status(500).json({
         responseCode: responseUtils.RESPONSE_CODES.ERROR,
-        responseMessage: 'Internal server error'
+        responseMessage: "Internal server error",
       });
     }
   }

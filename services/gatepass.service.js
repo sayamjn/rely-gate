@@ -291,6 +291,11 @@ class GatepassService {
   // 9. GET GATEPASS PURPOSES
   static async getGatepassPurposes(tenantId) {
     try {
+      // Validate tenantId
+      if (!tenantId) {
+        return ResponseFormatter.error("Tenant ID is required");
+      }
+      
       const purposes = await GatePassModel.getGatePassPurposes(tenantId);
 
       return ResponseFormatter.success(

@@ -36,8 +36,8 @@ class BusService {
           return {
             ...busData,
             lastPurpose: {
-              purposeId: busData.lastvisitpurposeid,
-              purposeName: busData.lastvisitpurpose,
+              purposeId: busData.visitpurposeid,
+              purposeName: busData.visitpurpose,
               purposeCatId: busData.lastpurposecatid,
               purposeCatName: busData.lastpurposecatname
             },
@@ -271,11 +271,7 @@ class BusService {
           busNumber: bus.busnumber || 'N/A',
           registrationNumber: bus.registrationnumber || 'N/A',
           driverName: bus.drivername || 'N/A',
-          checkOutTime: new Date().toLocaleTimeString('en-IN', { 
-            hour: '2-digit', 
-            minute: '2-digit', 
-            hour12: true 
-          }),
+          checkOutTime: Math.floor(Date.now() / 1000),
           purpose: {
             purposeId: finalPurposeId,
             purposeName: finalPurposeName,
@@ -327,11 +323,7 @@ class BusService {
           responseMessage: 'Bus checked in successfully',
           data: {
             historyId: result.regvisitorhistoryid,
-            checkInTime: new Date().toLocaleTimeString('en-IN', { 
-              hour: '2-digit', 
-              minute: '2-digit', 
-              hour12: true 
-            }),
+            checkInTime: Math.floor(Date.now() / 1000),
             purpose: {
               purposeId: activeVisit.visitpurposeid,
               purposeName: activeVisit.visitpurpose,

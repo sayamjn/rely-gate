@@ -212,11 +212,19 @@ router.get(
   GatepassController.getPendingCheckout
 );
 
-// GET /api/gatepass/purposes - Get available purposes
+// GET /api/gatepass/purposes - Get available purposes via user tenant
 router.get(
   "/purposes",
   [],
+  authenticateToken,
   handleValidationErrors,
+  GatepassController.getGatepassPurposes
+);
+
+// GET /api/gatepass/purposes/:tenantId - Get available purposes via query tenant
+router.get(
+  "/purposes/:tenantId",
+  [],
   GatepassController.getGatepassPurposes
 );
 

@@ -79,7 +79,6 @@ class VisitorService {
         }
       }
 
-
       const otpResult = await MessagingService.sendVisitorOTP(
         mobile,
         tenantId,
@@ -126,7 +125,11 @@ class VisitorService {
         };
       }
 
-     const otpResult = await MessagingService.generateAndSendOTP(tenantId, mobile, appuser);
+      const otpResult = await MessagingService.generateAndSendOTP(
+        tenantId,
+        mobile,
+        appuser
+      );
 
       const recentVisitors = await VisitorModel.getRecentVisitorByMobile(
         tenantId,
@@ -159,7 +162,11 @@ class VisitorService {
   // Verify OTP
   static async verifyOTP(refId, otpNumber, mobile) {
     try {
-      const verification = await MessagingService.verifyOTP(refId, otpNumber, mobile);
+      const verification = await MessagingService.verifyOTP(
+        refId,
+        otpNumber,
+        mobile
+      );
 
       if (verification.verified) {
         return {
@@ -1179,14 +1186,14 @@ class VisitorService {
       if (!purposeName || purposeName.trim() === "") {
         return {
           responseCode: responseUtils.RESPONSE_CODES.ERROR,
-          responseMessage: "Purpose name is required"
+          responseMessage: "Purpose name is required",
         };
       }
 
       if (purposeName.length > 250) {
         return {
           responseCode: responseUtils.RESPONSE_CODES.ERROR,
-          responseMessage: "Purpose name too long (max 250 characters)"
+          responseMessage: "Purpose name too long (max 250 characters)",
         };
       }
 
@@ -1197,19 +1204,21 @@ class VisitorService {
       if (exists) {
         return {
           responseCode: responseUtils.RESPONSE_CODES.ERROR,
-          responseMessage: "Purpose already exists for this tenant"
+          responseMessage: "Purpose already exists for this tenant",
         };
       }
 
       // Handle image upload if provided
       let imageData = null;
       if (imageFile) {
-        const baseUrl = process.env.BASE_URL || `http://localhost:${process.env.PORT || 3000}`;
+        const baseUrl =
+          process.env.BASE_URL ||
+          `http://localhost:${process.env.PORT || 3000}`;
         imageData = {
-          flag: 'Y',
+          flag: "Y",
           path: `purposes/${imageFile.filename}`,
           name: imageFile.filename,
-          url: `${baseUrl}/uploads/purposes/${imageFile.filename}`
+          url: `${baseUrl}/uploads/purposes/${imageFile.filename}`,
         };
       }
 
@@ -1217,20 +1226,21 @@ class VisitorService {
         tenantId,
         purposeName: purposeName.trim(),
         createdBy,
-        imageData
+        imageData,
       });
 
       return {
         responseCode: responseUtils.RESPONSE_CODES.SUCCESS,
         responseMessage: "Purpose added successfully",
-        data: newPurpose
+        data: newPurpose,
       };
     } catch (error) {
       console.error("Error in addVisitorPurpose service:", error);
       return {
         responseCode: responseUtils.RESPONSE_CODES.ERROR,
         responseMessage: responseUtils.RESPONSE_MESSAGES.ERROR,
-        error: process.env.NODE_ENV === "development" ? error.message : undefined,
+        error:
+          process.env.NODE_ENV === "development" ? error.message : undefined,
       };
     }
   }
@@ -1246,14 +1256,14 @@ class VisitorService {
       if (!purposeName || purposeName.trim() === "") {
         return {
           responseCode: responseUtils.RESPONSE_CODES.ERROR,
-          responseMessage: "Purpose name is required"
+          responseMessage: "Purpose name is required",
         };
       }
 
       if (purposeName.length > 250) {
         return {
           responseCode: responseUtils.RESPONSE_CODES.ERROR,
-          responseMessage: "Purpose name too long (max 250 characters)"
+          responseMessage: "Purpose name too long (max 250 characters)",
         };
       }
 
@@ -1264,7 +1274,7 @@ class VisitorService {
       if (exists) {
         return {
           responseCode: responseUtils.RESPONSE_CODES.ERROR,
-          responseMessage: "Purpose name already exists"
+          responseMessage: "Purpose name already exists",
         };
       }
 
@@ -1278,21 +1288,22 @@ class VisitorService {
       if (!updatedPurpose) {
         return {
           responseCode: responseUtils.RESPONSE_CODES.ERROR,
-          responseMessage: "Purpose not found or access denied"
+          responseMessage: "Purpose not found or access denied",
         };
       }
 
       return {
         responseCode: responseUtils.RESPONSE_CODES.SUCCESS,
         responseMessage: "Purpose updated successfully",
-        data: updatedPurpose
+        data: updatedPurpose,
       };
     } catch (error) {
       console.error("Error in updateVisitorPurpose service:", error);
       return {
         responseCode: responseUtils.RESPONSE_CODES.ERROR,
         responseMessage: responseUtils.RESPONSE_MESSAGES.ERROR,
-        error: process.env.NODE_ENV === "development" ? error.message : undefined,
+        error:
+          process.env.NODE_ENV === "development" ? error.message : undefined,
       };
     }
   }
@@ -1300,19 +1311,22 @@ class VisitorService {
   // Delete purpose
   static async deleteVisitorPurpose(purposeId, tenantId, updatedBy) {
     try {
-      const purpose = await VisitorModel.checkPurposeStatus(purposeId, tenantId);
+      const purpose = await VisitorModel.checkPurposeStatus(
+        purposeId,
+        tenantId
+      );
 
       if (!purpose) {
         return {
           responseCode: responseUtils.RESPONSE_CODES.ERROR,
-          responseMessage: "Purpose not found or access denied"
+          responseMessage: "Purpose not found or access denied",
         };
       }
 
       if (purpose.isactive === "N" || purpose.IsActive === "N") {
         return {
           responseCode: responseUtils.RESPONSE_CODES.ERROR,
-          responseMessage: "Purpose is already deleted"
+          responseMessage: "Purpose is already deleted",
         };
       }
 
@@ -1325,27 +1339,36 @@ class VisitorService {
       if (!deletedPurpose) {
         return {
           responseCode: responseUtils.RESPONSE_CODES.ERROR,
-          responseMessage: "Failed to delete purpose"
+          responseMessage: "Failed to delete purpose",
         };
       }
 
       return {
         responseCode: responseUtils.RESPONSE_CODES.SUCCESS,
         responseMessage: "Purpose deleted successfully",
-        data: { purposeId: deletedPurpose.purposeId }
+        data: { purposeId: deletedPurpose.purposeId },
       };
     } catch (error) {
       console.error("Error in deleteVisitorPurpose service:", error);
       return {
         responseCode: responseUtils.RESPONSE_CODES.ERROR,
         responseMessage: responseUtils.RESPONSE_MESSAGES.ERROR,
-        error: process.env.NODE_ENV === "development" ? error.message : undefined,
+        error:
+          process.env.NODE_ENV === "development" ? error.message : undefined,
       };
     }
   }
 
   // getVisitors method - refactored to use model layer
-  static async getVisitors(tenantId, page = 1, pageSize = 20, search = "", visitorSubCatId = 0, fromDate = null, toDate = null) {
+  static async getVisitors(
+    tenantId,
+    page = 1,
+    pageSize = 20,
+    search = "",
+    visitorSubCatId = 0,
+    fromDate = null,
+    toDate = null
+  ) {
     try {
       // Call the model method instead of having SQL queries in service
       const result = await VisitorModel.getVisitors(
@@ -1384,20 +1407,64 @@ class VisitorService {
   // Get unregistered visitors list (legacy format)
   static async getUnregisteredVisitorsList(tenantId, filters) {
     try {
-      const visitorData = await VisitorModel.getUnregisteredVisitorsList(tenantId, filters);
-      
+      const visitorData = await VisitorModel.getUnregisteredVisitorsList(
+        tenantId,
+        filters
+      );
+
       return {
         responseCode: responseUtils.RESPONSE_CODES.SUCCESS,
         count: visitorData.length,
         unregvisitorlist: visitorData,
-        responseMessage: "Record(s) saved successfully"
+        responseMessage: "Record(s) saved successfully",
       };
     } catch (error) {
       console.error("Error fetching unregistered visitors list:", error);
       return {
         responseCode: responseUtils.RESPONSE_CODES.ERROR,
         responseMessage: responseUtils.RESPONSE_MESSAGES.ERROR,
-        error: process.env.NODE_ENV === "development" ? error.message : undefined,
+        error:
+          process.env.NODE_ENV === "development" ? error.message : undefined,
+      };
+    }
+  }
+
+  // Get unregistered visitors by status (checked_in, checked_out, all)
+  static async getUnregisteredVisitorsByStatus(tenantId, filters) {
+    try {
+      const visitorData = await VisitorModel.getUnregisteredVisitorsByStatus(
+        tenantId,
+        filters
+      );
+
+      const totalCount = visitorData.length > 0 ? parseInt(visitorData[0].total_count) : 0;
+      const currentPage = parseInt(filters.page) || 1;
+      const pageSize = parseInt(filters.pageSize) || 50;
+      const totalPages = Math.ceil(totalCount / pageSize);
+
+      return {
+        responseCode: responseUtils.RESPONSE_CODES.SUCCESS,
+        data: visitorData.map(visitor => {
+          const { total_count, ...visitorDetails } = visitor;
+          return visitorDetails;
+        }),
+        pagination: {
+          currentPage,
+          pageSize,
+          totalCount,
+          totalPages,
+          hasNext: currentPage < totalPages,
+          hasPrev: currentPage > 1,
+        },
+        responseMessage: "Records retrieved successfully",
+      };
+    } catch (error) {
+      console.error("Error fetching unregistered visitors by status:", error);
+      return {
+        responseCode: responseUtils.RESPONSE_CODES.ERROR,
+        responseMessage: responseUtils.RESPONSE_MESSAGES.ERROR,
+        error:
+          process.env.NODE_ENV === "development" ? error.message : undefined,
       };
     }
   }

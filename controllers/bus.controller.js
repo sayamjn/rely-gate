@@ -335,7 +335,7 @@ static async getPendingCheckout(req, res) {
     // GET /api/buses/purposes - Get available purposes for buses
   static async getBusPurposes(req, res) {
     try {
-      const { tenantId, purposeCatId = 2 } = req.query; // Bus category = 2
+      const { tenantId, purposeCatId = 3 } = req.query; // Bus category = 2
       const userTenantId = req.user.tenantId;
 
 

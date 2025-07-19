@@ -6,7 +6,6 @@ const FileService = require("../services/file.service");
 const responseUtils = require("../utils/constants");
 
 class VisitorController {
-
   // GET /api/visitors/subcategories
   static async getVisitorSubCategories(req, res) {
     try {
@@ -134,7 +133,7 @@ class VisitorController {
         visitorSubCatName,
         visitPurposeId,
         visitPurpose,
-        totalVisitor
+        totalVisitor,
       } = req.body;
 
       const userTenantId = req.user.tenantId;
@@ -180,7 +179,9 @@ class VisitorController {
         createdBy,
       };
 
-      const result = await VisitorService.createUnregisteredVisitor(visitorData);
+      const result = await VisitorService.createUnregisteredVisitor(
+        visitorData
+      );
 
       res.json(result);
     } catch (error) {
@@ -285,12 +286,12 @@ class VisitorController {
     try {
       const {
         subcatid = 0,
-        from = '',
-        to = '',
-        flatname = '',
+        from = "",
+        to = "",
+        flatname = "",
         flatid = 0,
         page = 1,
-        pageSize = 50
+        pageSize = 50,
       } = req.query;
 
       const userTenantId = req.user.tenantId;
@@ -302,10 +303,13 @@ class VisitorController {
         flatname,
         flatid: parseInt(flatid),
         page: parseInt(page),
-        pageSize: parseInt(pageSize)
+        pageSize: parseInt(pageSize),
       };
 
-      const result = await VisitorService.getUnregisteredVisitorsList(userTenantId, filters);
+      const result = await VisitorService.getUnregisteredVisitorsList(
+        userTenantId,
+        filters
+      );
 
       res.json(result);
     } catch (error) {
@@ -706,9 +710,7 @@ class VisitorController {
         res.setHeader("Content-Type", "text/csv");
         res.setHeader(
           "Content-Disposition",
-          `attachment; filename="visitors_${
-            Math.floor(Date.now() / 1000)
-          }.csv"`
+          `attachment; filename="visitors_${Math.floor(Date.now() / 1000)}.csv"`
         );
         res.send(result.csvData);
       } else {
@@ -763,7 +765,7 @@ class VisitorController {
         search = "",
         visitorSubCatId = 0,
         fromDate = null,
-        toDate = null
+        toDate = null,
       } = req.query;
 
       const userTenantId = req.user.tenantId;
@@ -790,10 +792,133 @@ class VisitorController {
     }
   }
 
+  // GET /api/visitors/unregistered/checkins
+  static async getUnregisteredCheckins(req, res) {
+    try {
+      const {
+        subcatid = 0,
+        from = "",
+        to = "",
+        flatname = "",
+        flatid = 0,
+        page = 1,
+        pageSize = 50,
+      } = req.query;
+
+      const userTenantId = req.user.tenantId;
+
+      const filters = {
+        subcatid: parseInt(subcatid),
+        from,
+        to,
+        flatname,
+        flatid: parseInt(flatid),
+        page: parseInt(page),
+        pageSize: parseInt(pageSize),
+        status: "checked_in",
+      };
+
+      const result = await VisitorService.getUnregisteredVisitorsByStatus(
+        userTenantId,
+        filters
+      );
+      console.log("result checkins: ", result);
+      res.json(result);
+    } catch (error) {
+      console.error("Error in getUnregisteredCheckins:", error);
+      res.status(500).json({
+        responseCode: "E",
+        responseMessage: "Internal server error",
+      });
+    }
+  }
+
+  // GET /api/visitors/unregistered/checkouts
+  static async getUnregisteredCheckouts(req, res) {
+    try {
+      const {
+        subcatid = 0,
+        from = "",
+        to = "",
+        flatname = "",
+        flatid = 0,
+        page = 1,
+        pageSize = 50,
+      } = req.query;
+
+      const userTenantId = req.user.tenantId;
+
+      const filters = {
+        subcatid: parseInt(subcatid),
+        from,
+        to,
+        flatname,
+        flatid: parseInt(flatid),
+        page: parseInt(page),
+        pageSize: parseInt(pageSize),
+        status: "checked_out",
+      };
+
+      const result = await VisitorService.getUnregisteredVisitorsByStatus(
+        userTenantId,
+        filters
+      );
+console.log("result checkouts: ", result)
+      res.json(result);
+    } catch (error) {
+      console.error("Error in getUnregisteredCheckouts:", error);
+      res.status(500).json({
+        responseCode: "E",
+        responseMessage: "Internal server error",
+      });
+    }
+  }
+
+  // GET /api/visitors/unregistered
+  static async getUnregisteredVisitors(req, res) {
+    try {
+      const {
+        subcatid = 0,
+        from = "",
+        to = "",
+        flatname = "",
+        flatid = 0,
+        page = 1,
+        pageSize = 50,
+      } = req.query;
+
+      const userTenantId = req.user.tenantId;
+
+      const filters = {
+        subcatid: parseInt(subcatid),
+        from,
+        to,
+        flatname,
+        flatid: parseInt(flatid),
+        page: parseInt(page),
+        pageSize: parseInt(pageSize),
+        status: "all",
+      };
+
+      const result = await VisitorService.getUnregisteredVisitorsByStatus(
+        userTenantId,
+        filters
+      );
+
+      res.json(result);
+    } catch (error) {
+      console.error("Error in getUnregisteredVisitors:", error);
+      res.status(500).json({
+        responseCode: "E",
+        responseMessage: "Internal server error",
+      });
+    }
+  }
+
   // GET /api/visitors/purposes
   static async getVisitorPurposes(req, res) {
     try {
-      const { purposeCatId = 0 } = req.query;
+      const { purposeCatId = 1 } = req.query;
       const userTenantId = req.user.tenantId;
 
       const result = await VisitorService.getVisitorPurposes(
@@ -829,7 +954,7 @@ class VisitorController {
         tenantId: userTenantId,
         purposeName: purposeName.trim(),
         createdBy,
-        imageFile: req.file || null
+        imageFile: req.file || null,
       };
 
       const result = await VisitorService.addVisitorPurpose(purposeData);

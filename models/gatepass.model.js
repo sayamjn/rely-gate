@@ -26,7 +26,7 @@ class GatePassModel {
         Fname, Mobile, TotalVisitor, VisitDate, VisitDateTxt, OTPVerifiedDate,
         Remark, CreatedDate, UpdatedDate, CreatedBy, UpdatedBy
       ) VALUES (
-        $1, 'Y', $2, $3, 6, 'Gate Pass', 0, NULL, $4, $5, $6, $7, 1, $8, $9, NOW(),
+        $1, 'Y', $2, $3, 6, 'Gate Pass', 1, 'Student Pass', $4, $5, $6, $7, 1, $8, $9, NOW(),
         $10, NOW(), NOW(), $11, $12
       ) RETURNING VisitorID
     `;
@@ -492,7 +492,13 @@ class GatePassModel {
 
   // Add new purpose for gate pass
   static async addGatePassPurpose(purposeData) {
-        const { tenantId, purposeName, createdBy, imageData } = purposeData;
+    const { tenantId, purposeName, createdBy, imageData } = purposeData;
+    
+    // Ensure tenantId is provided and valid
+    if (!tenantId) {
+      throw new Error("TenantID is required for adding a gate pass purpose");
+    }
+    
     const sql = `
       INSERT INTO VisitorPuposeMaster (
         TenantID, 
@@ -502,11 +508,13 @@ class GatePassModel {
         IsActive,
         CreatedBy,
         CreatedDate,
+        UpdatedDate,
+        UpdatedBy,
         ImageFlag,
         ImagePath,
         ImageName,
         ImageUrl
-      ) VALUES ($1, $2, $3, $4, $5, $6, NOW(), $7, $8, $9, $10)
+      ) VALUES ($1, $2, $3, $4, $5, $6, NOW(), NOW(), $7, $8, $9, $10, $11)
       RETURNING 
         VisitPurposeID as "purposeId",
         VisitPurpose as "purposeName",
@@ -525,6 +533,7 @@ class GatePassModel {
       purposeName,
       'Y',
       createdBy,
+      createdBy, // UpdatedBy same as CreatedBy
       imageData ? imageData.flag : 'N',
       imageData ? imageData.path : null,
       imageData ? imageData.name : null,
