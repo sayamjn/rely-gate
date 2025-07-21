@@ -141,7 +141,7 @@ const AnalyticsModel = {
     };
 
     const startDate = convertDate(fromDate);
-    const endDate = convertDate(toDate) + ' 23:59:59';
+    const endDate = convertDate(toDate);
 
     const sql = `
       WITH DateSeries AS (
@@ -151,46 +151,76 @@ const AnalyticsModel = {
           '1 day'::interval
         )::date as visit_date
       ),
-      DailyStats AS (
+      UnregisteredStats AS (
         SELECT 
-          DATE(VisitDate) as visit_date,
-          -- Student counts (Category = Student, PurposeCatID = 3)
+          DATE(InTime) as visit_date,
           COUNT(CASE WHEN VisitorCatName = 'Student' AND InTime IS NOT NULL THEN 1 END) as StudentIN,
           COUNT(CASE WHEN VisitorCatName = 'Student' AND OutTime IS NOT NULL THEN 1 END) as StudentOUT,
-          -- Bus counts (Category = Bus, PurposeCatID = 2)  
           COUNT(CASE WHEN VisitorCatName = 'Bus' AND InTime IS NOT NULL THEN 1 END) as BusIN,
           COUNT(CASE WHEN VisitorCatName = 'Bus' AND OutTime IS NOT NULL THEN 1 END) as BusOUT,
-          -- Visitor counts (Category = Visitor, PurposeCatID = 1)
           COUNT(CASE WHEN VisitorCatName = 'Visitor' AND InTime IS NOT NULL THEN 1 END) as VisitorsIN,
           COUNT(CASE WHEN VisitorCatName = 'Visitor' AND OutTime IS NOT NULL THEN 1 END) as VisitorsOUT,
-          -- Staff counts (Category = Staff, PurposeCatID = 4)
           COUNT(CASE WHEN VisitorCatName = 'Staff' AND InTime IS NOT NULL THEN 1 END) as StaffIN,
           COUNT(CASE WHEN VisitorCatName = 'Staff' AND OutTime IS NOT NULL THEN 1 END) as StaffOUT
         FROM VisitorMaster
         WHERE TenantID = $1 
           AND IsActive = 'Y'
-          AND VisitDate >= $2
-          AND VisitDate <= $4
-        GROUP BY DATE(VisitDate)
+          AND (
+            (InTime IS NOT NULL AND DATE(InTime) BETWEEN $2 AND $3) OR
+            (OutTime IS NOT NULL AND DATE(OutTime) BETWEEN $2 AND $3)
+          )
+        GROUP BY DATE(InTime)
+      ),
+      RegisteredStats AS (
+        SELECT 
+          DATE(INTime) as visit_date,
+          COUNT(CASE WHEN VisitorCatName = 'Student' AND INTime IS NOT NULL THEN 1 END) as StudentIN,
+          COUNT(CASE WHEN VisitorCatName = 'Student' AND OutTime IS NOT NULL THEN 1 END) as StudentOUT,
+          COUNT(CASE WHEN VisitorCatName = 'Bus' AND INTime IS NOT NULL THEN 1 END) as BusIN,
+          COUNT(CASE WHEN VisitorCatName = 'Bus' AND OutTime IS NOT NULL THEN 1 END) as BusOUT,
+          COUNT(CASE WHEN VisitorCatName = 'Visitor' AND INTime IS NOT NULL THEN 1 END) as VisitorsIN,
+          COUNT(CASE WHEN VisitorCatName = 'Visitor' AND OutTime IS NOT NULL THEN 1 END) as VisitorsOUT,
+          COUNT(CASE WHEN VisitorCatName = 'Staff' AND INTime IS NOT NULL THEN 1 END) as StaffIN,
+          COUNT(CASE WHEN VisitorCatName = 'Staff' AND OutTime IS NOT NULL THEN 1 END) as StaffOUT
+        FROM VisitorRegVisitHistory
+        WHERE TenantID = $1 
+          AND IsActive = 'Y'
+          AND (
+            (INTime IS NOT NULL AND DATE(INTime) BETWEEN $2 AND $3) OR
+            (OutTime IS NOT NULL AND DATE(OutTime) BETWEEN $2 AND $3)
+          )
+        GROUP BY DATE(INTime)
+      ),
+      CombinedStats AS (
+        SELECT 
+          ds.visit_date,
+          (COALESCE(us.StudentIN, 0) + COALESCE(rs.StudentIN, 0)) as StudentIN,
+          (COALESCE(us.StudentOUT, 0) + COALESCE(rs.StudentOUT, 0)) as StudentOUT,
+          (COALESCE(us.BusIN, 0) + COALESCE(rs.BusIN, 0)) as BusIN,
+          (COALESCE(us.BusOUT, 0) + COALESCE(rs.BusOUT, 0)) as BusOUT,
+          (COALESCE(us.VisitorsIN, 0) + COALESCE(rs.VisitorsIN, 0)) as VisitorsIN,
+          (COALESCE(us.VisitorsOUT, 0) + COALESCE(rs.VisitorsOUT, 0)) as VisitorsOUT,
+          (COALESCE(us.StaffIN, 0) + COALESCE(rs.StaffIN, 0)) as StaffIN,
+          (COALESCE(us.StaffOUT, 0) + COALESCE(rs.StaffOUT, 0)) as StaffOUT
+        FROM DateSeries ds
+        LEFT JOIN UnregisteredStats us ON ds.visit_date = us.visit_date
+        LEFT JOIN RegisteredStats rs ON ds.visit_date = rs.visit_date
+        ORDER BY ds.visit_date
       )
       SELECT 
-        TO_CHAR(ds.visit_date, 'DD/MM/YYYY') as "VisitDate",
-        COALESCE(st.StudentIN, 0) as "StudentIN",
-        COALESCE(st.StudentOUT, 0) as "StudentOUT", 
-        COALESCE(st.BusIN, 0) as "BusIN",
-        COALESCE(st.BusOUT, 0) as "BusOUT",
-        COALESCE(st.VisitorsIN, 0) as "VisitorsIN",
-        COALESCE(st.VisitorsOUT, 0) as "VisitorsOUT",
-        COALESCE(st.StaffIN, 0) as "StaffIN",
-        COALESCE(st.StaffOUT, 0) as "StaffOUT"
-      FROM DateSeries ds
-      LEFT JOIN DailyStats st ON ds.visit_date = st.visit_date
-      WHERE (st.StudentIN > 0 OR st.StudentOUT > 0 OR st.BusIN > 0 OR st.BusOUT > 0 
-        OR st.VisitorsIN > 0 OR st.VisitorsOUT > 0 OR st.StaffIN > 0 OR st.StaffOUT > 0)
-      ORDER BY ds.visit_date
+        TO_CHAR(visit_date, 'DD/MM/YYYY') as "VisitDate",
+        StudentIN as "StudentIN",
+        StudentOUT as "StudentOUT", 
+        BusIN as "BusIN",
+        BusOUT as "BusOUT",
+        VisitorsIN as "VisitorsIN",
+        VisitorsOUT as "VisitorsOUT",
+        StaffIN as "StaffIN",
+        StaffOUT as "StaffOUT"
+      FROM CombinedStats
     `;
 
-    const result = await query(sql, [tenantId, startDate, startDate, endDate]);
+    const result = await query(sql, [tenantId, startDate, endDate]);
     return result.rows;
   },
 
@@ -203,23 +233,49 @@ const AnalyticsModel = {
     };
 
     const startDate = convertDate(fromDate);
-    const endDate = convertDate(toDate) + ' 23:59:59';
+    const endDate = convertDate(toDate);
 
     const sql = `
+      WITH UnregisteredVisitors AS (
+        SELECT 
+          VisitorSubCatName,
+          COUNT(CASE WHEN InTime IS NOT NULL THEN 1 END) as VisitorIN,
+          COUNT(CASE WHEN OutTime IS NOT NULL THEN 1 END) as VisitorOUT
+        FROM VisitorMaster
+        WHERE TenantID = $1 
+          AND IsActive = 'Y'
+          AND VisitorCatName = 'Visitor'
+          AND (
+            (InTime IS NOT NULL AND DATE(InTime) BETWEEN $2 AND $3) OR
+            (OutTime IS NOT NULL AND DATE(OutTime) BETWEEN $2 AND $3)
+          )
+          AND VisitorSubCatName IS NOT NULL
+        GROUP BY VisitorSubCatName
+      ),
+      RegisteredVisitors AS (
+        SELECT 
+          VisitorSubCatName,
+          COUNT(CASE WHEN INTime IS NOT NULL THEN 1 END) as VisitorIN,
+          COUNT(CASE WHEN OutTime IS NOT NULL THEN 1 END) as VisitorOUT
+        FROM VisitorRegVisitHistory
+        WHERE TenantID = $1 
+          AND IsActive = 'Y'
+          AND VisitorCatName = 'Visitor'
+          AND (
+            (INTime IS NOT NULL AND DATE(INTime) BETWEEN $2 AND $3) OR
+            (OutTime IS NOT NULL AND DATE(OutTime) BETWEEN $2 AND $3)
+          )
+          AND VisitorSubCatName IS NOT NULL
+        GROUP BY VisitorSubCatName
+      )
       SELECT 
-        VisitorSubCatName,
-        COUNT(CASE WHEN InTime IS NOT NULL THEN 1 END) as "VisitorIN",
-        COUNT(CASE WHEN OutTime IS NOT NULL THEN 1 END) as "VisitorOUT"
-      FROM VisitorMaster
-      WHERE TenantID = $1 
-        AND IsActive = 'Y'
-        AND VisitorCatName = 'Visitor'
-        AND VisitDate >= $2
-        AND VisitDate <= $3
-        AND VisitorSubCatName IS NOT NULL
-      GROUP BY VisitorSubCatName
-      HAVING COUNT(CASE WHEN InTime IS NOT NULL THEN 1 END) > 0 
-        OR COUNT(CASE WHEN OutTime IS NOT NULL THEN 1 END) > 0
+        COALESCE(uv.VisitorSubCatName, rv.VisitorSubCatName) as VisitorSubCatName,
+        (COALESCE(uv.VisitorIN, 0) + COALESCE(rv.VisitorIN, 0)) as "VisitorIN",
+        (COALESCE(uv.VisitorOUT, 0) + COALESCE(rv.VisitorOUT, 0)) as "VisitorOUT"
+      FROM UnregisteredVisitors uv
+      FULL OUTER JOIN RegisteredVisitors rv ON uv.VisitorSubCatName = rv.VisitorSubCatName
+      WHERE (COALESCE(uv.VisitorIN, 0) + COALESCE(rv.VisitorIN, 0)) > 0 
+        OR (COALESCE(uv.VisitorOUT, 0) + COALESCE(rv.VisitorOUT, 0)) > 0
       ORDER BY "VisitorIN" DESC, "VisitorOUT" DESC
     `;
 
@@ -236,29 +292,61 @@ const AnalyticsModel = {
     };
 
     const startDate = convertDate(fromDate);
-    const endDate = convertDate(toDate) + ' 23:59:59';
+    const endDate = convertDate(toDate);
 
     const sql = `
+      WITH UnregisteredPurposes AS (
+        SELECT 
+          CASE 
+            WHEN VisitPurposeID = -1 OR VisitPurpose IS NULL THEN 'Other'
+            ELSE VisitPurpose
+          END as GroupLabel,
+          COUNT(CASE WHEN InTime IS NOT NULL THEN 1 END) as VisitorIN,
+          COUNT(CASE WHEN OutTime IS NOT NULL THEN 1 END) as VisitorOUT
+        FROM VisitorMaster
+        WHERE TenantID = $1 
+          AND IsActive = 'Y'
+          AND VisitorSubCatID = $4
+          AND (
+            (InTime IS NOT NULL AND DATE(InTime) BETWEEN $2 AND $3) OR
+            (OutTime IS NOT NULL AND DATE(OutTime) BETWEEN $2 AND $3)
+          )
+        GROUP BY 
+          CASE 
+            WHEN VisitPurposeID = -1 OR VisitPurpose IS NULL THEN 'Other'
+            ELSE VisitPurpose
+          END
+      ),
+      RegisteredPurposes AS (
+        SELECT 
+          CASE 
+            WHEN VisitPurposeID = -1 OR VisitPurpose IS NULL THEN 'Other'
+            ELSE VisitPurpose
+          END as GroupLabel,
+          COUNT(CASE WHEN INTime IS NOT NULL THEN 1 END) as VisitorIN,
+          COUNT(CASE WHEN OutTime IS NOT NULL THEN 1 END) as VisitorOUT
+        FROM VisitorRegVisitHistory
+        WHERE TenantID = $1 
+          AND IsActive = 'Y'
+          AND VisitorSubCatID = $4
+          AND (
+            (INTime IS NOT NULL AND DATE(INTime) BETWEEN $2 AND $3) OR
+            (OutTime IS NOT NULL AND DATE(OutTime) BETWEEN $2 AND $3)
+          )
+        GROUP BY 
+          CASE 
+            WHEN VisitPurposeID = -1 OR VisitPurpose IS NULL THEN 'Other'
+            ELSE VisitPurpose
+          END
+      )
       SELECT 
-        CASE 
-          WHEN VisitPurposeID = -1 OR VisitPurpose IS NULL THEN 'Other'
-          ELSE VisitPurpose
-        END as "GroupLabel",
-        COUNT(CASE WHEN InTime IS NOT NULL THEN 1 END) as "VisitorIN",
-        COUNT(CASE WHEN OutTime IS NOT NULL THEN 1 END) as "VisitorOUT"
-      FROM VisitorMaster
-      WHERE TenantID = $1 
-        AND IsActive = 'Y'
-        AND VisitorSubCatID = $4
-        AND VisitDate >= $2
-        AND VisitDate <= $3
-      GROUP BY 
-        CASE 
-          WHEN VisitPurposeID = -1 OR VisitPurpose IS NULL THEN 'Other'
-          ELSE VisitPurpose
-        END
-      HAVING COUNT(CASE WHEN InTime IS NOT NULL THEN 1 END) > 0 
-        OR COUNT(CASE WHEN OutTime IS NOT NULL THEN 1 END) > 0
+        COALESCE(up.GroupLabel, rp.GroupLabel) as "GroupLabel",
+        (COALESCE(up.VisitorIN, 0) + COALESCE(rp.VisitorIN, 0)) as "VisitorIN",
+        (COALESCE(up.VisitorOUT, 0) + COALESCE(rp.VisitorOUT, 0)) as "VisitorOUT"
+      FROM UnregisteredPurposes up
+      FULL OUTER JOIN RegisteredPurposes rp ON up.GroupLabel = rp.GroupLabel
+      WHERE (COALESCE(up.VisitorIN, 0) + COALESCE(rp.VisitorIN, 0)) > 0 
+        OR (COALESCE(up.VisitorOUT, 0) + COALESCE(rp.VisitorOUT, 0)) > 0
       ORDER BY "VisitorIN" DESC, "VisitorOUT" DESC
     `;
 
@@ -269,64 +357,89 @@ const AnalyticsModel = {
   // Get dashboard summary analytics
   async getDashboardSummary(tenantId) {
     const sql = `
-      WITH TodayStats AS (
+      WITH UnregisteredStats AS (
+        -- Get stats from VisitorMaster (unregistered visitors, gate passes)
         SELECT 
-          -- Today's visitors currently outside (checked in but not out)
-          COUNT(CASE WHEN VisitorCatName = 'Visitor' AND DATE(VisitDate) = CURRENT_DATE 
-                    AND InTime IS NOT NULL AND OutTime IS NULL THEN 1 END) as today_outside,
-          
-          -- Today's check-ins and check-outs for visitors
+          -- Today's check-ins and check-outs by category
           COUNT(CASE WHEN VisitorCatName = 'Visitor' AND DATE(InTime) = CURRENT_DATE THEN 1 END) as checkin_visitors,
           COUNT(CASE WHEN VisitorCatName = 'Visitor' AND DATE(OutTime) = CURRENT_DATE THEN 1 END) as checkout_visitors,
-          
-          -- Yesterday's visitors still outside
-          COUNT(CASE WHEN VisitorCatName = 'Visitor' AND DATE(VisitDate) = CURRENT_DATE - 1 
-                    AND InTime IS NOT NULL AND OutTime IS NULL THEN 1 END) as yesterday_outside,
-          
-          -- Total visitors
-          COUNT(CASE WHEN VisitorCatName = 'Visitor' THEN 1 END) as total_visitors,
-          
-          -- Present and absent registered visitors (using IsActive for registration status)
-          COUNT(CASE WHEN VisitorCatName = 'Visitor' AND InTime IS NOT NULL AND OutTime IS NULL 
-                    AND IsActive = 'Y' THEN 1 END) as present_reg_visitors,
-          COUNT(CASE WHEN VisitorCatName = 'Visitor' AND (InTime IS NULL OR OutTime IS NOT NULL) 
-                    AND IsActive = 'Y' THEN 1 END) as absent_reg_visitors,
-          
-          -- Employee check-ins and check-outs (Staff category)
-          COUNT(CASE WHEN VisitorCatName = 'Staff' AND DATE(InTime) = CURRENT_DATE THEN 1 END) as checkin_employee,
-          COUNT(CASE WHEN VisitorCatName = 'Staff' AND DATE(OutTime) = CURRENT_DATE THEN 1 END) as checkout_employee,
-          COUNT(CASE WHEN VisitorCatName = 'Staff' AND DATE(VisitDate) = CURRENT_DATE - 1 
-                    AND InTime IS NOT NULL AND OutTime IS NULL THEN 1 END) as yesterday_employee,
-          
-          -- Student check-ins and check-outs
+          COUNT(CASE WHEN VisitorCatName = 'Staff' AND DATE(InTime) = CURRENT_DATE THEN 1 END) as checkin_staff,
+          COUNT(CASE WHEN VisitorCatName = 'Staff' AND DATE(OutTime) = CURRENT_DATE THEN 1 END) as checkout_staff,
           COUNT(CASE WHEN VisitorCatName = 'Student' AND DATE(InTime) = CURRENT_DATE THEN 1 END) as checkin_student,
           COUNT(CASE WHEN VisitorCatName = 'Student' AND DATE(OutTime) = CURRENT_DATE THEN 1 END) as checkout_student,
-          
-          -- Bus check-ins and check-outs
           COUNT(CASE WHEN VisitorCatName = 'Bus' AND DATE(InTime) = CURRENT_DATE THEN 1 END) as checkin_bus,
-          COUNT(CASE WHEN VisitorCatName = 'Bus' AND DATE(OutTime) = CURRENT_DATE THEN 1 END) as checkout_bus
+          COUNT(CASE WHEN VisitorCatName = 'Bus' AND DATE(OutTime) = CURRENT_DATE THEN 1 END) as checkout_bus,
+          COUNT(CASE WHEN VisitorCatID = 6 AND DATE(InTime) = CURRENT_DATE THEN 1 END) as checkin_gatepass,
+          COUNT(CASE WHEN VisitorCatID = 6 AND DATE(OutTime) = CURRENT_DATE THEN 1 END) as checkout_gatepass,
+          
+          -- Currently inside (checked in but not out today)
+          COUNT(CASE WHEN VisitorCatName = 'Visitor' AND DATE(InTime) = CURRENT_DATE 
+                    AND OutTime IS NULL THEN 1 END) as inside_visitors,
+          COUNT(CASE WHEN VisitorCatName = 'Staff' AND DATE(InTime) = CURRENT_DATE 
+                    AND OutTime IS NULL THEN 1 END) as inside_staff,
+          
+          -- Yesterday's still inside (checked in yesterday but not out)
+          COUNT(CASE WHEN VisitorCatName = 'Visitor' AND DATE(InTime) = CURRENT_DATE - 1 
+                    AND OutTime IS NULL THEN 1 END) as yesterday_visitors,
+          COUNT(CASE WHEN VisitorCatName = 'Staff' AND DATE(InTime) = CURRENT_DATE - 1 
+                    AND OutTime IS NULL THEN 1 END) as yesterday_staff,
+          
+          -- Total visitors (last 30 days)
+          COUNT(CASE WHEN VisitorCatName = 'Visitor' AND InTime >= CURRENT_DATE - INTERVAL '30 days' THEN 1 END) as total_visitors
           
         FROM VisitorMaster
         WHERE TenantID = $1 
           AND IsActive = 'Y'
-          AND VisitDate >= CURRENT_DATE - INTERVAL '30 days'
+          AND (InTime >= CURRENT_DATE - INTERVAL '30 days' OR OutTime >= CURRENT_DATE - INTERVAL '30 days')
+      ),
+      RegisteredStats AS (
+        -- Get stats from VisitorRegVisitHistory (registered visitors, students, staff, buses)
+        SELECT 
+          -- Today's check-ins and check-outs by category
+          COUNT(CASE WHEN VisitorCatName = 'Visitor' AND DATE(INTime) = CURRENT_DATE THEN 1 END) as checkin_visitors,
+          COUNT(CASE WHEN VisitorCatName = 'Visitor' AND DATE(OutTime) = CURRENT_DATE THEN 1 END) as checkout_visitors,
+          COUNT(CASE WHEN VisitorCatName = 'Staff' AND DATE(INTime) = CURRENT_DATE THEN 1 END) as checkin_staff,
+          COUNT(CASE WHEN VisitorCatName = 'Staff' AND DATE(OutTime) = CURRENT_DATE THEN 1 END) as checkout_staff,
+          COUNT(CASE WHEN VisitorCatName = 'Student' AND DATE(INTime) = CURRENT_DATE THEN 1 END) as checkin_student,
+          COUNT(CASE WHEN VisitorCatName = 'Student' AND DATE(OutTime) = CURRENT_DATE THEN 1 END) as checkout_student,
+          COUNT(CASE WHEN VisitorCatName = 'Bus' AND DATE(INTime) = CURRENT_DATE THEN 1 END) as checkin_bus,
+          COUNT(CASE WHEN VisitorCatName = 'Bus' AND DATE(OutTime) = CURRENT_DATE THEN 1 END) as checkout_bus,
+          
+          -- Currently inside (checked in but not out)
+          COUNT(CASE WHEN VisitorCatName = 'Visitor' AND DATE(INTime) = CURRENT_DATE 
+                    AND OutTime IS NULL THEN 1 END) as inside_visitors,
+          COUNT(CASE WHEN VisitorCatName = 'Staff' AND DATE(INTime) = CURRENT_DATE 
+                    AND OutTime IS NULL THEN 1 END) as inside_staff,
+          
+          -- Yesterday's still inside 
+          COUNT(CASE WHEN VisitorCatName = 'Visitor' AND DATE(INTime) = CURRENT_DATE - 1 
+                    AND OutTime IS NULL THEN 1 END) as yesterday_visitors,
+          COUNT(CASE WHEN VisitorCatName = 'Staff' AND DATE(INTime) = CURRENT_DATE - 1 
+                    AND OutTime IS NULL THEN 1 END) as yesterday_staff
+          
+        FROM VisitorRegVisitHistory
+        WHERE TenantID = $1 
+          AND IsActive = 'Y'
+          AND INTime >= CURRENT_DATE - INTERVAL '30 days'
       )
       SELECT 
-        today_outside as "todayOutside",
-        checkin_visitors as "checkInVisitors",
-        checkout_visitors as "checkOutVisitors",
-        yesterday_outside as "yesterdayOutside",
-        total_visitors as "totalVisitors",
-        present_reg_visitors as "presentRegVisitors",
-        absent_reg_visitors as "absentRegVisitors",
-        checkout_employee as "checkOutEmployee",
-        checkin_employee as "checkInEmployee",
-        yesterday_employee as "yesterdayEmployee",
-        checkin_student as "checkInStudent",
-        checkout_student as "checkOutStudent",
-        checkin_bus as "checkInBus",
-        checkout_bus as "checkOutBus"
-      FROM TodayStats
+        -- Combine stats from both tables
+        (COALESCE(us.inside_visitors, 0) + COALESCE(rs.inside_visitors, 0)) as "todayOutside",
+        (COALESCE(us.checkin_visitors, 0) + COALESCE(rs.checkin_visitors, 0) + COALESCE(us.checkin_gatepass, 0)) as "checkInVisitors",
+        (COALESCE(us.checkout_visitors, 0) + COALESCE(rs.checkout_visitors, 0) + COALESCE(us.checkout_gatepass, 0)) as "checkOutVisitors",
+        (COALESCE(us.yesterday_visitors, 0) + COALESCE(rs.yesterday_visitors, 0)) as "yesterdayOutside",
+        COALESCE(us.total_visitors, 0) as "totalVisitors",
+        COALESCE(rs.inside_visitors, 0) as "presentRegVisitors",
+        0 as "absentRegVisitors",
+        (COALESCE(us.checkout_staff, 0) + COALESCE(rs.checkout_staff, 0)) as "checkOutEmployee",
+        (COALESCE(us.checkin_staff, 0) + COALESCE(rs.checkin_staff, 0)) as "checkInEmployee",
+        (COALESCE(us.yesterday_staff, 0) + COALESCE(rs.yesterday_staff, 0)) as "yesterdayEmployee",
+        (COALESCE(us.checkin_student, 0) + COALESCE(rs.checkin_student, 0)) as "checkInStudent",
+        (COALESCE(us.checkout_student, 0) + COALESCE(rs.checkout_student, 0)) as "checkOutStudent",
+        (COALESCE(us.checkin_bus, 0) + COALESCE(rs.checkin_bus, 0)) as "checkInBus",
+        (COALESCE(us.checkout_bus, 0) + COALESCE(rs.checkout_bus, 0)) as "checkOutBus"
+      FROM UnregisteredStats us
+      FULL OUTER JOIN RegisteredStats rs ON 1=1
     `;
 
     const result = await query(sql, [tenantId]);

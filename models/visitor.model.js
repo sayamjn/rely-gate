@@ -1288,6 +1288,66 @@ class VisitorModel {
     const result = await query(sql, params);
     return result.rows;
   }
+
+  // Get visitor by ID (for FCM notifications)
+  static async getVisitorById(visitorId, tenantId) {
+    const sql = `
+      SELECT 
+        VisitorID,
+        Fname,
+        Mobile,
+        FlatName,
+        VehiclelNo,
+        VisitorCatID,
+        VisitorCatName,
+        VisitorSubCatID,
+        VisitorSubCatName,
+        VisitPurposeID,
+        VisitPurpose,
+        INTime,
+        INTimeTxt,
+        OutTime,
+        OutTimeTxt,
+        PhotoFlag,
+        PhotoPath,
+        PhotoName,
+        CreatedDate
+      FROM VisitorMaster
+      WHERE VisitorID = $1 AND TenantID = $2 AND IsActive = 'Y'
+    `;
+
+    const result = await query(sql, [visitorId, tenantId]);
+    return result.rows[0];
+  }
+
+  // Get visit history by ID (for FCM notifications)
+  static async getVisitHistoryById(historyId, tenantId) {
+    const sql = `
+      SELECT 
+        vh.RegVisitorHistoryID,
+        vh.VisitorRegID,
+        vh.VistorName,
+        vh.Mobile,
+        vh.VisitorCatName,
+        vh.VisitorSubCatName,
+        vh.AssociatedFlat,
+        vh.INTime,
+        vh.INTimeTxt,
+        vh.OutTime,
+        vh.OutTimeTxt,
+        vh.CreatedDate,
+        vr.PhotoName,
+        vr.PhotoPath,
+        vr.SecurityCode,
+        vr.VisitorRegNo
+      FROM VisitorRegVisitHistory vh
+      LEFT JOIN VisitorRegistration vr ON vh.VisitorRegID = vr.VisitorRegID
+      WHERE vh.RegVisitorHistoryID = $1 AND vh.TenantID = $2 AND vh.IsActive = 'Y'
+    `;
+
+    const result = await query(sql, [historyId, tenantId]);
+    return result.rows[0];
+  }
 }
 
 module.exports = VisitorModel;

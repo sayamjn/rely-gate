@@ -1,4 +1,5 @@
 const https = require('https');
+const { query } = require('../config/database');
 
 class FCMService {
   constructor() {
@@ -259,6 +260,59 @@ class FCMService {
     } catch (error) {
       console.error('Error sending FCM notification:', error);
       return { success: false, error: error.message };
+    }
+  }
+
+  // Get FCM tokens for flat (static version)
+  static async getFCMTokensForFlat(tenantId, flatName, visitorId = null) {
+    try {
+      const sql = `
+        SELECT 
+          f."FirebaseID" as "firebaseID",
+          f."FirebaseID" as "token",
+          CASE 
+            WHEN $3 IS NOT NULL THEN 
+              CONCAT($4, '/uploads/visitors/', vm."PhotoName")
+            ELSE ''
+          END as "VisitorImage"
+        FROM "FCM" f
+        JOIN "LoginUser" lu ON f."AndroidID" = lu."Mobile" 
+        LEFT JOIN "VisitorMaster" vm ON vm."VisitorID" = $3
+        WHERE f."TenantID" = $1 
+          AND lu."LinkeFlatName" = $2
+          AND f."IsActive" = 'Y'
+          AND lu."IsActive" = 'Y'
+      `;
+
+      const apiUrl = process.env.API_URL || 'http://localhost:3000';
+      const result = await query(sql, [tenantId, flatName, visitorId, apiUrl]);
+      return result.rows;
+    } catch (error) {
+      console.error('Error getting FCM tokens:', error);
+      return [];
+    }
+  }
+
+  // Get all FCM tokens for tenant
+  static async getAllFCMTokensForTenant(tenantId) {
+    try {
+      const sql = `
+        SELECT 
+          f."FirebaseID" as "firebaseID",
+          f."FirebaseID" as "token",
+          lu."UserName" as "username"
+        FROM "FCM" f
+        JOIN "LoginUser" lu ON f."AndroidID" = lu."Mobile"
+        WHERE f."TenantID" = $1 
+          AND f."IsActive" = 'Y'
+          AND lu."IsActive" = 'Y'
+      `;
+
+      const result = await query(sql, [tenantId]);
+      return result.rows;
+    } catch (error) {
+      console.error('Error getting all FCM tokens for tenant:', error);
+      return [];
     }
   }
 

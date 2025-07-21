@@ -618,41 +618,44 @@ static async downloadTemplate(req, res) {
       const { qrData } = req.body;
       const userTenantId = req.user.tenantId;
 
-      if (!qrData) {
+      // Handle both JSON string and JSON object formats
+      let qrString;
+      if (typeof qrData === "string") {
+        qrString = qrData;
+      } else if (typeof qrData === "object") {
+        qrString = JSON.stringify(qrData);
+      } else {
         return res.status(400).json({
           responseCode: responseUtils.RESPONSE_CODES.ERROR,
-          responseMessage: "QR data is required",
+          responseMessage: "Invalid QR data format",
         });
       }
 
-      // Parse QR data - handle both string and object formats
-      let parsedData;
-      if (typeof qrData === 'string') {
-        const parsedQR = QRService.parseQRData(qrData);
-        if (!parsedQR.success) {
-          return res.status(400).json({
-            responseCode: responseUtils.RESPONSE_CODES.ERROR,
-            responseMessage: "Invalid QR code format",
-          });
-        }
-        parsedData = parsedQR.data;
-      } else if (typeof qrData === 'object' && qrData.tenantid && qrData.mainid && qrData.type) {
-        // QR data is already an object
-        parsedData = qrData;
-      } else {
+      // Parse QR data
+      const qrParseResult = QRService.parseQRData(qrString);
+
+      if (!qrParseResult.success) {
         return res.status(400).json({
           responseCode: responseUtils.RESPONSE_CODES.ERROR,
           responseMessage: "Invalid QR code format",
         });
       }
 
-      const { tenantid, mainid, type } = parsedData;
+      const { tenantid, mainid, type } = qrParseResult.data;
 
-      // Verify tenant and type
-      if (parseInt(tenantid) !== userTenantId || type !== "sta") {
+      // Validate tenant access
+      if (parseInt(tenantid) !== userTenantId) {
+        return res.status(403).json({
+          responseCode: responseUtils.RESPONSE_CODES.ERROR,
+          responseMessage: "Access denied for this tenant",
+        });
+      }
+
+      // Validate staff type
+      if (type !== "sta") {
         return res.status(400).json({
           responseCode: responseUtils.RESPONSE_CODES.ERROR,
-          responseMessage: "Invalid QR code or unauthorized access",
+          responseMessage: "QR code is not for a staff member",
         });
       }
 
@@ -666,16 +669,54 @@ static async downloadTemplate(req, res) {
         });
       }
 
+      // Get staff status to determine next action
+      const statusResult = await StaffService.getStaffStatus(
+        staff.data.staffId,
+        userTenantId
+      );
+
+      if (statusResult.responseCode !== responseUtils.RESPONSE_CODES.SUCCESS) {
+        return res.status(404).json({
+          responseCode: responseUtils.RESPONSE_CODES.ERROR,
+          responseMessage: "Staff not found",
+        });
+      }
+
+      // Determine next action and current status
+      const nextAction = statusResult.data.availableAction === "CHECKIN" ? "checkin" : "checkout";
+      
+      let currentStatus;
+      if (statusResult.data.availableAction === "CHECKIN") {
+        if (statusResult.data.isFirstVisit) {
+          currentStatus = "CHECKED_OUT"; // First visit, never checked in
+        } else {
+          currentStatus = "CHECKED_OUT"; // Previously checked out
+        }
+      } else {
+        currentStatus = "AVAILABLE"; // Currently checked in, can check out
+      }
+
       res.json({
         responseCode: responseUtils.RESPONSE_CODES.SUCCESS,
-        responseMessage: "QR code scanned successfully",
+        responseMessage: "QR scan processed successfully",
         data: {
           staffId: staff.data.staffId,
-          staffCode: staff.data.staffCode,
-          staffName: staff.data.staffName,
-          designation: staff.data.designation,
-          canCheckin: true,
-          canCheckout: true,
+          tenantId: parseInt(tenantid),
+          nextAction: nextAction,
+          currentStatus: currentStatus,
+          visitorRegId: staff.data.staffId,
+          visitorRegNo: mainid,
+          staff: {
+            name: staff.data.staffName,
+            regNo: staff.data.staffCode,
+            mobile: staff.data.mobile,
+            course: staff.data.department || "N/A",
+            hostel: staff.data.designation || "N/A",
+          },
+          actionPrompt: nextAction === "checkin"
+            ? "Staff is currently checked out. Do you want to check in?"
+            : "Staff is currently available. Do you want to check out?",
+          statusMessage: statusResult.data.actionDescription,
         },
       });
     } catch (error) {

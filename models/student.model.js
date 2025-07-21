@@ -44,12 +44,12 @@ class StudentModel {
       -- Return epoch timestamps for INTimeTxt and OutTimeTxt
       CASE 
         WHEN vh_latest.INTime IS NOT NULL 
-        THEN EXTRACT(EPOCH FROM vh_latest.INTime)::text
+        THEN FLOOR(EXTRACT(EPOCH FROM vh_latest.INTime))::text
         ELSE vh_latest.INTimeTxt
       END as LastCheckOutTime,
       CASE 
         WHEN vh_latest.OutTime IS NOT NULL 
-        THEN EXTRACT(EPOCH FROM vh_latest.OutTime)::text
+        THEN FLOOR(EXTRACT(EPOCH FROM vh_latest.OutTime))::text
         ELSE vh_latest.OutTimeTxt
       END as LastCheckInTime,
       vh_latest.RegVisitorHistoryID as LastHistoryID,
@@ -147,19 +147,27 @@ class StudentModel {
       // Check if fromDate and toDate are epoch timestamps (numbers or numeric strings)
       if (/^\d+$/.test(fromDate) && /^\d+$/.test(toDate)) {
         // Convert epoch timestamps to PostgreSQL timestamp format
-        sql += ` AND vr.CreatedDate BETWEEN to_timestamp($${paramIndex}) AND to_timestamp($${
-          paramIndex + 1
-        })`;
+        sql += ` AND EXISTS (
+          SELECT 1 FROM VisitorRegVisitHistory vh_filter 
+          WHERE vh_filter.VisitorRegID = vr.VisitorRegID 
+          AND vh_filter.TenantID = vr.TenantID 
+          AND vh_filter.IsActive = 'Y'
+          AND vh_filter.CreatedDate BETWEEN to_timestamp($${paramIndex}) AND to_timestamp($${paramIndex + 1})
+        )`;
       } else {
-        // Use as regular date strings
-        sql += ` AND vr.CreatedDate BETWEEN $${paramIndex} AND $${
-          paramIndex + 1
-        }`;
+        // Use as regular date strings for visit history
+        sql += ` AND EXISTS (
+          SELECT 1 FROM VisitorRegVisitHistory vh_filter 
+          WHERE vh_filter.VisitorRegID = vr.VisitorRegID 
+          AND vh_filter.TenantID = vr.TenantID 
+          AND vh_filter.IsActive = 'Y'
+          AND vh_filter.CreatedDate BETWEEN $${paramIndex} AND $${paramIndex + 1}
+        )`;
       }
       params.push(fromDate, toDate);
       paramIndex += 2;
     }
-
+    
     // Pagination
     const offset = (page - 1) * pageSize;
     sql += ` ORDER BY vr.CreatedDate DESC LIMIT $${paramIndex} OFFSET $${
@@ -328,7 +336,7 @@ class StudentModel {
       ) VALUES (
         $1, 'Y', 'Y', $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13,
         $14, $15, $16, $17,
-        NOW(), EXTRACT(EPOCH FROM NOW())::text, NOW(), NOW(), $18, $18
+        NOW(), FLOOR(EXTRACT(EPOCH FROM NOW()))::text, NOW(), NOW(), $18, $18
       ) RETURNING RegVisitorHistoryID
     `;
 
@@ -361,7 +369,7 @@ class StudentModel {
     const sql = `
       UPDATE VisitorRegVisitHistory 
       SET OutTime = NOW(), 
-          OutTimeTxt = EXTRACT(EPOCH FROM NOW())::text,
+          OutTimeTxt = FLOOR(EXTRACT(EPOCH FROM NOW()))::text,
           UpdatedDate = NOW(),
           UpdatedBy = $3
       WHERE RegVisitorHistoryID = $1 AND TenantID = $2
@@ -391,13 +399,13 @@ class StudentModel {
         INTime AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata' as INTime,
         CASE 
           WHEN INTime IS NOT NULL 
-          THEN EXTRACT(EPOCH FROM INTime)::text
+          THEN FLOOR(EXTRACT(EPOCH FROM INTime))::text
           ELSE INTimeTxt
         END as INTimeTxt,
         OutTime AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata' as OutTime,
         CASE 
           WHEN OutTime IS NOT NULL 
-          THEN EXTRACT(EPOCH FROM OutTime)::text
+          THEN FLOOR(EXTRACT(EPOCH FROM OutTime))::text
           ELSE OutTimeTxt
         END as OutTimeTxt,
         CreatedDate,
@@ -438,7 +446,7 @@ class StudentModel {
         vh.INTime AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata' as INTime,
         CASE 
           WHEN vh.INTime IS NOT NULL 
-          THEN EXTRACT(EPOCH FROM vh.INTime)::text
+          THEN FLOOR(EXTRACT(EPOCH FROM vh.INTime))::text
           ELSE vh.INTimeTxt
         END as INTimeTxt,
         vr.PhotoPath,
