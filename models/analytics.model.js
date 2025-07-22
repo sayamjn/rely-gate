@@ -49,9 +49,9 @@ const AnalyticsModel = {
     const sql = `
       SELECT 
         COUNT(CASE WHEN StatusID = 1 THEN 1 END) as pending_approval,
-        COUNT(CASE WHEN INTime IS NOT NULL AND OutTime IS NOT NULL THEN 1 END) as checked_out_count,
-        COUNT(CASE WHEN INTime IS NOT NULL AND OutTime IS NULL THEN 1 END) as checked_in_count,
-        COUNT(CASE WHEN StatusID = 2 AND INTime IS NOT NULL AND OutTime IS NOT NULL THEN 1 END) as completed,
+        COUNT(CASE WHEN InTime IS NOT NULL AND OutTime IS NOT NULL THEN 1 END) as checked_out_count,
+        COUNT(CASE WHEN InTime IS NOT NULL AND OutTime IS NULL THEN 1 END) as checked_in_count,
+        COUNT(CASE WHEN StatusID = 2 AND InTime IS NOT NULL AND OutTime IS NOT NULL THEN 1 END) as completed,
         COUNT(*) as total_gatepasses,
         COUNT(CASE WHEN DATE(CreatedDate) = CURRENT_DATE THEN 1 END) as today_total
       FROM VisitorMaster
@@ -62,7 +62,14 @@ const AnalyticsModel = {
     `;
 
     const result = await query(sql, [tenantId]);
-    return result.rows[0];
+    return result.rows[0] || {
+      pending_approval: 0,
+      checked_out_count: 0,
+      checked_in_count: 0,
+      completed: 0,
+      total_gatepasses: 0,
+      today_total: 0
+    };
   },
 
   async getGatePassEntriesByPurpose(tenantId, days = 7) {
@@ -97,20 +104,23 @@ const AnalyticsModel = {
     let params = [tenantId];
     
     if (fromDate && toDate) {
-      dateFilter = `AND DATE(CreatedDate) BETWEEN $2 AND $3`;
+      dateFilter = `AND DATE(OutTime) BETWEEN $2 AND $3`;
       params.push(fromDate, toDate);
     } else if (fromDate) {
-      dateFilter = `AND DATE(CreatedDate) >= $2`;
+      dateFilter = `AND DATE(OutTime) >= $2`;
       params.push(fromDate);
     } else if (toDate) {
-      dateFilter = `AND DATE(CreatedDate) <= $2`;
+      dateFilter = `AND DATE(OutTime) <= $2`;
       params.push(toDate);
+    } else {
+      // Default to last 30 days if no dates provided
+      dateFilter = `AND OutTime >= CURRENT_DATE - INTERVAL '30 days'`;
     }
 
     const sql = `
       SELECT 
         CASE 
-          WHEN VisitPurposeID = -1 THEN 'Others'
+          WHEN VisitPurposeID = -1 OR VisitPurpose IS NULL THEN 'Others'
           ELSE VisitPurpose
         END as purpose_name,
         COUNT(CASE WHEN OutTime IS NOT NULL THEN 1 END) as exit_count
@@ -122,9 +132,10 @@ const AnalyticsModel = {
         ${dateFilter}
       GROUP BY 
         CASE 
-          WHEN VisitPurposeID = -1 THEN 'Others'
+          WHEN VisitPurposeID = -1 OR VisitPurpose IS NULL THEN 'Others'
           ELSE VisitPurpose
         END
+      HAVING COUNT(CASE WHEN OutTime IS NOT NULL THEN 1 END) > 0
       ORDER BY exit_count DESC
     `;
 
@@ -244,12 +255,14 @@ const AnalyticsModel = {
         FROM VisitorMaster
         WHERE TenantID = $1 
           AND IsActive = 'Y'
-          AND VisitorCatName = 'Visitor'
+          AND (VisitorCatName = 'Visitor' OR VisitorCatID = 1)
           AND (
             (InTime IS NOT NULL AND DATE(InTime) BETWEEN $2 AND $3) OR
-            (OutTime IS NOT NULL AND DATE(OutTime) BETWEEN $2 AND $3)
+            (OutTime IS NOT NULL AND DATE(OutTime) BETWEEN $2 AND $3) OR
+            (DATE(CreatedDate) BETWEEN $2 AND $3)
           )
           AND VisitorSubCatName IS NOT NULL
+          AND VisitorSubCatName != ''
         GROUP BY VisitorSubCatName
       ),
       RegisteredVisitors AS (
@@ -260,23 +273,25 @@ const AnalyticsModel = {
         FROM VisitorRegVisitHistory
         WHERE TenantID = $1 
           AND IsActive = 'Y'
-          AND VisitorCatName = 'Visitor'
+          AND (VisitorCatName = 'Visitor' OR VisitorCatID = 1)
           AND (
             (INTime IS NOT NULL AND DATE(INTime) BETWEEN $2 AND $3) OR
-            (OutTime IS NOT NULL AND DATE(OutTime) BETWEEN $2 AND $3)
+            (OutTime IS NOT NULL AND DATE(OutTime) BETWEEN $2 AND $3) OR
+            (DATE(CreatedDate) BETWEEN $2 AND $3)
           )
           AND VisitorSubCatName IS NOT NULL
+          AND VisitorSubCatName != ''
         GROUP BY VisitorSubCatName
       )
       SELECT 
-        COALESCE(uv.VisitorSubCatName, rv.VisitorSubCatName) as VisitorSubCatName,
-        (COALESCE(uv.VisitorIN, 0) + COALESCE(rv.VisitorIN, 0)) as "VisitorIN",
-        (COALESCE(uv.VisitorOUT, 0) + COALESCE(rv.VisitorOUT, 0)) as "VisitorOUT"
+        COALESCE(uv.VisitorSubCatName, rv.VisitorSubCatName) as visitorsubcatname,
+        (COALESCE(uv.VisitorIN, 0) + COALESCE(rv.VisitorIN, 0))::text as "VisitorIN",
+        (COALESCE(uv.VisitorOUT, 0) + COALESCE(rv.VisitorOUT, 0))::text as "VisitorOUT"
       FROM UnregisteredVisitors uv
       FULL OUTER JOIN RegisteredVisitors rv ON uv.VisitorSubCatName = rv.VisitorSubCatName
       WHERE (COALESCE(uv.VisitorIN, 0) + COALESCE(rv.VisitorIN, 0)) > 0 
         OR (COALESCE(uv.VisitorOUT, 0) + COALESCE(rv.VisitorOUT, 0)) > 0
-      ORDER BY "VisitorIN" DESC, "VisitorOUT" DESC
+      ORDER BY (COALESCE(uv.VisitorIN, 0) + COALESCE(rv.VisitorIN, 0)) DESC, (COALESCE(uv.VisitorOUT, 0) + COALESCE(rv.VisitorOUT, 0)) DESC
     `;
 
     const result = await query(sql, [tenantId, startDate, endDate]);
@@ -284,7 +299,7 @@ const AnalyticsModel = {
   },
 
   // Get trend analytics by purpose/subcategory
-  async getTrendByPurpose(tenantId, fromDate, toDate, subCatID) {
+  async getTrendByPurpose(tenantId, fromDate, toDate, subCatID = 0, catID = 0) {
     // Convert DD/MM/YYYY to YYYY-MM-DD format
     const convertDate = (dateStr) => {
       const [day, month, year] = dateStr.split('/');
@@ -293,6 +308,16 @@ const AnalyticsModel = {
 
     const startDate = convertDate(fromDate);
     const endDate = convertDate(toDate);
+
+    // Build category filter based on catID or subCatID
+    let categoryFilter = '';
+    if (catID > 0) {
+      // Filter by category (Student=2, Staff=3, Bus=5, etc.)
+      categoryFilter = `AND (VisitorCatID = ${catID} OR VisitorCatName = '${this.getCategoryName(catID)}')`;
+    } else if (subCatID > 0) {
+      // Filter by subcategory (for Visitors)
+      categoryFilter = `AND VisitorSubCatID = ${subCatID}`;
+    }
 
     const sql = `
       WITH UnregisteredPurposes AS (
@@ -306,10 +331,11 @@ const AnalyticsModel = {
         FROM VisitorMaster
         WHERE TenantID = $1 
           AND IsActive = 'Y'
-          AND VisitorSubCatID = $4
+          ${categoryFilter}
           AND (
             (InTime IS NOT NULL AND DATE(InTime) BETWEEN $2 AND $3) OR
-            (OutTime IS NOT NULL AND DATE(OutTime) BETWEEN $2 AND $3)
+            (OutTime IS NOT NULL AND DATE(OutTime) BETWEEN $2 AND $3) OR
+            (DATE(CreatedDate) BETWEEN $2 AND $3)
           )
         GROUP BY 
           CASE 
@@ -328,10 +354,11 @@ const AnalyticsModel = {
         FROM VisitorRegVisitHistory
         WHERE TenantID = $1 
           AND IsActive = 'Y'
-          AND VisitorSubCatID = $4
+          ${categoryFilter}
           AND (
             (INTime IS NOT NULL AND DATE(INTime) BETWEEN $2 AND $3) OR
-            (OutTime IS NOT NULL AND DATE(OutTime) BETWEEN $2 AND $3)
+            (OutTime IS NOT NULL AND DATE(OutTime) BETWEEN $2 AND $3) OR
+            (DATE(CreatedDate) BETWEEN $2 AND $3)
           )
         GROUP BY 
           CASE 
@@ -350,8 +377,21 @@ const AnalyticsModel = {
       ORDER BY "VisitorIN" DESC, "VisitorOUT" DESC
     `;
 
-    const result = await query(sql, [tenantId, startDate, endDate, subCatID]);
+    const result = await query(sql, [tenantId, startDate, endDate]);
     return result.rows;
+  },
+
+  // Helper method to get category name by ID
+  getCategoryName(catID) {
+    const categoryMap = {
+      1: 'Visitor',
+      2: 'Student', 
+      3: 'Staff',
+      4: 'Vehicle',
+      5: 'Bus',
+      6: 'GatePass'
+    };
+    return categoryMap[catID] || 'Unknown';
   },
 
   // Get dashboard summary analytics
@@ -361,83 +401,81 @@ const AnalyticsModel = {
         -- Get stats from VisitorMaster (unregistered visitors, gate passes)
         SELECT 
           -- Today's check-ins and check-outs by category
-          COUNT(CASE WHEN VisitorCatName = 'Visitor' AND DATE(InTime) = CURRENT_DATE THEN 1 END) as checkin_visitors,
-          COUNT(CASE WHEN VisitorCatName = 'Visitor' AND DATE(OutTime) = CURRENT_DATE THEN 1 END) as checkout_visitors,
-          COUNT(CASE WHEN VisitorCatName = 'Staff' AND DATE(InTime) = CURRENT_DATE THEN 1 END) as checkin_staff,
-          COUNT(CASE WHEN VisitorCatName = 'Staff' AND DATE(OutTime) = CURRENT_DATE THEN 1 END) as checkout_staff,
-          COUNT(CASE WHEN VisitorCatName = 'Student' AND DATE(InTime) = CURRENT_DATE THEN 1 END) as checkin_student,
-          COUNT(CASE WHEN VisitorCatName = 'Student' AND DATE(OutTime) = CURRENT_DATE THEN 1 END) as checkout_student,
-          COUNT(CASE WHEN VisitorCatName = 'Bus' AND DATE(InTime) = CURRENT_DATE THEN 1 END) as checkin_bus,
-          COUNT(CASE WHEN VisitorCatName = 'Bus' AND DATE(OutTime) = CURRENT_DATE THEN 1 END) as checkout_bus,
+          COUNT(CASE WHEN (VisitorCatName = 'Visitor' OR VisitorCatID = 1) AND DATE(InTime) = CURRENT_DATE THEN 1 END) as checkin_visitors,
+          COUNT(CASE WHEN (VisitorCatName = 'Visitor' OR VisitorCatID = 1) AND DATE(OutTime) = CURRENT_DATE THEN 1 END) as checkout_visitors,
+          COUNT(CASE WHEN (VisitorCatName = 'Staff' OR VisitorCatID = 3) AND DATE(InTime) = CURRENT_DATE THEN 1 END) as checkin_staff,
+          COUNT(CASE WHEN (VisitorCatName = 'Staff' OR VisitorCatID = 3) AND DATE(OutTime) = CURRENT_DATE THEN 1 END) as checkout_staff,
+          COUNT(CASE WHEN (VisitorCatName = 'Student' OR VisitorCatID = 2) AND DATE(InTime) = CURRENT_DATE THEN 1 END) as checkin_student,
+          COUNT(CASE WHEN (VisitorCatName = 'Student' OR VisitorCatID = 2) AND DATE(OutTime) = CURRENT_DATE THEN 1 END) as checkout_student,
+          COUNT(CASE WHEN (VisitorCatName = 'Bus' OR VisitorCatID = 5) AND DATE(InTime) = CURRENT_DATE THEN 1 END) as checkin_bus,
+          COUNT(CASE WHEN (VisitorCatName = 'Bus' OR VisitorCatID = 5) AND DATE(OutTime) = CURRENT_DATE THEN 1 END) as checkout_bus,
           COUNT(CASE WHEN VisitorCatID = 6 AND DATE(InTime) = CURRENT_DATE THEN 1 END) as checkin_gatepass,
           COUNT(CASE WHEN VisitorCatID = 6 AND DATE(OutTime) = CURRENT_DATE THEN 1 END) as checkout_gatepass,
           
           -- Currently inside (checked in but not out today)
-          COUNT(CASE WHEN VisitorCatName = 'Visitor' AND DATE(InTime) = CURRENT_DATE 
+          COUNT(CASE WHEN (VisitorCatName = 'Visitor' OR VisitorCatID = 1) AND InTime IS NOT NULL 
                     AND OutTime IS NULL THEN 1 END) as inside_visitors,
-          COUNT(CASE WHEN VisitorCatName = 'Staff' AND DATE(InTime) = CURRENT_DATE 
+          COUNT(CASE WHEN (VisitorCatName = 'Staff' OR VisitorCatID = 3) AND InTime IS NOT NULL 
                     AND OutTime IS NULL THEN 1 END) as inside_staff,
           
           -- Yesterday's still inside (checked in yesterday but not out)
-          COUNT(CASE WHEN VisitorCatName = 'Visitor' AND DATE(InTime) = CURRENT_DATE - 1 
+          COUNT(CASE WHEN (VisitorCatName = 'Visitor' OR VisitorCatID = 1) AND DATE(InTime) = CURRENT_DATE - 1 
                     AND OutTime IS NULL THEN 1 END) as yesterday_visitors,
-          COUNT(CASE WHEN VisitorCatName = 'Staff' AND DATE(InTime) = CURRENT_DATE - 1 
+          COUNT(CASE WHEN (VisitorCatName = 'Staff' OR VisitorCatID = 3) AND DATE(InTime) = CURRENT_DATE - 1 
                     AND OutTime IS NULL THEN 1 END) as yesterday_staff,
           
-          -- Total visitors (last 30 days)
-          COUNT(CASE WHEN VisitorCatName = 'Visitor' AND InTime >= CURRENT_DATE - INTERVAL '30 days' THEN 1 END) as total_visitors
+          -- Total visitors (any time)
+          COUNT(CASE WHEN (VisitorCatName = 'Visitor' OR VisitorCatID = 1) THEN 1 END) as total_visitors
           
         FROM VisitorMaster
         WHERE TenantID = $1 
           AND IsActive = 'Y'
-          AND (InTime >= CURRENT_DATE - INTERVAL '30 days' OR OutTime >= CURRENT_DATE - INTERVAL '30 days')
       ),
       RegisteredStats AS (
         -- Get stats from VisitorRegVisitHistory (registered visitors, students, staff, buses)
         SELECT 
           -- Today's check-ins and check-outs by category
-          COUNT(CASE WHEN VisitorCatName = 'Visitor' AND DATE(INTime) = CURRENT_DATE THEN 1 END) as checkin_visitors,
-          COUNT(CASE WHEN VisitorCatName = 'Visitor' AND DATE(OutTime) = CURRENT_DATE THEN 1 END) as checkout_visitors,
-          COUNT(CASE WHEN VisitorCatName = 'Staff' AND DATE(INTime) = CURRENT_DATE THEN 1 END) as checkin_staff,
-          COUNT(CASE WHEN VisitorCatName = 'Staff' AND DATE(OutTime) = CURRENT_DATE THEN 1 END) as checkout_staff,
-          COUNT(CASE WHEN VisitorCatName = 'Student' AND DATE(INTime) = CURRENT_DATE THEN 1 END) as checkin_student,
-          COUNT(CASE WHEN VisitorCatName = 'Student' AND DATE(OutTime) = CURRENT_DATE THEN 1 END) as checkout_student,
-          COUNT(CASE WHEN VisitorCatName = 'Bus' AND DATE(INTime) = CURRENT_DATE THEN 1 END) as checkin_bus,
-          COUNT(CASE WHEN VisitorCatName = 'Bus' AND DATE(OutTime) = CURRENT_DATE THEN 1 END) as checkout_bus,
+          COUNT(CASE WHEN (VisitorCatName = 'Visitor' OR VisitorCatID = 1) AND DATE(INTime) = CURRENT_DATE THEN 1 END) as checkin_visitors,
+          COUNT(CASE WHEN (VisitorCatName = 'Visitor' OR VisitorCatID = 1) AND DATE(OutTime) = CURRENT_DATE THEN 1 END) as checkout_visitors,
+          COUNT(CASE WHEN (VisitorCatName = 'Staff' OR VisitorCatID = 3) AND DATE(INTime) = CURRENT_DATE THEN 1 END) as checkin_staff,
+          COUNT(CASE WHEN (VisitorCatName = 'Staff' OR VisitorCatID = 3) AND DATE(OutTime) = CURRENT_DATE THEN 1 END) as checkout_staff,
+          COUNT(CASE WHEN (VisitorCatName = 'Student' OR VisitorCatID = 2) AND DATE(INTime) = CURRENT_DATE THEN 1 END) as checkin_student,
+          COUNT(CASE WHEN (VisitorCatName = 'Student' OR VisitorCatID = 2) AND DATE(OutTime) = CURRENT_DATE THEN 1 END) as checkout_student,
+          COUNT(CASE WHEN (VisitorCatName = 'Bus' OR VisitorCatID = 5) AND DATE(INTime) = CURRENT_DATE THEN 1 END) as checkin_bus,
+          COUNT(CASE WHEN (VisitorCatName = 'Bus' OR VisitorCatID = 5) AND DATE(OutTime) = CURRENT_DATE THEN 1 END) as checkout_bus,
           
           -- Currently inside (checked in but not out)
-          COUNT(CASE WHEN VisitorCatName = 'Visitor' AND DATE(INTime) = CURRENT_DATE 
+          COUNT(CASE WHEN (VisitorCatName = 'Visitor' OR VisitorCatID = 1) AND INTime IS NOT NULL 
                     AND OutTime IS NULL THEN 1 END) as inside_visitors,
-          COUNT(CASE WHEN VisitorCatName = 'Staff' AND DATE(INTime) = CURRENT_DATE 
+          COUNT(CASE WHEN (VisitorCatName = 'Staff' OR VisitorCatID = 3) AND INTime IS NOT NULL 
                     AND OutTime IS NULL THEN 1 END) as inside_staff,
           
           -- Yesterday's still inside 
-          COUNT(CASE WHEN VisitorCatName = 'Visitor' AND DATE(INTime) = CURRENT_DATE - 1 
+          COUNT(CASE WHEN (VisitorCatName = 'Visitor' OR VisitorCatID = 1) AND DATE(INTime) = CURRENT_DATE - 1 
                     AND OutTime IS NULL THEN 1 END) as yesterday_visitors,
-          COUNT(CASE WHEN VisitorCatName = 'Staff' AND DATE(INTime) = CURRENT_DATE - 1 
+          COUNT(CASE WHEN (VisitorCatName = 'Staff' OR VisitorCatID = 3) AND DATE(INTime) = CURRENT_DATE - 1 
                     AND OutTime IS NULL THEN 1 END) as yesterday_staff
           
         FROM VisitorRegVisitHistory
         WHERE TenantID = $1 
           AND IsActive = 'Y'
-          AND INTime >= CURRENT_DATE - INTERVAL '30 days'
       )
       SELECT 
         -- Combine stats from both tables
-        (COALESCE(us.inside_visitors, 0) + COALESCE(rs.inside_visitors, 0)) as "todayOutside",
-        (COALESCE(us.checkin_visitors, 0) + COALESCE(rs.checkin_visitors, 0) + COALESCE(us.checkin_gatepass, 0)) as "checkInVisitors",
-        (COALESCE(us.checkout_visitors, 0) + COALESCE(rs.checkout_visitors, 0) + COALESCE(us.checkout_gatepass, 0)) as "checkOutVisitors",
-        (COALESCE(us.yesterday_visitors, 0) + COALESCE(rs.yesterday_visitors, 0)) as "yesterdayOutside",
-        COALESCE(us.total_visitors, 0) as "totalVisitors",
-        COALESCE(rs.inside_visitors, 0) as "presentRegVisitors",
+        (COALESCE(us.inside_visitors, 0) + COALESCE(rs.inside_visitors, 0))::text as "todayOutside",
+        (COALESCE(us.checkin_visitors, 0) + COALESCE(rs.checkin_visitors, 0) + COALESCE(us.checkin_gatepass, 0))::text as "checkInVisitors",
+        (COALESCE(us.checkout_visitors, 0) + COALESCE(rs.checkout_visitors, 0) + COALESCE(us.checkout_gatepass, 0))::text as "checkOutVisitors",
+        (COALESCE(us.yesterday_visitors, 0) + COALESCE(rs.yesterday_visitors, 0))::text as "yesterdayOutside",
+        (COALESCE(us.total_visitors, 0))::text as "totalVisitors",
+        (COALESCE(rs.inside_visitors, 0))::text as "presentRegVisitors",
         0 as "absentRegVisitors",
-        (COALESCE(us.checkout_staff, 0) + COALESCE(rs.checkout_staff, 0)) as "checkOutEmployee",
-        (COALESCE(us.checkin_staff, 0) + COALESCE(rs.checkin_staff, 0)) as "checkInEmployee",
-        (COALESCE(us.yesterday_staff, 0) + COALESCE(rs.yesterday_staff, 0)) as "yesterdayEmployee",
-        (COALESCE(us.checkin_student, 0) + COALESCE(rs.checkin_student, 0)) as "checkInStudent",
-        (COALESCE(us.checkout_student, 0) + COALESCE(rs.checkout_student, 0)) as "checkOutStudent",
-        (COALESCE(us.checkin_bus, 0) + COALESCE(rs.checkin_bus, 0)) as "checkInBus",
-        (COALESCE(us.checkout_bus, 0) + COALESCE(rs.checkout_bus, 0)) as "checkOutBus"
+        (COALESCE(us.checkout_staff, 0) + COALESCE(rs.checkout_staff, 0))::text as "checkOutEmployee",
+        (COALESCE(us.checkin_staff, 0) + COALESCE(rs.checkin_staff, 0))::text as "checkInEmployee",
+        (COALESCE(us.yesterday_staff, 0) + COALESCE(rs.yesterday_staff, 0))::text as "yesterdayEmployee",
+        (COALESCE(us.checkin_student, 0) + COALESCE(rs.checkin_student, 0))::text as "checkInStudent",
+        (COALESCE(us.checkout_student, 0) + COALESCE(rs.checkout_student, 0))::text as "checkOutStudent",
+        (COALESCE(us.checkin_bus, 0) + COALESCE(rs.checkin_bus, 0))::text as "checkInBus",
+        (COALESCE(us.checkout_bus, 0) + COALESCE(rs.checkout_bus, 0))::text as "checkOutBus"
       FROM UnregisteredStats us
       FULL OUTER JOIN RegisteredStats rs ON 1=1
     `;

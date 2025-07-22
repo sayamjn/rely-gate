@@ -107,7 +107,7 @@ class GatepassController {
         try {
           const [day, month, year] = EndDate.split('/');
           if (day && month && year) {
-            toDate = `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')} 23:59:59`;
+            toDate = `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
           }
         } catch (error) {
           console.warn('Invalid EndDate format:', EndDate);

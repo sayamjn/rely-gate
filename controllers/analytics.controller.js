@@ -215,14 +215,15 @@ class AnalyticsController {
   // GET /api/analytics/GetTrendByPurpose - Get trend analytics by purpose/subcategory
   static async getTrendByPurpose(req, res) {
     try {
-      const { fromDate, toDate, subCatID } = req.query;
+      const { fromDate, toDate, subCatID, catID } = req.query;
       const userTenantId = req.user.tenantId;
 
       const result = await AnalyticsService.getTrendByPurpose(
         parseInt(userTenantId),
         fromDate,
         toDate,
-        parseInt(subCatID)
+        parseInt(subCatID) || 0,
+        parseInt(catID) || 0
       );
       res.json(result);
     } catch (error) {

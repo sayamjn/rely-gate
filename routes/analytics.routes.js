@@ -61,11 +61,12 @@ router.get('/GetOverView', [
   query('toDate').notEmpty().matches(/^\d{2}\/\d{2}\/\d{4}$/).withMessage('ToDate is required and must be in DD/MM/YYYY format')
 ], handleValidationErrors, AnalyticsController.getOverView);
 
-// GET /api/analytics/GetTrendByPurpose - Get trend analytics by purpose/subcategory
+// GET /api/analytics/GetTrendByPurpose - Get trend analytics by purpose/subcategory or category
 router.get('/GetTrendByPurpose', [
   query('fromDate').notEmpty().matches(/^\d{2}\/\d{2}\/\d{4}$/).withMessage('FromDate is required and must be in DD/MM/YYYY format'),
   query('toDate').notEmpty().matches(/^\d{2}\/\d{2}\/\d{4}$/).withMessage('ToDate is required and must be in DD/MM/YYYY format'),
-  query('subCatID').notEmpty().isNumeric().withMessage('SubCatID is required and must be numeric')
+  query('subCatID').optional().isNumeric().withMessage('SubCatID must be numeric'),
+  query('catID').optional().isNumeric().withMessage('CatID must be numeric')
 ], handleValidationErrors, AnalyticsController.getTrendByPurpose);
 
 // GET /api/analytics/GetDashboardSummary - Get dashboard summary analytics

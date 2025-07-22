@@ -5,7 +5,6 @@ const DateFormatter = require("../utils/dateFormatter");
 const MessagingService = require("./messaging.service");
 
 class StaffService {
-
   // Helper function to format datetime in IST format matching student/bus service
 
   // // Get staff list with filters (like students/buses)
@@ -98,78 +97,89 @@ class StaffService {
       return {
         responseCode: responseUtils.RESPONSE_CODES.ERROR,
         responseMessage: responseUtils.RESPONSE_MESSAGES.ERROR,
-        error: process.env.NODE_ENV === "development" ? error.message : undefined,
+        error:
+          process.env.NODE_ENV === "development" ? error.message : undefined,
       };
     }
   }
 
-
-    // GET staff list with filters and pagination (like students/buses)
+  // GET staff list with filters and pagination (like students/buses)
   static async getStaffList(tenantId, filters = {}) {
     try {
       const result = await StaffModel.getStaffList(tenantId, filters);
 
-      const mapped = result.data.map(staff => ({
-        VisitorRegID: staff.visitorregid,
-        VistorName: staff.vistorname,
-        Mobile: staff.mobile,
-        Email: staff.email,
-        VisitorCatID: staff.visitorcatid,
-        VisitorCatName: staff.visitorcatname,
-        VisitorSubCatID: staff.visitorsubcatid,
-        VisitorSubCatName: staff.visitorsubcatname,
-        FlatID: staff.flatid,
-        FlatName: staff.flatname,
-        AssociatedFlat: staff.associatedflat,
-        AssociatedBlock: staff.associatedblock,
-        VehiclelNo: staff.vehiclelno,
-        visitorRegNo: staff.visitorregno,
-        PhotoFlag: staff.photoflag,
-        PhotoPath: staff.photopath,
-        PhotoName: staff.photoname,
-        IsActive: staff.isactive,
-        CreatedDate: staff.createddate,
-        CreatedBy: staff.createdby,
-        StatusName: staff.statusname,
-        // Visit history
-        RegVisitorHistoryID: staff.regvisitorhistoryid,
-
-        InTime: staff.lastcheckintime,
-        InTimeTxt: staff.lastcheckintimetxt,
-
-        OutTime: staff.lastcheckouttime,
-        OutTimeTxt: staff.lastcheckouttimetxt,
-        
-        VisitPurposeID: staff.visitpurposeid,
-
-        VisitPurpose: staff.visitpurpose,
-
-        PurposeCatID: staff.purposecatid,
-        PurposeCatName: staff.purposecatname,
-        CurrentStatus: staff.currentstatus
+      const mapped = result.data.map((staff) => ({
+        visitorregid: staff.visitorregid,
+        visitorname: staff.vistorname,
+        mobile: staff.mobile,
+        email: staff.email,
+        visitorcatid: staff.visitorcatid,
+        visitorcatname: staff.visitorcatname,
+        visitorsubcatid: staff.visitorsubcatid,
+        visitorsubcatname: staff.visitorsubcatname,
+        flatid: staff.flatid,
+        flatname: staff.flatname,
+        associatedflat: staff.associatedflat,
+        associatedblock: staff.associatedblock,
+        vehiclelno: staff.vehiclelno,
+        visitorregno: staff.visitorregno,
+        photoflag: staff.photoflag,
+        photopath: staff.photopath,
+        photoname: staff.photoname,
+        isactive: staff.isactive,
+        createddate: staff.createddate,
+        createdby: staff.createdby,
+        statusname: staff.statusname,
+        regvisitorhistoryid: staff.regvisitorhistoryid,
+        intime: staff.lastcheckintime,
+        intimetxt: staff.lastcheckintimetxt,
+        outtime: staff.lastcheckouttime,
+        outtimetxt: staff.lastcheckouttimetxt,
+        visitpurposeid: staff.visitpurposeid,
+        visitpurpose: staff.visitpurpose,
+        purposecatid: staff.purposecatid,
+        purposecatname: staff.purposecatname,
+        currentstatus: staff.currentstatus,
       }));
 
       return {
-        responseCode: 'S',
-        responseMessage: 'Record(s) retrieved successfully',
+        responseCode: "S",
+        responseMessage: "Record(s) retrieved successfully",
         data: mapped,
         count: result.pagination.totalItems,
-        pagination: result.pagination
+        pagination: result.pagination,
       };
     } catch (error) {
-      console.error('Error in getStaffList:', error);
+      console.error("Error in getStaffList:", error);
       return {
-        responseCode: 'E',
-        responseMessage: 'Internal server error',
-        error: process.env.NODE_ENV === 'development' ? error.message : undefined
+        responseCode: "E",
+        responseMessage: "Internal server error",
+        error:
+          process.env.NODE_ENV === "development" ? error.message : undefined,
       };
     }
   }
   // Get all staff with pagination and search
-  static async getStaff(tenantId, page = 1, pageSize = 10, search = "", designation = "") {
+  static async getStaff(
+    tenantId,
+    page = 1,
+    pageSize = 10,
+    search = "",
+    designation = ""
+  ) {
     try {
-      const staff = await StaffModel.getStaff(tenantId, page, pageSize, search, designation);
-      const totalCount = await StaffModel.getStaffCount(tenantId, search, designation);
+      const staff = await StaffModel.getStaff(
+        tenantId,
+        page,
+        pageSize,
+        search,
+        designation
+      );
+      const totalCount = await StaffModel.getStaffCount(
+        tenantId,
+        search,
+        designation
+      );
 
       const totalPages = Math.ceil(totalCount / pageSize);
 
@@ -439,7 +449,6 @@ class StaffService {
     }
   }
 
-
   // Get available designations
   static async getDesignations(tenantId) {
     try {
@@ -457,7 +466,7 @@ class StaffService {
     `;
 
       const result = await query(sql, [tenantId]);
-console.log("result: ", result)
+      console.log("result: ", result);
 
       const predefinedSql = `
       SELECT 
@@ -472,7 +481,7 @@ console.log("result: ", result)
     `;
 
       const predefinedResult = await query(predefinedSql, [tenantId]);
-console.log("predefinedResult: ", predefinedResult)
+      console.log("predefinedResult: ", predefinedResult);
       // Combine and deduplicate
       const allDesignations = [...result.rows, ...predefinedResult.rows];
       const uniqueDesignations = allDesignations.reduce((acc, curr) => {
@@ -671,14 +680,14 @@ console.log("predefinedResult: ", predefinedResult)
       if (!purposeName || purposeName.trim() === "") {
         return {
           responseCode: responseUtils.RESPONSE_CODES.ERROR,
-          responseMessage: "Designation name is required"
+          responseMessage: "Designation name is required",
         };
       }
 
       if (purposeName.length > 250) {
         return {
           responseCode: responseUtils.RESPONSE_CODES.ERROR,
-          responseMessage: "Designation name too long (max 250 characters)"
+          responseMessage: "Designation name too long (max 250 characters)",
         };
       }
 
@@ -689,19 +698,21 @@ console.log("predefinedResult: ", predefinedResult)
       if (exists) {
         return {
           responseCode: responseUtils.RESPONSE_CODES.ERROR,
-          responseMessage: "Designation already exists for this tenant"
+          responseMessage: "Designation already exists for this tenant",
         };
       }
 
       // Handle image upload if provided
       let imageData = null;
       if (imageFile) {
-        const baseUrl = process.env.BASE_URL || `http://localhost:${process.env.PORT || 3000}`;
+        const baseUrl =
+          process.env.BASE_URL ||
+          `http://localhost:${process.env.PORT || 3000}`;
         imageData = {
-          flag: 'Y',
+          flag: "Y",
           path: `purposes/${imageFile.filename}`,
           name: imageFile.filename,
-          url: `/uploads/purposes/${imageFile.filename}`
+          url: `/uploads/purposes/${imageFile.filename}`,
         };
       }
 
@@ -709,43 +720,39 @@ console.log("predefinedResult: ", predefinedResult)
         tenantId,
         purposeName: purposeName.trim(),
         createdBy,
-        imageData
+        imageData,
       });
 
       return {
         responseCode: responseUtils.RESPONSE_CODES.SUCCESS,
         responseMessage: "Designation added successfully",
-        data: newPurpose
+        data: newPurpose,
       };
     } catch (error) {
       console.error("Error in addStaffPurpose service:", error);
       return {
         responseCode: responseUtils.RESPONSE_CODES.ERROR,
         responseMessage: responseUtils.RESPONSE_MESSAGES.ERROR,
-        error: process.env.NODE_ENV === "development" ? error.message : undefined,
+        error:
+          process.env.NODE_ENV === "development" ? error.message : undefined,
       };
     }
   }
 
   // Update designation (purpose)
-  static async updateStaffPurpose(
-    purposeId,
-    tenantId,
-    purposeName,
-    updatedBy
-  ) {
+  static async updateStaffPurpose(purposeId, tenantId, purposeName, updatedBy) {
     try {
       if (!purposeName || purposeName.trim() === "") {
         return {
           responseCode: responseUtils.RESPONSE_CODES.ERROR,
-          responseMessage: "Designation name is required"
+          responseMessage: "Designation name is required",
         };
       }
 
       if (purposeName.length > 250) {
         return {
           responseCode: responseUtils.RESPONSE_CODES.ERROR,
-          responseMessage: "Designation name too long (max 250 characters)"
+          responseMessage: "Designation name too long (max 250 characters)",
         };
       }
 
@@ -756,7 +763,7 @@ console.log("predefinedResult: ", predefinedResult)
       if (exists) {
         return {
           responseCode: responseUtils.RESPONSE_CODES.ERROR,
-          responseMessage: "Designation name already exists"
+          responseMessage: "Designation name already exists",
         };
       }
 
@@ -770,21 +777,22 @@ console.log("predefinedResult: ", predefinedResult)
       if (!updatedPurpose) {
         return {
           responseCode: responseUtils.RESPONSE_CODES.ERROR,
-          responseMessage: "Designation not found or access denied"
+          responseMessage: "Designation not found or access denied",
         };
       }
 
       return {
         responseCode: responseUtils.RESPONSE_CODES.SUCCESS,
         responseMessage: "Designation updated successfully",
-        data: updatedPurpose
+        data: updatedPurpose,
       };
     } catch (error) {
       console.error("Error in updateStaffPurpose service:", error);
       return {
         responseCode: responseUtils.RESPONSE_CODES.ERROR,
         responseMessage: responseUtils.RESPONSE_MESSAGES.ERROR,
-        error: process.env.NODE_ENV === "development" ? error.message : undefined,
+        error:
+          process.env.NODE_ENV === "development" ? error.message : undefined,
       };
     }
   }
@@ -797,14 +805,14 @@ console.log("predefinedResult: ", predefinedResult)
       if (!purpose) {
         return {
           responseCode: responseUtils.RESPONSE_CODES.ERROR,
-          responseMessage: "Designation not found or access denied"
+          responseMessage: "Designation not found or access denied",
         };
       }
 
       if (purpose.isactive === "N" || purpose.IsActive === "N") {
         return {
           responseCode: responseUtils.RESPONSE_CODES.ERROR,
-          responseMessage: "Designation is already deleted"
+          responseMessage: "Designation is already deleted",
         };
       }
 
@@ -817,21 +825,22 @@ console.log("predefinedResult: ", predefinedResult)
       if (!deletedPurpose) {
         return {
           responseCode: responseUtils.RESPONSE_CODES.ERROR,
-          responseMessage: "Failed to delete designation"
+          responseMessage: "Failed to delete designation",
         };
       }
 
       return {
         responseCode: responseUtils.RESPONSE_CODES.SUCCESS,
         responseMessage: "Designation deleted successfully",
-        data: { purposeId: deletedPurpose.purposeId }
+        data: { purposeId: deletedPurpose.purposeId },
       };
     } catch (error) {
       console.error("Error in deleteStaffPurpose service:", error);
       return {
         responseCode: responseUtils.RESPONSE_CODES.ERROR,
         responseMessage: responseUtils.RESPONSE_MESSAGES.ERROR,
-        error: process.env.NODE_ENV === "development" ? error.message : undefined,
+        error:
+          process.env.NODE_ENV === "development" ? error.message : undefined,
       };
     }
   }
@@ -932,14 +941,15 @@ console.log("predefinedResult: ", predefinedResult)
         responseCode: responseUtils.RESPONSE_CODES.SUCCESS,
         responseMessage: "Staff purposes retrieved successfully",
         data: purposes,
-        count: purposes.length
+        count: purposes.length,
       };
     } catch (error) {
       console.error("Error in getStaffPurposes service:", error);
       return {
         responseCode: responseUtils.RESPONSE_CODES.ERROR,
         responseMessage: responseUtils.RESPONSE_MESSAGES.ERROR,
-        error: process.env.NODE_ENV === "development" ? error.message : undefined,
+        error:
+          process.env.NODE_ENV === "development" ? error.message : undefined,
       };
     }
   }
@@ -948,7 +958,7 @@ console.log("predefinedResult: ", predefinedResult)
   static async getStaffById(staffId, tenantId) {
     try {
       const staff = await StaffModel.getStaffById(staffId, tenantId);
-      
+
       if (!staff) {
         return {
           responseCode: responseUtils.RESPONSE_CODES.ERROR,
@@ -973,7 +983,8 @@ console.log("predefinedResult: ", predefinedResult)
       return {
         responseCode: responseUtils.RESPONSE_CODES.ERROR,
         responseMessage: responseUtils.RESPONSE_MESSAGES.ERROR,
-        error: process.env.NODE_ENV === "development" ? error.message : undefined,
+        error:
+          process.env.NODE_ENV === "development" ? error.message : undefined,
       };
     }
   }
@@ -982,7 +993,7 @@ console.log("predefinedResult: ", predefinedResult)
   static async getStaffByCode(staffCode, tenantId) {
     try {
       const staff = await StaffModel.getStaffByCode(staffCode, tenantId);
-      
+
       if (!staff) {
         return {
           responseCode: responseUtils.RESPONSE_CODES.ERROR,
@@ -1007,7 +1018,8 @@ console.log("predefinedResult: ", predefinedResult)
       return {
         responseCode: responseUtils.RESPONSE_CODES.ERROR,
         responseMessage: responseUtils.RESPONSE_MESSAGES.ERROR,
-        error: process.env.NODE_ENV === "development" ? error.message : undefined,
+        error:
+          process.env.NODE_ENV === "development" ? error.message : undefined,
       };
     }
   }

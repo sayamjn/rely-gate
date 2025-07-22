@@ -677,12 +677,12 @@ static async processBusQRScan(req, res) {
       });
     }
 
-    console.log("Fetching bus status for bus ID:", bus.id);
+    console.log("Fetching bus status for bus ID:", bus.visitorregid);
     const statusResult = await BusService.getBusStatus(bus.visitorregid, userTenantId);
     console.log("Bus status result:", statusResult);
 
     if (statusResult.responseCode !== responseUtils.RESPONSE_CODES.SUCCESS) {
-      console.warn("Bus status fetch failed for ID:", bus.id);
+      console.warn("Bus status fetch failed for ID:", bus.visitorregid);
       return res.status(404).json({
         responseCode: responseUtils.RESPONSE_CODES.ERROR,
         responseMessage: 'Bus not found'
@@ -711,11 +711,11 @@ static async processBusQRScan(req, res) {
         visitorRegId: statusResult.data.busId,
         visitorRegNo: mainid,
         bus: {
-          name: statusResult.data.busName,
-          regNo: statusResult.data.busCode,
+          name: statusResult.data.busNumber,
+          regNo: statusResult.data.busRegNo,
           mobile: statusResult.data.mobile,
-          course: statusResult.data.course || 'N/A',
-          hostel: statusResult.data.hostel || 'N/A'
+          course: bus.course || 'N/A',
+          hostel: bus.hostel || 'N/A'
         },
         actionPrompt: nextAction === 'checkin' 
           ? 'Bus is currently checked out. Do you want to check in?' 

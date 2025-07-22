@@ -308,9 +308,9 @@ class AnalyticsService {
   }
 
   // Get trend analytics by purpose/subcategory
-  static async getTrendByPurpose(tenantId, fromDate, toDate, subCatID) {
+  static async getTrendByPurpose(tenantId, fromDate, toDate, subCatID, catID) {
     try {
-      const analytics = await AnalyticsModel.getTrendByPurpose(tenantId, fromDate, toDate, subCatID);
+      const analytics = await AnalyticsModel.getTrendByPurpose(tenantId, fromDate, toDate, subCatID, catID);
       
       return {
         responseCode: responseUtils.RESPONSE_CODES.SUCCESS,

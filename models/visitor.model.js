@@ -1154,22 +1154,22 @@ class VisitorModel {
     const offset = (page - 1) * pageSize;
     const dataSql = `
       SELECT 
-        vm.VisitorID as "VisitorId",
-        COALESCE(vm.VehiclelNo, '') as "VehicleNumber",
-        COALESCE(vm.Fname, '') as "Fname",
-        COALESCE(vm.Mname, '') as "Mname",
-        COALESCE(vm.Lname, '') as "Lname",
-        vm.INTime as "INTime",
-        COALESCE(vm.INTimeTxt::TEXT, '') as "INTimeTxt",
-        vm.OutTime as "OutTime",
-        COALESCE(vm.OutTimeTxt::TEXT, '') as "OutTimeTxt",
-        vm.VisitDate as "VisitDate",
-        vm.VisitorSubCatID as "VisitorSubCatId",
-        vm.VisitorSubCatName as "visitorSubCatName",
-        vm.Mobile as "Mobile",
-        vm.FlatName as "FlatName",
-        COALESCE(vm.PhotoName, '') as "PhotoName",
-        COALESCE(vm.VehiclePhotoName, '') as "VehiclePhotoName"
+        vm.VisitorID,
+        COALESCE(vm.VehiclelNo, '') as "vehicleNumber",
+        COALESCE(vm.Fname, '') as "fname",
+        COALESCE(vm.Mname, '') as "mname",
+        COALESCE(vm.Lname, '') as "lname",
+        vm.INTime as "intime",
+        COALESCE(vm.INTimeTxt::TEXT, '') as "intimetxt",
+        vm.OutTime as "outtime",
+        COALESCE(vm.OutTimeTxt::TEXT, '') as "outtimetxt",
+        vm.VisitDate as "visitDate",
+        vm.VisitorSubCatID as "visitorsubcatid",
+        vm.VisitorSubCatName as "visitorsubcatname",
+        vm.Mobile as "mobile",
+        vm.FlatName as "flatname",
+        COALESCE(vm.PhotoName, '') as "photoname",
+        COALESCE(vm.VehiclePhotoName, '') as "vehiclephotoname"
       FROM VisitorMaster vm
       WHERE ${whereClause}
       ORDER BY vm.CreatedDate DESC
