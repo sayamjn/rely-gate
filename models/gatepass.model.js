@@ -92,15 +92,15 @@ class GatePassModel {
       paramIndex++;
     }
 
-    // Add date range filter
+    // Add date range filter (convert VisitDate to IST for comparison)
     if (fromDate) {
-      whereConditions.push(`VisitDate >= $${paramIndex}`);
+      whereConditions.push(`DATE(VisitDate AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata') >= $${paramIndex}`);
       params.push(fromDate);
       paramIndex++;
     }
 
     if (toDate) {
-      whereConditions.push(`VisitDate <= $${paramIndex}`);
+      whereConditions.push(`DATE(VisitDate AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata') <= $${paramIndex}`);
       params.push(toDate);
       paramIndex++;
     }
@@ -123,8 +123,8 @@ class GatePassModel {
         VisitorID as "visitorId",
         Fname as "fname",
         Mobile as "mobile",
-        VisitDate as "visitDate",
-        TO_CHAR(VisitDate, '${DateFormatter.PG_DATETIME_FORMAT}') as "visitDateTxt",
+        VisitDate AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata' as "visitDate",
+        TO_CHAR(VisitDate AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata', '${DateFormatter.PG_DATETIME_FORMAT}') as "visitDateTxt",
         VisitPurposeID as "purposeId",
         VisitPurpose as "purposeName",
         StatusID as "statusId",
@@ -133,12 +133,12 @@ class GatePassModel {
         INTime as "inTime",
         OutTime as "outTime",
         CASE 
-          WHEN INTime IS NOT NULL THEN TO_CHAR(INTime, '${DateFormatter.PG_DATETIME_FORMAT}')
-          ELSE INTimeTxt
+          WHEN INTime IS NOT NULL THEN FLOOR(EXTRACT(EPOCH FROM INTime))::text
+          ELSE INTimeTxt::text
         END as "inTimeTxt",
         CASE 
-          WHEN OutTime IS NOT NULL THEN TO_CHAR(OutTime, '${DateFormatter.PG_DATETIME_FORMAT}')
-          ELSE OutTimeTxt
+          WHEN OutTime IS NOT NULL THEN FLOOR(EXTRACT(EPOCH FROM OutTime))::text
+          ELSE OutTimeTxt::text
         END as "outTimeTxt",
         CreatedDate as "createdDate",
         CASE 
@@ -226,7 +226,7 @@ class GatePassModel {
     const sql = `
       UPDATE VisitorMaster 
       SET INTime = NOW(), 
-          INTimeTxt = TO_CHAR(NOW(), '${DateFormatter.PG_DATETIME_FORMAT}'),
+          INTimeTxt = EXTRACT(EPOCH FROM NOW())::bigint,
           OutTime = NULL,
           OutTimeTxt = NULL,
           UpdatedDate = NOW(),
@@ -263,7 +263,7 @@ class GatePassModel {
     const sql = `
       UPDATE VisitorMaster 
       SET OutTime = NOW(), 
-          OutTimeTxt = TO_CHAR(NOW(), '${DateFormatter.PG_DATETIME_FORMAT}'),
+          OutTimeTxt = EXTRACT(EPOCH FROM NOW())::bigint,
           UpdatedDate = NOW(),
           UpdatedBy = $3
       WHERE VisitorID = $1 AND TenantID = $2 AND VisitorCatID = 6
