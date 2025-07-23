@@ -1104,7 +1104,8 @@ class VisitorModel {
     search = "",
     visitorSubCatId = 0,
     fromDate = null,
-    toDate = null
+    toDate = null,
+    purposeId = 0
   ) {
     let whereConditions = ["vm.TenantID = $1", "vm.IsActive = 'Y'"];
     let params = [tenantId];
@@ -1123,6 +1124,13 @@ class VisitorModel {
     if (visitorSubCatId > 0) {
       whereConditions.push(`vm.VisitorSubCatID = $${paramIndex}`);
       params.push(visitorSubCatId);
+      paramIndex++;
+    }
+
+    // Purpose filter
+    if (purposeId > 0) {
+      whereConditions.push(`vm.VisitPurposeID = $${paramIndex}`);
+      params.push(purposeId);
       paramIndex++;
     }
 

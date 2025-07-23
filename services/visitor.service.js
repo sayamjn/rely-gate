@@ -1367,7 +1367,8 @@ class VisitorService {
     search = "",
     visitorSubCatId = 0,
     fromDate = null,
-    toDate = null
+    toDate = null,
+    purposeId = 0
   ) {
     try {
       // Call the model method instead of having SQL queries in service
@@ -1378,7 +1379,8 @@ class VisitorService {
         search,
         parseInt(visitorSubCatId),
         fromDate,
-        toDate
+        toDate,
+        parseInt(purposeId)
       );
 
       return {

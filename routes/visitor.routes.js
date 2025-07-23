@@ -248,6 +248,7 @@ router.post('/list', [
 // GET /api/visitors - List visitors with pagination and search (legacy)
 router.get('/', [
   query('visitorSubCatId').optional().isInt().withMessage('VisitorSubCatId must be an integer'),
+  query('purposeId').optional().isInt({ min: 0 }).withMessage('PurposeId must be a non-negative integer'),
   query('fromDate').optional().isInt().withMessage('FromDate must be valid epoch timestamp'),
   query('toDate').optional().isInt().withMessage('ToDate must be valid epoch timestamp'),
   query('page').optional().isInt({ min: 1 }).withMessage('Page must be a positive integer'),

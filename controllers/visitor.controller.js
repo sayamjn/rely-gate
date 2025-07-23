@@ -764,6 +764,7 @@ class VisitorController {
         pageSize = 20,
         search = "",
         visitorSubCatId = 0,
+        purposeId = 0,
         fromDate = null,
         toDate = null,
       } = req.query;
@@ -777,7 +778,8 @@ class VisitorController {
         search,
         parseInt(visitorSubCatId),
         fromDate,
-        toDate
+        toDate,
+        parseInt(purposeId)
       );
 
       res.json(result);

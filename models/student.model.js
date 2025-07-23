@@ -733,12 +733,6 @@ class StudentModel {
       WHERE vr.TenantID = $1
         AND vr.IsActive = 'Y'
         AND vr.VisitorCatID = 3
-        AND EXISTS (
-          SELECT 1 FROM VisitorRegVisitHistory vh 
-          WHERE vh.VisitorRegID = vr.VisitorRegID 
-          AND vh.TenantID = vr.TenantID 
-          AND vh.IsActive = 'Y'
-        )
     `;
     const params = [tenantId];
     let paramIndex = 2;
