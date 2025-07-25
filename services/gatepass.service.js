@@ -3,7 +3,6 @@ const MessagingService = require("./messaging.service");
 const GatePassModel = require("../models/gatepass.model");
 const DateFormatter = require("../utils/dateFormatter");
 const responseUtils = require("../utils/constants");
-const { query } = require("../config/database");
 
 class GatepassService {
   static generateSecurityCode() {
@@ -27,28 +26,6 @@ class GatepassService {
 
       console.log(purposeName, "purposeName in createGatepass");
 
-      // Handle custom purpose validation
-      let finalPurposeId = purposeId;
-      let finalPurposeName = purposeName;
-
-      if (parseInt(purposeId) === -1) {
-        // Custom purpose - validate purpose name is provided
-        if (!purposeName || purposeName.trim() === "") {
-          return ResponseFormatter.error("Purpose name is required for custom purpose");
-        }
-        finalPurposeName = purposeName.trim();
-        // For custom purposes, we'll use NULL instead of -1 to avoid foreign key constraint
-        finalPurposeId = null;
-      } else {
-        // Validate that the purposeId exists in the database
-        try {
-          finalPurposeName = purposeCheck.rows[0].visitpurpose || purposeCheck.rows[0].VisitPurpose;
-        } catch (purposeError) {
-          console.error("Purpose validation error:", purposeError);
-          return ResponseFormatter.error("Purpose validation failed");
-        }
-      }
-
       const securityCode = this.generateSecurityCode();
       const statusName = statusId === 2 ? "Approved" : "Pending";
       const visitDateTxt = DateFormatter.formatDate(visitDate);
@@ -57,8 +34,8 @@ class GatepassService {
         tenantId,
         statusId,
         statusName,
-        purposeId: finalPurposeId,
-        purposeName: finalPurposeName,
+        purposeId,
+        purposeName,
         fname,
         mobile,
         visitDate,
