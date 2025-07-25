@@ -28,20 +28,6 @@ class GatepassController {
         });
       }
 
-      // Purpose validation and lookup logic
-      let finalPurposeName;
-      const parsedPurposeId = parseInt(purposeId);
-
-      // if (parsedPurposeId === -1) {
-      //   // Custom purpose - use provided purposeName
-      //   if (!purposeName || purposeName.trim() === "") {
-      //     return res.status(400).json({
-      //       responseCode: responseUtils.RESPONSE_CODES.ERROR,
-      //       responseMessage: "Purpose name is required for custom purpose",
-      //     });
-      //   }
-      //   finalPurposeName = purposeName.trim();
-      // }
       const gatepassData = {
         fname: fname.trim(),
         mobile: mobile.trim(),
