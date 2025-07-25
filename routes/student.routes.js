@@ -42,7 +42,7 @@ router.get('/pending-checkin', [
 // GET /api/students - List students with pagination and search (kept for backward compatibility)
 router.get('/', [
   query('page').optional().isInt({ min: 1 }).withMessage('Page must be a positive integer'),
-  query('pageSize').optional().isInt({ min: 1, max: 100 }).withMessage('PageSize must be between 1 and 100'),
+  query('pageSize').optional().isInt({ min: 1, max: 100000 }).withMessage('PageSize must be between 1 and 100000'),
   query('search').optional().isString().trim().withMessage('Search must be a string'),
   query('visitorSubCatId').optional().isInt().withMessage('VisitorSubCatId must be an integer'),
 ], handleValidationErrors, StudentController.getStudents);
@@ -162,6 +162,17 @@ router.get('/meal-statistics', [
   query('toDate').optional().matches(/^\d{2}\/\d{2}\/\d{4}$/).withMessage('ToDate must be in DD/MM/YYYY format')
 ], handleValidationErrors, StudentController.getMealStatistics);
 
+
+// GET /api/students/visit-history - Get all student visit history
+router.get('/visit-history', [
+  query('page').optional().isInt({ min: 1 }).withMessage('Page must be a positive integer'),
+  query('pageSize').optional().isInt({ min: 1, max: 100 }).withMessage('PageSize must be between 1 and 100'),
+  query('search').optional().isString().trim().withMessage('Search must be a string'),
+  query('fromDate').optional().isInt().withMessage('FromDate must be valid epoch timestamp'),
+  query('toDate').optional().isInt().withMessage('ToDate must be valid epoch timestamp'),
+  query('visitorRegId').optional().isInt({ min: 1 }).withMessage('VisitorRegId must be a positive integer'),
+  query('purposeId').optional().isInt({ min: 0 }).withMessage('PurposeId must be a positive integer')
+], handleValidationErrors, StudentController.getAllStudentVisitHistory);
 
 // GET /api/students/sub-categories - List of student's sub categories
 router.get('/sub-categories', handleValidationErrors, StudentController.getStudentSubCategories);

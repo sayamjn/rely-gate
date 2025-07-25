@@ -151,7 +151,16 @@ router.get('/list', [
 // GET /api/buses/sub-categories - List of bus sub categories
 router.get('/sub-categories', BusController.getBusSubCategories);
 
-
+// GET /api/buses/visit-history - Get all bus visit history
+router.get('/visit-history', [
+  query('page').optional().isInt({ min: 1 }).withMessage('Page must be a positive integer'),
+  query('pageSize').optional().isInt({ min: 1, max: 100 }).withMessage('PageSize must be between 1 and 100'),
+  query('search').optional().isString().trim().withMessage('Search must be a string'),
+  query('fromDate').optional().isInt().withMessage('FromDate must be valid epoch timestamp'),
+  query('toDate').optional().isInt().withMessage('ToDate must be valid epoch timestamp'),
+  query('visitorRegId').optional().isInt({ min: 1 }).withMessage('VisitorRegId must be a positive integer'),
+  query('purposeId').optional().isInt({ min: 0 }).withMessage('PurposeId must be a positive integer')
+], handleValidationErrors, BusController.getAllBusVisitHistory);
 
 // POST /api/buses/:busId/generate-qr - Generate QR code for bus
 router.post('/:busId/generate-qr', [

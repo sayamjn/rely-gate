@@ -11,6 +11,9 @@ const { testConnection } = require('./config/database');
 // Import middleware
 const { handleError, notFound } = require('./middleware/error');
 
+// Import models for initialization
+const EmailReportModel = require('./models/emailReport.model');
+
 // Import routes
 const authRoutes = require('./routes/auth.routes');
 const protectedRoutes = require('./routes/protected.routes');
@@ -25,6 +28,7 @@ const studentRoutes = require('./routes/student.routes');
 const busRoutes = require('./routes/bus.routes');
 const staffRoutes = require('./routes/staff.routes');
 const gatePassRoutes = require('./routes/gatepass.routes');
+const emailReportRoutes = require('./routes/emailReport.routes');
 
 const app = express();
 const PORT = config.port || 3000;
@@ -101,7 +105,9 @@ app.use('/api/vehicles', vehicleRoutes);
 app.use('/api/students', studentRoutes);
 app.use('/api/buses', busRoutes);
 app.use('/api/staff', staffRoutes); 
-app.use("/api/gatepass", gatePassRoutes)
+app.use("/api/gatepass", gatePassRoutes);
+app.use('/api/email-reports', emailReportRoutes);
+
 // Error handling middleware (must be last)
 app.use(handleError);
 app.use(notFound);
@@ -115,6 +121,11 @@ const server = app.listen(PORT, async () => {
   try {
     await testConnection();
     console.log('✅ Database connection established successfully');
+    
+    // Initialize EmailRecipients table
+    // await EmailReportModel.createEmailRecipientsTable();
+    // console.log('✅ EmailRecipients table initialized successfully');
+    console.log(`📧 Email reports available at: http://localhost:${PORT}/api/email-reports`);
   } catch (error) {
     console.error('❌ Failed to connect to database:', error.message);
     console.error('Please check your database configuration in .env file');
@@ -122,8 +133,9 @@ const server = app.listen(PORT, async () => {
 });
 
 // Graceful shutdown
-const gracefulShutdown = (signal) => {
+const gracefulShutdown = async (signal) => {
   console.log(`\n${signal} received. Shutting down gracefully...`);
+  
   server.close(() => {
     console.log('✅ HTTP server closed');
     process.exit(0);

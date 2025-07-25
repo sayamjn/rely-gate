@@ -147,6 +147,17 @@ router.delete('/designations/:purposeId', [
     .withMessage('Designation ID must be numeric'),
 ], handleValidationErrors, StaffController.deleteStaffPurpose);
 
+// GET /api/staff/visit-history - Get all staff visit history
+router.get('/visit-history', [
+  query('page').optional().isInt({ min: 1 }).withMessage('Page must be a positive integer'),
+  query('pageSize').optional().isInt({ min: 1, max: 100 }).withMessage('PageSize must be between 1 and 100'),
+  query('search').optional().isString().trim().withMessage('Search must be a string'),
+  query('fromDate').optional().isInt().withMessage('FromDate must be valid epoch timestamp'),
+  query('toDate').optional().isInt().withMessage('ToDate must be valid epoch timestamp'),
+  query('visitorRegId').optional().isInt({ min: 1 }).withMessage('VisitorRegId must be a positive integer'),
+  query('designation').optional().isString().trim().withMessage('Designation must be a string')
+], handleValidationErrors, StaffController.getAllStaffVisitHistory);
+
 // ===== QR CODE ROUTES =====
 
 // POST /api/staff/:staffId/generate-qr - Generate QR code for staff

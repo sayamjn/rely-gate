@@ -892,6 +892,47 @@ class StudentController {
     }
   }
 
+  // GET /api/students/visit-history - Get all student visit history
+  static async getAllStudentVisitHistory(req, res) {
+    try {
+      const {
+        page = 1,
+        pageSize = 20,
+        search = "",
+        fromDate = null,
+        toDate = null,
+        visitorRegId = null,
+        purposeId = null
+      } = req.query;
+
+      const userTenantId = req.user.tenantId;
+
+      const filters = {
+        page: parseInt(page),
+        pageSize: parseInt(pageSize),
+        search,
+        fromDate,
+        toDate,
+        visitorRegId: visitorRegId ? parseInt(visitorRegId) : null,
+        purposeId: purposeId ? parseInt(purposeId) : null
+      };
+
+      const result = await StudentService.getAllStudentVisitHistory(
+        userTenantId,
+        filters
+      );
+
+      res.json(result);
+    } catch (error) {
+      console.error("Error in getAllStudentVisitHistory:", error);
+      res.status(500).json({
+        responseCode: responseUtils.RESPONSE_CODES.ERROR,
+        responseMessage: "Internal server error",
+        error: process.env.NODE_ENV === "development" ? error.message : undefined,
+      });
+    }
+  }
+
   // DELETE /api/students/:id - Delete student and all related data
   static async deleteStudent(req, res) {
     try {

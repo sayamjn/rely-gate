@@ -87,6 +87,13 @@ class StudentModel {
         THEN 'CHECKED_OUT' 
         ELSE 'CHECKED_IN' 
       END as CurrentStatus,
+      
+      -- isCheckedIn boolean flag (true if student is currently checked out, waiting to check in)
+      CASE 
+        WHEN vh_latest.OutTime IS NULL OR vh_latest.OutTimeTxt IS NULL OR vh_latest.OutTimeTxt = '' 
+        THEN true 
+        ELSE false 
+      END as isCheckedIn,
       COUNT(*) OVER() as total_count
     FROM VisitorRegistration vr
     INNER JOIN LATERAL (
@@ -810,6 +817,148 @@ class StudentModel {
     } catch (error) {
       throw error;
     }
+  }
+
+  // Get all student visit history from VisitorRegVisitHistory
+  static async getAllStudentVisitHistory(tenantId, filters = {}) {
+    const {
+      page = 1,
+      pageSize = 20,
+      search = "",
+      fromDate = null,
+      toDate = null,
+      visitorRegId = null,
+      purposeId = null
+    } = filters;
+
+    let sql = `
+      SELECT 
+        vh.RegVisitorHistoryID as regVisitorHistoryId,
+        vh.TenantID as tenantId,
+        vh.IsActive as isActive,
+        vh.IsRegFlag as isRegFlag,
+        vh.VisitorRegID as visitorRegId,
+        vh.VisitorRegNo as visitorRegNo,
+        vh.SecurityCode as securityCode,
+        vh.VistorName as visitorName,
+        vh.Mobile as mobile,
+        vh.VehiclelNo as vehicleNo,
+        vh.Remark as remark,
+        vh.VisitorCatID as visitorCatId,
+        vh.VisitorCatName as visitorCatName,
+        vh.VisitorSubCatID as visitorSubCatId,
+        vh.VisitorSubCatName as visitorSubCatName,
+        vh.AssociatedFlat as associatedFlat,
+        vh.AssociatedBlock as associatedBlock,
+        -- Convert to IST and provide both timestamp and text format
+        vh.INTime AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata' as inTime,
+        CASE 
+          WHEN vh.INTime IS NOT NULL 
+          THEN FLOOR(EXTRACT(EPOCH FROM vh.INTime))::text
+          ELSE vh.INTimeTxt
+        END as inTimeTxt,
+        vh.OutTime AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata' as outTime,
+        CASE 
+          WHEN vh.OutTime IS NOT NULL 
+          THEN FLOOR(EXTRACT(EPOCH FROM vh.OutTime))::text
+          ELSE vh.OutTimeTxt
+        END as outTimeTxt,
+        vh.VisitPurposeID as visitPurposeId,
+        vh.VisitPurpose as visitPurpose,
+        vh.PurposeCatID as purposeCatId,
+        vh.PurposeCatName as purposeCatName,
+        vh.CreatedDate AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata' as createdDate,
+        vh.UpdatedDate AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata' as updatedDate,
+        vh.CreatedBy as createdBy,
+        vh.UpdatedBy as updatedBy,
+        -- Additional student information from VisitorRegistration and BulkVisitorUpload
+        vr.Email as email,
+        vr.PhotoFlag as photoFlag,
+        vr.PhotoPath as photoPath,
+        vr.PhotoName as photoName,
+        vr.VehiclePhotoFlag as vehiclePhotoFlag,
+        vr.VehiclePhotoName as vehiclePhotoName,
+        COALESCE(bvu.Course, vr.VisitorSubCatName) as course,
+        COALESCE(bvu.Hostel, vr.AssociatedFlat) as hostel,
+        COALESCE(bvu.StudentID, vr.VisitorRegNo) as studentNumber,
+        vr.CreatedDate as registrationDate,
+        -- Calculate duration in hours if both times exist
+        CASE 
+          WHEN vh.OutTime IS NOT NULL AND vh.INTime IS NOT NULL 
+          THEN EXTRACT(EPOCH FROM ((vh.INTime AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata') - (vh.OutTime AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata')))/3600
+          ELSE NULL 
+        END as durationHours,
+        -- Status based on check-in/out times
+        CASE 
+          WHEN vh.OutTime IS NULL OR vh.OutTimeTxt IS NULL OR vh.OutTimeTxt = '' 
+          THEN 'CHECKED_OUT' 
+          ELSE 'COMPLETED' 
+        END as status,
+        -- Format date for display
+        TO_CHAR(vh.CreatedDate AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata', 'DD/MM/YYYY') as visitDate,
+        TO_CHAR(vh.INTime AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata', 'HH24:MI') as checkOutTimeDisplay,
+        TO_CHAR(vh.OutTime AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata', 'HH24:MI') as checkInTimeDisplay,
+        TO_CHAR(vr.CreatedDate AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata', 'DD/MM/YYYY') as createdDateTxt,
+        -- isCheckedIn boolean flag (true if student is currently checked out, waiting to check in)
+        CASE 
+          WHEN vh.OutTime IS NULL OR vh.OutTimeTxt IS NULL OR vh.OutTimeTxt = '' 
+          THEN true 
+          ELSE false 
+        END as isCheckedIn,
+        COUNT(*) OVER() as total_count
+      FROM VisitorRegVisitHistory vh
+      INNER JOIN VisitorRegistration vr ON vh.VisitorRegID::text = vr.VisitorRegID::text AND vh.TenantID = vr.TenantID
+      LEFT JOIN BulkVisitorUpload bvu ON vr.Mobile = bvu.Mobile AND bvu.Type = 'student' AND bvu.TenantID::text = vr.TenantID::text
+      WHERE vh.TenantID = $1 
+        AND vh.IsActive = 'Y'
+        AND vh.VisitorCatID = 3
+    `;
+
+    const params = [tenantId];
+    let paramIndex = 2;
+
+    // Apply filters
+    if (search) {
+      sql += ` AND (
+        vh.VistorName ILIKE $${paramIndex} OR 
+        vh.Mobile ILIKE $${paramIndex} OR 
+        vh.VisitorRegNo ILIKE $${paramIndex} OR
+        vh.SecurityCode ILIKE $${paramIndex}
+      )`;
+      params.push(`%${search}%`);
+      paramIndex++;
+    }
+
+    if (visitorRegId) {
+      sql += ` AND vh.VisitorRegID = $${paramIndex}`;
+      params.push(visitorRegId);
+      paramIndex++;
+    }
+
+    if (purposeId && purposeId > 0) {
+      sql += ` AND vh.VisitPurposeID = $${paramIndex}`;
+      params.push(purposeId);
+      paramIndex++;
+    }
+
+    if (fromDate && toDate) {
+      // Check if dates are epoch timestamps
+      if (/^\d+$/.test(fromDate) && /^\d+$/.test(toDate)) {
+        sql += ` AND vh.CreatedDate BETWEEN to_timestamp($${paramIndex}) AND to_timestamp($${paramIndex + 1})`;
+      } else {
+        sql += ` AND vh.CreatedDate BETWEEN $${paramIndex} AND $${paramIndex + 1}`;
+      }
+      params.push(fromDate, toDate);
+      paramIndex += 2;
+    }
+
+    // Pagination
+    const offset = (page - 1) * pageSize;
+    sql += ` ORDER BY vh.CreatedDate DESC, vh.INTime DESC LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`;
+    params.push(pageSize, offset);
+
+    const result = await query(sql, params);
+    return result.rows;
   }
 
   // Delete student and all related data

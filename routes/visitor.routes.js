@@ -73,11 +73,11 @@ router.post('/create-unregistered', uploadVisitorImages, handleUploadError, [
     .withMessage('Visitor category ID is required')
     .isNumeric()
     .withMessage('Visitor category ID must be numeric'),
-  body('visitorSubCatId')
-    .notEmpty()
-    .withMessage('Visitor subcategory ID is required')
-    .isNumeric()
-    .withMessage('Visitor subcategory ID must be numeric'),
+  // body('visitorSubCatId')
+  //   .notEmpty()
+  //   .withMessage('Visitor subcategory ID is required')
+  //   .isNumeric()
+  //   .withMessage('Visitor subcategory ID must be numeric'),
   body('visitPurposeId').optional().isNumeric().withMessage('Visit purpose ID must be numeric'),
   body('totalVisitor').optional().isNumeric().withMessage('Total visitor must be numeric')
 ], handleValidationErrors, VisitorController.createUnregisteredVisitor);

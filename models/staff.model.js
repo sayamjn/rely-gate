@@ -1,12 +1,146 @@
 const { query } = require('../config/database');
 
 class StaffModel {
+  // Get all staff visit history
+  static async getAllStaffVisitHistory(tenantId, filters = {}) {
+    const {
+      page = 1,
+      pageSize = 20,
+      search = "",
+      fromDate = null,
+      toDate = null,
+      visitorRegId = null,
+      designation = null
+    } = filters;
+    
+    let sql = `
+      SELECT 
+        vh.RegVisitorHistoryID as regVisitorHistoryId,
+        vh.TenantID as tenantId,
+        vh.IsActive as isActive,
+        vh.IsRegFlag as isRegFlag,
+        vh.VisitorRegID as visitorRegId,
+        vh.VisitorRegNo as visitorRegNo,
+        vh.SecurityCode as securityCode,
+        vh.VistorName as visitorName,
+        vh.Mobile as mobile,
+        vh.VehiclelNo as vehicleNo,
+        vh.Remark as remark,
+        vh.VisitorCatID as visitorCatId,
+        vh.VisitorCatName as visitorCatName,
+        vh.VisitorSubCatID as visitorSubCatId,
+        vh.VisitorSubCatName as visitorSubCatName,
+        vh.AssociatedFlat as associatedFlat,
+        vh.AssociatedBlock as associatedBlock,
+        -- Convert to IST and provide both timestamp and text format
+        vh.INTime AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata' as inTime,
+        CASE 
+          WHEN vh.INTime IS NOT NULL 
+          THEN FLOOR(EXTRACT(EPOCH FROM vh.INTime))::text
+          ELSE vh.INTimeTxt
+        END as inTimeTxt,
+        vh.OutTime AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata' as outTime,
+        CASE 
+          WHEN vh.OutTime IS NOT NULL 
+          THEN FLOOR(EXTRACT(EPOCH FROM vh.OutTime))::text
+          ELSE vh.OutTimeTxt
+        END as outTimeTxt,
+        vh.VisitPurposeID as visitPurposeId,
+        vh.VisitPurpose as visitPurpose,
+        vh.PurposeCatID as purposeCatId,
+        vh.PurposeCatName as purposeCatName,
+        vh.CreatedDate AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata' as createdDate,
+        vh.UpdatedDate AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata' as updatedDate,
+        vh.CreatedBy as createdBy,
+        vh.UpdatedBy as updatedBy,
+        -- Additional staff information from VisitorRegistration
+        vr.Email as email,
+        vr.PhotoFlag as photoFlag,
+        vr.PhotoPath as photoPath,
+        vr.PhotoName as photoName,
+        vr.VehiclePhotoFlag as vehiclePhotoFlag,
+        vr.VehiclePhotoPath as vehiclePhotoPath,
+        vr.VehiclePhotoName as vehiclePhotoName,
+        -- Calculate duration in hours if both times exist
+        CASE 
+          WHEN vh.OutTime IS NOT NULL AND vh.INTime IS NOT NULL 
+          THEN EXTRACT(EPOCH FROM ((vh.OutTime AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata') - (vh.INTime AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata')))/3600
+          ELSE NULL 
+        END as durationHours,
+        -- Status based on check-in/out times
+        CASE 
+          WHEN vh.OutTime IS NULL OR vh.OutTimeTxt IS NULL OR vh.OutTimeTxt = '' 
+          THEN 'CHECKED_IN' 
+          ELSE 'COMPLETED' 
+        END as status,
+        -- Format date for display
+        TO_CHAR(vh.CreatedDate AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata', 'DD/MM/YYYY') as visitDate,
+        TO_CHAR(vh.INTime AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata', 'HH24:MI') as checkInTimeDisplay,
+        TO_CHAR(vh.OutTime AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata', 'HH24:MI') as checkOutTimeDisplay,
+        COUNT(*) OVER() as total_count
+      FROM VisitorRegVisitHistory vh
+      INNER JOIN VisitorRegistration vr ON vh.VisitorRegID::text = vr.VisitorRegID::text AND vh.TenantID = vr.TenantID
+      WHERE vh.TenantID = $1 
+        AND vh.IsActive = 'Y'
+        AND vh.VisitorCatID = 1
+    `;
+    
+    const params = [tenantId];
+    let paramIndex = 2;
+    
+    // Apply filters
+    if (search) {
+      sql += ` AND (
+        vh.VistorName ILIKE $${paramIndex} OR
+        vh.Mobile ILIKE $${paramIndex} OR
+        vh.VisitorRegNo ILIKE $${paramIndex}
+      )`;
+      params.push(`%${search}%`);
+      paramIndex++;
+    }
+    
+    if (designation) {
+      sql += ` AND vh.VisitorSubCatName ILIKE $${paramIndex}`;
+      params.push(`%${designation}%`);
+      paramIndex++;
+    }
+    
+    if (visitorRegId) {
+      sql += ` AND vh.VisitorRegID = $${paramIndex}`;
+      params.push(visitorRegId);
+      paramIndex++;
+    }
+    
+    if (fromDate) {
+      sql += ` AND vh.CreatedDate >= to_timestamp($${paramIndex})`;
+      params.push(fromDate);
+      paramIndex++;
+    }
+    
+    if (toDate) {
+      sql += ` AND vh.CreatedDate <= to_timestamp($${paramIndex})`;
+      params.push(toDate);
+      paramIndex++;
+    }
+    
+    // Order by most recent first
+    sql += ` ORDER BY vh.CreatedDate DESC`;
+    
+    // Add pagination
+    const offset = (page - 1) * pageSize;
+    sql += ` LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`;
+    params.push(pageSize, offset);
+    
+    const result = await query(sql, params);
+    return result.rows;
+  }
   // Get all staff with pagination and search
   static async getStaff(tenantId, page = 1, pageSize = 10, search = '', designation = '') {
     const offset = (page - 1) * pageSize;
     
     let sql = `
       SELECT 
+        vr.VisitorRegId,
         vr.VisitorRegNo,
         vr.VistorName,
         vr.Mobile,

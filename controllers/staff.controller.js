@@ -4,6 +4,42 @@ const FileService = require('../services/file.service');
 const responseUtils = require('../utils/constants');
 
 class StaffController {
+  // GET /api/staff/visit-history - Get all staff visit history
+  static async getAllStaffVisitHistory(req, res) {
+    try {
+      const {
+        page = 1,
+        pageSize = 20,
+        search = "",
+        fromDate = null,
+        toDate = null,
+        visitorRegId = null,
+        designation = null
+      } = req.query;
+      const userTenantId = req.user.tenantId;
+      const filters = {
+        page: parseInt(page),
+        pageSize: parseInt(pageSize),
+        search,
+        fromDate,
+        toDate,
+        visitorRegId: visitorRegId ? parseInt(visitorRegId) : null,
+        designation
+      };
+      const result = await StaffService.getAllStaffVisitHistory(
+        userTenantId,
+        filters
+      );
+      res.json(result);
+    } catch (error) {
+      console.error("Error in getAllStaffVisitHistory:", error);
+      res.status(500).json({
+        responseCode: responseUtils.RESPONSE_CODES.ERROR,
+        responseMessage: "Internal server error",
+        error: process.env.NODE_ENV === 'development' ? error.message : undefined
+      });
+    }
+  }
   // POST /api/staff/list - List staff with filters
   static async listStaff(req, res) {
     try {
@@ -64,12 +100,14 @@ class StaffController {
       // Map response to only return required fields
       if (result.responseCode === responseUtils.RESPONSE_CODES.SUCCESS && result.data) {
         const mappedData = result.data.map(staff => ({
+          VisitorRegid: staff.visitorregid || staff.VisitorRegId,
           VisitorRegNo: staff.VisitorRegNo || staff.visitorregno,
           VisitorName: staff.VistorName || staff.vistorname,
           mobile: staff.Mobile || staff.mobile,
           VisitorSubCatName: staff.VisitorSubCatName || staff.visitorsubcatname,
           flatName: staff.FlatName || staff.flatname || ''
         }));
+        console.log(mappedData)
 
         res.json({
           ...result,

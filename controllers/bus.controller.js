@@ -283,6 +283,7 @@ static async getBuses(req, res) {
     // Map response to only return required fields
     if (result.responseCode === responseUtils.RESPONSE_CODES.SUCCESS && result.data) {
       const mappedData = result.data.map(bus => ({
+        visitorregid: bus.visitorregid,
         VisitorRegNo: bus.VisitorRegNo || bus.visitorregno,
         VisitorName: bus.VistorName || bus.vistorname,
         mobile: bus.Mobile || bus.mobile,
@@ -736,6 +737,42 @@ static async processBusQRScan(req, res) {
   }
 }
 
+  // GET /api/buses/visit-history - Get all bus visit history
+  static async getAllBusVisitHistory(req, res) {
+    try {
+      const {
+        page = 1,
+        pageSize = 20,
+        search = "",
+        fromDate = null,
+        toDate = null,
+        visitorRegId = null,
+        purposeId = null
+      } = req.query;
+      const userTenantId = req.user.tenantId;
+      const filters = {
+        page: parseInt(page),
+        pageSize: parseInt(pageSize),
+        search,
+        fromDate,
+        toDate,
+        visitorRegId: visitorRegId ? parseInt(visitorRegId) : null,
+        purposeId: purposeId ? parseInt(purposeId) : null
+      };
+      const result = await BusService.getAllBusVisitHistory(
+        userTenantId,
+        filters
+      );
+      res.json(result);
+    } catch (error) {
+      console.error("Error in getAllBusVisitHistory:", error);
+      res.status(500).json({
+        responseCode: responseUtils.RESPONSE_CODES.ERROR,
+        responseMessage: "Internal server error",
+        error: process.env.NODE_ENV === "development" ? error.message : undefined,
+      });
+    }
+  }
 
 }
 

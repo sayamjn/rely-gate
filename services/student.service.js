@@ -68,7 +68,8 @@ class StudentService {
         RegVisitorHistoryID: s.lasthistoryid || s.LastHistoryID || null,
         CurrentStatus: s.CurrentStatus || 'UNKNOWN',
         visitPurpose: s.visitpurpose || '',
-        visitPurposeID: s.visitpurposeid || null
+        visitPurposeID: s.visitpurposeid || null,
+        isCheckedIn: s.ischeckedin !== undefined ? s.ischeckedin : false
       }));
       
       return {
@@ -901,6 +902,97 @@ class StudentService {
     };
   }
 }
+
+  // Get all student visit history
+  static async getAllStudentVisitHistory(tenantId, filters = {}) {
+    try {
+      const history = await StudentModel.getAllStudentVisitHistory(tenantId, filters);
+      
+      // Get total count from the first row (if any)
+      const totalCount = history.length > 0 ? parseInt(history[0].total_count) : 0;
+      const page = filters.page || 1;
+      const pageSize = filters.pageSize || 20;
+      const totalPages = Math.ceil(totalCount / pageSize);
+      
+      // Map the data to required response format
+      const mapped = history.map((h) => ({
+        regVisitorHistoryId: h.regvisitorhistoryid,
+        tenantId: h.tenantid,
+        isActive: h.isactive,
+        isRegFlag: h.isregflag,
+        visitorRegId: h.visitorregid,
+        visitorRegNo: h.visitorregno,
+        securityCode: h.securitycode,
+        visitorName: h.visitorname,
+        mobile: h.mobile,
+        vehicleNo: h.vehicleno || '',
+        remark: h.remark || '',
+        visitorCatId: h.visitorcatid,
+        visitorCatName: h.visitorcatname,
+        visitorSubCatId: h.visitorsubcatid,
+        visitorSubCatName: h.visitorsubcatname,
+        associatedFlat: h.associatedflat || '',
+        associatedBlock: h.associatedblock || '',
+        inTime: h.intime,
+        inTimeTxt: h.outtimetxt,
+        outTime: h.outtime,
+        outTimeTxt: h.intimetxt,
+        visitPurposeId: h.visitpurposeid,
+        visitPurpose: h.visitpurpose || '',
+        purposeCatId: h.purposecatid,
+        purposeCatName: h.purposecatname || '',
+        createdDate: h.createddate,
+        updatedDate: h.updateddate,
+        createdBy: h.createdby,
+        updatedBy: h.updatedby,
+        status: h.status,
+        visitDate: h.visitdate,
+        checkOutTimeDisplay: h.checkoutttimedisplay || '',
+        checkInTimeDisplay: h.checkinttimedisplay || '',
+        // Additional fields from the list API
+        email: h.email || '',
+        photoFlag: h.photoflag || 'N',
+        photoPath: h.photopath || '',
+        photoName: h.photoname || '',
+        vehiclePhotoFlag: h.vehiclephotoflag || 'N',
+        vehiclePhotoName: h.vehiclephotoname || null,
+        course: h.course || '',
+        hostel: h.hostel || '',
+        studentNumber: h.studentnumber || '',
+        registrationDate: h.registrationdate,
+        createdDateTxt: h.createddatetxt || '',
+        isCheckedIn: h.ischeckedin !== undefined ? h.ischeckedin : false,
+        duration: h.durationhours ? {
+          hours: Math.floor(h.durationhours),
+          minutes: Math.round((h.durationhours % 1) * 60),
+          totalHours: h.durationhours,
+          formatted: `${Math.floor(h.durationhours)}h ${Math.round((h.durationhours % 1) * 60)}m`
+        } : null
+      }));
+      
+      return {
+        count: mapped.length,
+        data: mapped,
+        responseMessage: 'Record(s) retrieved successfully',
+        responseCode: 'S',
+        pagination: {
+          currentPage: page,
+          pageSize: pageSize,
+          totalRecords: totalCount,
+          totalPages: totalPages,
+          hasNext: page < totalPages,
+          hasPrevious: page > 1
+        }
+      };
+    } catch (error) {
+      console.error("Error fetching student visit history:", error);
+      return {
+        responseCode: responseUtils.RESPONSE_CODES.ERROR,
+        responseMessage: responseUtils.RESPONSE_MESSAGES.ERROR,
+        error: process.env.NODE_ENV === "development" ? error.message : undefined,
+      };
+    }
+  }
 
   // Delete student
   static async deleteStudent(studentId, tenantId, deletedBy) {

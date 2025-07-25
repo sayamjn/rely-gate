@@ -5,6 +5,87 @@ const DateFormatter = require("../utils/dateFormatter");
 const MessagingService = require("./messaging.service");
 
 class StaffService {
+  // Get all staff visit history with filters
+  static async getAllStaffVisitHistory(tenantId, filters = {}) {
+    try {
+      const history = await StaffModel.getAllStaffVisitHistory(tenantId, filters);
+      
+      // Get total count from the first row (if any)
+      const totalCount = history.length > 0 ? parseInt(history[0].total_count) : 0;
+      const page = filters.page || 1;
+      const pageSize = filters.pageSize || 20;
+      const totalPages = Math.ceil(totalCount / pageSize);
+      
+      // Map the data to required response format
+      const mapped = history.map((h) => ({
+        regVisitorHistoryId: h.regvisitorhistoryid,
+        tenantId: h.tenantid,
+        isActive: h.isactive,
+        isRegFlag: h.isregflag,
+        visitorRegId: h.visitorregid,
+        visitorRegNo: h.visitorregno,
+        securityCode: h.securitycode,
+        visitorName: h.visitorname,
+        mobile: h.mobile,
+        vehicleNo: h.vehicleno || '',
+        remark: h.remark || '',
+        visitorCatId: h.visitorcatid,
+        visitorCatName: h.visitorcatname,
+        visitorSubCatId: h.visitorsubcatid,
+        visitorSubCatName: h.visitorsubcatname,
+        associatedFlat: h.associatedflat || '',
+        associatedBlock: h.associatedblock || '',
+        inTime: h.intime,
+        inTimeTxt: h.intimetxt,
+        outTime: h.outtime,
+        outTimeTxt: h.outtimetxt,
+        visitPurposeId: h.visitpurposeid,
+        visitPurpose: h.visitpurpose || '',
+        purposeCatId: h.purposecatid,
+        purposeCatName: h.purposecatname || '',
+        createdDate: h.createddate,
+        updatedDate: h.updateddate,
+        createdBy: h.createdby,
+        updatedBy: h.updatedby,
+        status: h.status,
+        visitDate: h.visitdate,
+        checkOutTimeDisplay: h.checkoutttimedisplay || '',
+        checkInTimeDisplay: h.checkinttimedisplay || '',
+        // Additional fields
+        email: h.email || '',
+        photoFlag: h.photoflag || 'N',
+        photoPath: h.photopath || '',
+        photoName: h.photoname || '',
+        vehiclePhotoFlag: h.vehiclephotoflag || 'N',
+        vehiclePhotoPath: h.vehiclephotopath || '',
+        vehiclePhotoName: h.vehiclephotoname || '',
+        designation: h.visitorsubcatname || '',
+        department: h.associatedblock || ''
+      }));
+      
+      return {
+        responseCode: responseUtils.RESPONSE_CODES.SUCCESS,
+        responseMessage: "Staff visit history retrieved successfully",
+        data: mapped,
+        count: mapped.length,
+        pagination: {
+          page,
+          pageSize,
+          totalPages,
+          totalItems: totalCount,
+          hasNext: page < totalPages,
+          hasPrev: page > 1
+        }
+      };
+    } catch (error) {
+      console.error("Error in getAllStaffVisitHistory service:", error);
+      return {
+        responseCode: responseUtils.RESPONSE_CODES.ERROR,
+        responseMessage: "Failed to retrieve staff visit history",
+        error: process.env.NODE_ENV === 'development' ? error.message : undefined
+      };
+    }
+  }
   // Helper function to format datetime in IST format matching student/bus service
 
   // // Get staff list with filters (like students/buses)
