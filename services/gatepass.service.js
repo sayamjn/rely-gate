@@ -42,13 +42,6 @@ class GatepassService {
       } else {
         // Validate that the purposeId exists in the database
         try {
-          const purposeCheck = await query(
-            "SELECT VisitPurpose FROM VisitorPuposeMaster WHERE VisitPurposeID = $1 AND TenantID = $2 AND PurposeCatID = 6 AND IsActive = 'Y'",
-            [purposeId, tenantId]
-          );
-          if (purposeCheck.rows.length === 0) {
-            return ResponseFormatter.error("Invalid purpose ID");
-          }
           finalPurposeName = purposeCheck.rows[0].visitpurpose || purposeCheck.rows[0].VisitPurpose;
         } catch (purposeError) {
           console.error("Purpose validation error:", purposeError);
