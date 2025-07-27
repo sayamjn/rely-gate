@@ -104,9 +104,28 @@ class VisitorModel {
       vehiclePhotoData,
       idPhotoData,
       createdBy,
+      remark,
     } = visitorData;
 
     console.log("visitorCatId: ", visitorCatId);
+
+    // Lookup the actual visit purpose name if visitPurposeId is provided
+    let actualVisitPurpose = visitPurpose;
+    if (visitPurposeId) {
+      try {
+        const purposeResult = await query(
+          `SELECT VisitPurpose FROM VisitorPuposeMaster 
+           WHERE VisitPurposeID = $1 AND TenantID = $2 AND IsActive = 'Y'`,
+          [visitPurposeId, tenantId]
+        );
+        if (purposeResult.rows.length > 0) {
+          actualVisitPurpose = purposeResult.rows[0].visitpurpose;
+        }
+      } catch (error) {
+        console.error("Error looking up visit purpose:", error);
+        // Continue with default value if lookup fails
+      }
+    }
 
     const sql = `
     INSERT INTO VisitorMaster (
@@ -115,16 +134,17 @@ class VisitorModel {
       VisitPurpose, TotalVisitor, VehiclelNo, 
       PhotoFlag, PhotoPath, PhotoName,
       VehiclePhotoFlag, VehiclePhotoPath, VehiclePhotoName,
+      Remark,
       INTime, INTimeTxt, OutTime, OutTimeTxt,
       IsActive, StatusID, StatusName,
       CreatedDate, UpdatedDate, CreatedBy, UpdatedBy
     ) VALUES (
       $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13,
       $14, $15, $16, 
-      $17,
+      $17, $18,
       NOW(), EXTRACT(EPOCH FROM NOW())::TEXT, NULL, NULL,
       'Y', 1, 'ACTIVE',
-      NOW(), NOW(), $18, $18
+      NOW(), NOW(), $19, $19
     ) RETURNING VisitorID, INTime, INTimeTxt
   `;
 
@@ -146,8 +166,8 @@ class VisitorModel {
       flatName || "",
       visitorCatId,
       visitorCatName || "Visitor",
-      visitPurposeId || null,
-      visitPurpose || "Visit",
+      visitPurposeId,
+      actualVisitPurpose,
       totalVisitor || 1,
       vehicleNo || "",
       photoFlag,
@@ -156,6 +176,7 @@ class VisitorModel {
       vehiclePhotoFlag,
       vehiclePhotoPath,
       vehiclePhotoName,
+      remark || "",
       createdBy || "System",
     ]);
 
@@ -1039,6 +1060,7 @@ class VisitorModel {
         PhotoPath as "PhotoPath",
         VisitPurpose as "VisitPurpose",
         TotalVisitor as "TotalVisitor",
+        Remark as "Remark",
         CreatedDate as "CreatedDate",
         COUNT(*) OVER() as total_count
       FROM VisitorMaster
@@ -1173,7 +1195,8 @@ class VisitorModel {
         vm.Mobile as "mobile",
         vm.FlatName as "flatname",
         COALESCE(vm.PhotoName, '') as "photoname",
-        COALESCE(vm.VehiclePhotoName, '') as "vehiclephotoname"
+        COALESCE(vm.VehiclePhotoName, '') as "vehiclephotoname",
+        COALESCE(vm.Remark, '') as "remark"
       FROM VisitorMaster vm
       WHERE ${whereClause}
       ORDER BY vm.CreatedDate DESC
@@ -1227,6 +1250,7 @@ class VisitorModel {
         VehiclePhotoFlag,
         VehiclePhotoPath,
         VehiclePhotoName,
+        Remark,
         CreatedDate,
         CASE 
           WHEN OutTime IS NULL OR OutTimeTxt IS NULL OR OutTimeTxt = '' 
@@ -1315,6 +1339,7 @@ class VisitorModel {
         PhotoFlag,
         PhotoPath,
         PhotoName,
+        Remark,
         CreatedDate
       FROM VisitorMaster
       WHERE VisitorID = $1 AND TenantID = $2 AND IsActive = 'Y'

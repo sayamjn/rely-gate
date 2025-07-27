@@ -132,6 +132,7 @@ class VisitorController {
         visitPurposeId,
         visitPurpose,
         totalVisitor,
+        remark,
       } = req.body;
 
       const userTenantId = req.user.tenantId;
@@ -173,6 +174,7 @@ class VisitorController {
         photoData: photoPath,
         vehiclePhotoData: vehiclePhotoPath,
         createdBy,
+        remark,
       };
 
       const result = await VisitorService.createUnregisteredVisitor(
