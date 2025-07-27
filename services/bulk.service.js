@@ -445,7 +445,7 @@ class BulkService {
             StatusID, StatusName, IsActive, CreatedDate, UpdatedDate, 
             CreatedBy, UpdatedBy, Email, AssociatedFlat, AssociatedBlock
           ) VALUES (
-            $1, $2, $3, 1, 'Staff',
+            $1, $2, $3, 3, 'Staff',
             1, $4, $5, $6,
             1, 'ACTIVE', 'Y', NOW(), NOW(), 
             $7, $7, '', $8, ''
@@ -605,7 +605,7 @@ class BulkService {
             Mobile, AssociatedFlat, AssociatedBlock, ValidityFlag, ValidStartDate,
             CreatedDate, UpdatedDate, CreatedBy, UpdatedBy
           ) VALUES (
-            $1, 'Y', 1, 'ACTIVE', 3, 'Student', 6, 'Regular Student', $2, $3, $4,
+            $1, 'Y', 1, 'ACTIVE', 2, 'Student', 6, 'Regular Student', $2, $3, $4,
             $5, $6, $7, 'Y', NOW(), NOW(), NOW(), $8, $8
           ) RETURNING VisitorRegID
         `;
@@ -621,18 +621,26 @@ class BulkService {
           student.createdBy
         ]);
 
-        // Also insert into BulkVisitorUpload for tracking
-        await query(`
-          INSERT INTO BulkVisitorUpload (StudentID, Name, Mobile, Course, Hostel, TenantID, Type)
-          VALUES ($1, $2, $3, $4, $5, $6, 'student')
-        `, [
-          student.studentId || visitorRegNo,
-          student.name,
-          student.mobile,
-          student.course,
-          student.hostel,
-          student.tenantId
-        ]);
+        // Check if record already exists in BulkVisitorUpload before inserting
+        const existingBulk = await query(
+          'SELECT ID FROM BulkVisitorUpload WHERE Mobile = $1 AND TenantID = $2 AND Type = \'student\'',
+          [student.mobile, student.tenantId]
+        );
+
+        if (existingBulk.rows.length === 0) {
+          // Only insert if record doesn't exist
+          await query(`
+            INSERT INTO BulkVisitorUpload (StudentID, Name, Mobile, Course, Hostel, TenantID, Type, CreatedDate)
+            VALUES ($1, $2, $3, $4, $5, $6, 'student', NOW())
+          `, [
+            student.studentId || visitorRegNo,
+            student.name,
+            student.mobile,
+            student.course,
+            student.hostel,
+            student.tenantId
+          ]);
+        }
 
         results.successful++;
         results.details.push({

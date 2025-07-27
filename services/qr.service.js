@@ -18,10 +18,10 @@ class QRService {
 
   static getCategoryPrefix(visitorCatId) {
     const prefixes = {
-      1: "STA", // Staff
-      2: "UNR", // Unregistered
-      3: "STU", // Student
-      4: "GUE", // Guest
+      1: "VIS", // Staff
+      2: "STU", // Unregistered
+      3: "STA", // Student
+      6: "GAT", // Guest
       5: "BUS", // Bus
     };
     return prefixes[visitorCatId] || "VIS";
@@ -38,10 +38,10 @@ class QRService {
 
   static getTypeCode(visitorCatId) {
     const typeCodes = {
-      1: "sta", // Staff
-      2: "unr", // Unregistered
-      3: "stu", // Student
-      4: "gue", // Guest
+      1: "vis", // Staff
+      2: "stuf", // Unregistered
+      3: "sta", // Student
+      6: "gat", // Guest
       5: "bus", // Bus
     };
     return typeCodes[visitorCatId] || "vis";

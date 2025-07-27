@@ -447,7 +447,7 @@ class BusModel {
   }
 
   // Get bus purposes by category
-  static async getBusPurposes(tenantId, purposeCatId = 2) {
+  static async getBusPurposes(tenantId, purposeCatId = 5) {
     const sql = `
       SELECT 
         VisitPurposeID as "purposeId",
@@ -519,7 +519,7 @@ class BusModel {
 
     const result = await query(sql, [
       tenantId,
-      2, // Bus category ID
+      5, // Bus category ID
       "Bus",
       purposeName,
       "Y",
@@ -542,7 +542,7 @@ class BusModel {
           UpdatedDate = NOW()
       WHERE VisitPurposeID = $3 
         AND TenantID = $4 
-        AND PurposeCatID = 2
+        AND PurposeCatID = 5
       RETURNING 
         VisitPurposeID as "purposeId",
         VisitPurpose as "purposeName",
@@ -568,7 +568,7 @@ class BusModel {
           UpdatedDate = NOW()
       WHERE VisitPurposeID = $2 
         AND TenantID = $3 
-        AND PurposeCatID = 2
+        AND PurposeCatID = 5
         AND IsActive = 'Y'
       RETURNING VisitPurposeID as "purposeId"
     `;
@@ -584,7 +584,7 @@ class BusModel {
       FROM VisitorPuposeMaster
       WHERE TenantID = $1 
         AND LOWER(TRIM(VisitPurpose)) = LOWER(TRIM($2))
-        AND PurposeCatID = 2
+        AND PurposeCatID = 5
         AND IsActive = 'Y'
     `;
 
@@ -606,7 +606,7 @@ class BusModel {
       FROM VisitorPuposeMaster
       WHERE VisitPurposeID = $1 
         AND TenantID = $2
-        AND PurposeCatID = 2
+        AND PurposeCatID = 5
     `;
 
     const result = await query(sql, [purposeId, tenantId]);
@@ -1029,7 +1029,7 @@ class BusModel {
   }
 
   // Get all bus visit history from VisitorRegVisitHistory
-  static async getAllBusVisitHistory(tenantId, filters = {}) {
+ static async getAllBusVisitHistory(tenantId, filters = {}) {
     const {
       page = 1,
       pageSize = 20,

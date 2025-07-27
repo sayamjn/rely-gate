@@ -159,7 +159,7 @@ router.get('/visit-history', [
   query('fromDate').optional().isInt().withMessage('FromDate must be valid epoch timestamp'),
   query('toDate').optional().isInt().withMessage('ToDate must be valid epoch timestamp'),
   query('visitorRegId').optional().isInt({ min: 1 }).withMessage('VisitorRegId must be a positive integer'),
-  query('purposeId').optional().isInt({ min: 0 }).withMessage('PurposeId must be a positive integer')
+  // query('purposeId').optional().isInt({ min: 0 }).withMessage('PurposeId must be a positive integer')
 ], handleValidationErrors, BusController.getAllBusVisitHistory);
 
 // POST /api/buses/:busId/generate-qr - Generate QR code for bus

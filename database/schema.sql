@@ -521,13 +521,7 @@ CREATE TABLE VisitorMaster (
     CreatedDate TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     UpdatedDate TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     CreatedBy VARCHAR(250),
-    UpdatedBy VARCHAR(250),
-    FOREIGN KEY (TenantID) REFERENCES Tenant(TenantID),
-    FOREIGN KEY (VisitorCatID) REFERENCES VisitorCategory(VisitorCatID),
-    FOREIGN KEY (VisitorSubCatID) REFERENCES VisitorSubCategory(VisitorSubCatID),
-    FOREIGN KEY (VisitPurposeID) REFERENCES VisitorPuposeMaster(VisitPurposeID),
-    FOREIGN KEY (FlatID) REFERENCES FlatMaster(FlatID),
-    FOREIGN KEY (LoginID) REFERENCES LoginUser(LoginID)
+    UpdatedBy VARCHAR(250)
 );
 
 -- Table: VisitorRegVisitHistory (Complete visit tracking)

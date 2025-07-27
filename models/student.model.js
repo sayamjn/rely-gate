@@ -108,7 +108,7 @@ class StudentModel {
     ) vh_latest ON true
     WHERE vr.TenantID = $1 
       AND vr.IsActive = 'Y'
-      AND vr.VisitorCatID = 3
+      AND vr.VisitorCatID = 2
   `;
 
     const params = [tenantId];
@@ -195,7 +195,7 @@ class StudentModel {
       FROM VisitorRegistration vr
       WHERE vr.TenantID = $1
         AND vr.IsActive = 'Y'
-        AND vr.VisitorCatID = 3
+        AND vr.VisitorCatID = 2
         AND vr.VisitorSubCatID IS NOT NULL
         AND vr.VisitorSubCatName IS NOT NULL
       ORDER BY vr.VisitorSubCatName ASC
@@ -235,7 +235,7 @@ class StudentModel {
       WHERE vr.VisitorRegID = $1 
         AND vr.TenantID = $2 
         AND vr.IsActive = 'Y'
-        AND vr.VisitorCatID = 3
+        AND vr.VisitorCatID = 2
     `;
 
     const result = await query(sql, [studentId, tenantId]);
@@ -273,7 +273,7 @@ class StudentModel {
       WHERE vr.VisitorRegNo = $1 
         AND vr.TenantID = $2 
         AND vr.IsActive = 'Y'
-        AND vr.VisitorCatID = 3
+        AND vr.VisitorCatID = 2
     `;
 
     const result = await query(sql, [visitorRegNo, tenantId]);
@@ -466,7 +466,7 @@ class StudentModel {
       LEFT JOIN BulkVisitorUpload bvu ON vr.Mobile = bvu.Mobile AND bvu.Type = 'student'
       WHERE vh.TenantID = $1 
         AND vh.IsActive = 'Y'
-        AND vh.VisitorCatID = 3
+        AND vh.VisitorCatID = 2
         AND (vh.OutTime IS NULL OR vh.OutTimeTxt IS NULL OR vh.OutTimeTxt = '')
       ORDER BY vh.INTime DESC
     `;
@@ -475,8 +475,8 @@ class StudentModel {
     return result.rows;
   }
 
-  // Get student purposes by category (specifically for students - PurposeCatID = 3)
-  static async getStudentPurposes(tenantId, purposeCatId = 3) {
+  // Get student purposes by category (specifically for students - PurposeCatID = 2)
+  static async getStudentPurposes(tenantId, purposeCatId = 2) {
     const sql = `
       SELECT 
         VisitPurposeID as "purposeId",
@@ -646,7 +646,7 @@ class StudentModel {
           UpdatedDate = NOW()
       WHERE VisitPurposeID = $3 
         AND TenantID = $4 
-        AND PurposeCatID = 3
+        AND PurposeCatID = 2
       RETURNING 
         VisitPurposeID as "purposeId",
         VisitPurpose as "purposeName",
@@ -672,7 +672,7 @@ class StudentModel {
           UpdatedDate = NOW()
       WHERE VisitPurposeID = $2 
         AND TenantID = $3 
-        AND PurposeCatID = 3
+        AND PurposeCatID = 2
         AND IsActive = 'Y'
       RETURNING VisitPurposeID as "purposeId"
     `;
@@ -688,7 +688,7 @@ class StudentModel {
       FROM VisitorPuposeMaster
       WHERE TenantID = $1 
         AND LOWER(TRIM(VisitPurpose)) = LOWER(TRIM($2))
-        AND PurposeCatID = 3
+        AND PurposeCatID = 2
         AND IsActive = 'Y'
     `;
 
@@ -710,7 +710,7 @@ class StudentModel {
       FROM VisitorPuposeMaster
       WHERE VisitPurposeID = $1 
         AND TenantID = $2
-        AND PurposeCatID = 3
+        AND PurposeCatID = 2
     `;
 
     const result = await query(sql, [purposeId, tenantId]);
@@ -738,8 +738,7 @@ class StudentModel {
         COUNT(*) OVER() as total_count
       FROM VisitorRegistration vr
       WHERE vr.TenantID = $1
-        AND vr.IsActive = 'Y'
-        AND vr.VisitorCatID = 3
+        AND vr.VisitorCatID = 2
     `;
     const params = [tenantId];
     let paramIndex = 2;
@@ -908,10 +907,15 @@ class StudentModel {
         COUNT(*) OVER() as total_count
       FROM VisitorRegVisitHistory vh
       INNER JOIN VisitorRegistration vr ON vh.VisitorRegID::text = vr.VisitorRegID::text AND vh.TenantID = vr.TenantID
-      LEFT JOIN BulkVisitorUpload bvu ON vr.Mobile = bvu.Mobile AND bvu.Type = 'student' AND bvu.TenantID::text = vr.TenantID::text
+      LEFT JOIN (
+        SELECT DISTINCT ON (Mobile, TenantID) Mobile, TenantID, Course, Hostel, StudentID
+        FROM BulkVisitorUpload 
+        WHERE Type = 'student'
+        ORDER BY Mobile, TenantID, CreatedDate DESC
+      ) bvu ON vr.Mobile = bvu.Mobile AND bvu.TenantID::text = vr.TenantID::text
       WHERE vh.TenantID = $1 
         AND vh.IsActive = 'Y'
-        AND vh.VisitorCatID = 3
+        AND vh.VisitorCatID = 2
     `;
 
     const params = [tenantId];
@@ -954,7 +958,7 @@ class StudentModel {
 
     // Pagination
     const offset = (page - 1) * pageSize;
-    sql += ` ORDER BY vh.CreatedDate DESC, vh.INTime DESC LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`;
+    sql += ` ORDER BY vh.RegVisitorHistoryID, vh.CreatedDate DESC, vh.INTime DESC LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`;
     params.push(pageSize, offset);
 
     const result = await query(sql, params);
@@ -972,7 +976,7 @@ class StudentModel {
         `
         SELECT photopath, photoname 
         FROM visitorregistration 
-        WHERE visitorregid = $1 AND tenantid = $2 AND visitorcatid = 3
+        WHERE visitorregid = $1 AND tenantid = $2 AND visitorcatid = 2
       `,
         [studentId, tenantId]
       );
@@ -997,7 +1001,7 @@ class StudentModel {
       await client.query(
         `
         DELETE FROM visitorregvisithistory 
-        WHERE visitorregid = $1 AND tenantid = $2 AND visitorcatid = 3
+        WHERE visitorregid = $1 AND tenantid = $2 AND visitorcatid = 2
       `,
         [studentId, tenantId]
       );
@@ -1015,7 +1019,7 @@ class StudentModel {
       const deleteResult = await client.query(
         `
         DELETE FROM visitorregistration 
-        WHERE visitorregid = $1 AND tenantid = $2 AND visitorcatid = 3
+        WHERE visitorregid = $1 AND tenantid = $2 AND visitorcatid = 2
         RETURNING visitorregid, visitorregno
       `,
         [studentId, tenantId]

@@ -1,6 +1,2 @@
 Bus Registration,Driver Name,Driver Mobile,Bus Type,Route,Area,Status,Registration Date
 10012024201,School Bus Alpha,9876550001,School Bus,Route 1,Main Gate,ACTIVE,1705276800
-10012024202,School Bus Beta,9876550002,School Bus,Route 2,North Gate,ACTIVE,1705276800
-10012024203,School Bus Gamma,9876550003,School Bus,Route 3,South Gate,ACTIVE,1705276800
-10012024204,College Express 01,9876550004,Private Bus,City Route,Main Gate,ACTIVE,1705276800
-10012024205,College Express 02,9876550005,Private Bus,Metro Route,North Gate,ACTIVE,1705276800

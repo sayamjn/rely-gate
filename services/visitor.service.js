@@ -10,7 +10,7 @@ const MessagingService = require("./messaging.service");
 
 class VisitorService {
   // Get visitor purposes by category
-  static async getVisitorPurposes(tenantId, purposeCatId = 0) {
+  static async getVisitorPurposes(tenantId, purposeCatId = 1) {
     try {
       const purposes = await VisitorModel.getVisitorPurposeByCategory(
         tenantId,
@@ -227,8 +227,6 @@ class VisitorService {
         flatName,
         visitorCatId,
         visitorCatName,
-        visitorSubCatId,
-        visitorSubCatName,
         visitPurposeId,
         visitPurpose,
         totalVisitor,

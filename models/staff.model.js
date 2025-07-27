@@ -10,7 +10,8 @@ class StaffModel {
       fromDate = null,
       toDate = null,
       visitorRegId = null,
-      designation = null
+      designation = null,
+      VisitorSubCatID = null
     } = filters;
     
     let sql = `
@@ -82,7 +83,7 @@ class StaffModel {
       INNER JOIN VisitorRegistration vr ON vh.VisitorRegID::text = vr.VisitorRegID::text AND vh.TenantID = vr.TenantID
       WHERE vh.TenantID = $1 
         AND vh.IsActive = 'Y'
-        AND vh.VisitorCatID = 1
+        AND vh.VisitorCatID = 3
     `;
     
     const params = [tenantId];
@@ -102,6 +103,12 @@ class StaffModel {
     if (designation) {
       sql += ` AND vh.VisitorSubCatName ILIKE $${paramIndex}`;
       params.push(`%${designation}%`);
+      paramIndex++;
+    }
+    
+    if (VisitorSubCatID && VisitorSubCatID !== 0) {
+      sql += ` AND vh.VisitorSubCatID = $${paramIndex}`;
+      params.push(VisitorSubCatID);
       paramIndex++;
     }
     
@@ -148,7 +155,7 @@ class StaffModel {
         COALESCE(vr.FlatName, vr.AssociatedFlat, '') as FlatName
       FROM VisitorRegistration vr
       WHERE vr.TenantID = $1 
-        AND vr.VisitorCatID = 1 
+        AND vr.VisitorCatID = 3 
         AND vr.IsActive = 'Y'
     `;
     
@@ -184,7 +191,7 @@ class StaffModel {
       SELECT COUNT(*) as total
       FROM VisitorRegistration vr
       WHERE vr.TenantID = $1 
-        AND vr.VisitorCatID = 1 
+        AND vr.VisitorCatID = 3 
         AND vr.IsActive = 'Y'
     `;
     
@@ -232,7 +239,7 @@ class StaffModel {
       FROM VisitorRegistration vr
       WHERE vr.VisitorRegID = $1 
         AND vr.TenantID = $2 
-        AND vr.VisitorCatID = 1 
+        AND vr.VisitorCatID = 3 
         AND vr.IsActive = 'Y'
     `;
     
@@ -403,7 +410,7 @@ class StaffModel {
       FROM VisitorRegistration vr
       INNER JOIN VisitorRegVisitHistory vh ON vr.VisitorRegID = vh.VisitorRegID
       WHERE vr.TenantID = $1 
-        AND vr.VisitorCatID = 1 
+        AND vr.VisitorCatID = 3 
         AND vr.IsActive = 'Y'
         AND vh.TenantID = $1
         AND vh.IsActive = 'Y'
@@ -429,9 +436,15 @@ class StaffModel {
           ELSE false
         END as isFirstVisit,
         
-        -- Check if currently checked in
+        -- Check if currently checked in (based on any active visit)
         CASE 
-          WHEN MAX(CASE WHEN vh.OutTime IS NULL THEN 1 ELSE 0 END) = 1 THEN true
+          WHEN EXISTS (
+            SELECT 1 FROM VisitorRegVisitHistory vh2 
+            WHERE vh2.VisitorRegID = vr.VisitorRegID 
+              AND vh2.TenantID = vr.TenantID 
+              AND vh2.IsActive = 'Y'
+              AND vh2.OutTime IS NULL
+          ) THEN true
           ELSE false
         END as isCurrentlyCheckedIn,
         
@@ -445,13 +458,18 @@ class StaffModel {
         AND vh.IsActive = 'Y'
       WHERE vr.VisitorRegID = $1 
         AND vr.TenantID = $2 
-        AND vr.VisitorCatID = 1 
+        AND vr.VisitorCatID = 3 
         AND vr.IsActive = 'Y'
       GROUP BY vr.VisitorRegID, vr.VistorName, vr.VisitorRegNo
     `;
     
     const result = await query(sql, [staffId, tenantId]);
-    return result.rows[0];
+    const statusData = result.rows[0];
+    
+    // Debug logging
+    console.log(`[DEBUG] StaffModel.getStaffStatus raw query result for staffId ${staffId}:`, statusData);
+    
+    return statusData;
   }
 
   // Add new staff purpose (designation)
@@ -508,7 +526,7 @@ class StaffModel {
           UpdatedDate = NOW()
       WHERE VisitPurposeID = $3 
         AND TenantID = $4 
-        AND PurposeCatID = 4
+        AND PurposeCatID = 3
       RETURNING 
         VisitPurposeID as "purposeId",
         VisitPurpose as "purposeName",
@@ -529,7 +547,7 @@ class StaffModel {
           UpdatedDate = NOW()
       WHERE VisitPurposeID = $2 
         AND TenantID = $3 
-        AND PurposeCatID = 4
+        AND PurposeCatID = 3
         AND IsActive = 'Y'
       RETURNING VisitPurposeID as "purposeId"
     `;
@@ -545,7 +563,7 @@ class StaffModel {
       FROM VisitorPuposeMaster
       WHERE TenantID = $1 
         AND LOWER(TRIM(VisitPurpose)) = LOWER(TRIM($2))
-        AND PurposeCatID = 4
+        AND PurposeCatID = 3
         AND IsActive = 'Y'
     `;
     
@@ -567,7 +585,7 @@ class StaffModel {
       FROM VisitorPuposeMaster
       WHERE VisitPurposeID = $1 
         AND TenantID = $2
-        AND PurposeCatID = 4
+        AND PurposeCatID = 3
     `;
 
     const result = await query(sql, [purposeId, tenantId]);
@@ -585,7 +603,7 @@ class StaffModel {
         IsActive as "isActive"
       FROM VisitorPuposeMaster
       WHERE TenantID = $1 
-        AND PurposeCatID = 4
+        AND PurposeCatID = 3
         AND IsActive = 'Y'
       ORDER BY VisitPurpose
     `;
@@ -609,7 +627,7 @@ class StaffModel {
       FROM VisitorPuposeMaster
       WHERE TenantID = $1 
         AND IsActive = 'Y' 
-        AND PurposeCatID = 4
+        AND PurposeCatID = 3
       ORDER BY VisitPurpose ASC
     `;
 
@@ -635,7 +653,7 @@ class StaffModel {
     let whereConditions = [
       'vr.TenantID = $1',
       "vr.IsActive = 'Y'",
-      "vr.VisitorCatID = 1"
+      "vr.VisitorCatID = 3"
     ];
     let params = [tenantId];
     let paramIndex = 2;
@@ -818,10 +836,10 @@ class StaffModel {
       FROM VisitorSubCategory vsc
       LEFT JOIN VisitorRegistration vr ON vsc.VisitorSubCatID = vr.VisitorSubCatID 
         AND vr.TenantID = vsc.TenantID 
-        AND vr.VisitorCatID = 1 
+        AND vr.VisitorCatID = 3 
         AND vr.IsActive = 'Y'
       WHERE vsc.TenantID = $1 
-        AND vsc.VisitorCatID = 1 
+        AND vsc.VisitorCatID = 3 
         AND vsc.IsActive = 'Y'
       GROUP BY vsc.VisitorSubCatID, vsc.VisitorSubCatName
       ORDER BY vsc.VisitorSubCatName ASC
@@ -859,7 +877,7 @@ class StaffModel {
       FROM VisitorRegistration vr
       WHERE vr.VisitorRegNo = $1 
         AND vr.TenantID = $2 
-        AND vr.VisitorCatID = 1 
+        AND vr.VisitorCatID = 3 
         AND vr.IsActive = 'Y'
     `;
 

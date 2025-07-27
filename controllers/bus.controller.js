@@ -336,7 +336,7 @@ static async getPendingCheckout(req, res) {
     // GET /api/buses/purposes - Get available purposes for buses
   static async getBusPurposes(req, res) {
     try {
-      const { tenantId, purposeCatId = 3 } = req.query; // Bus category = 2
+      const { tenantId, purposeCatId = 5 } = req.query; // Bus category = 2
       const userTenantId = req.user.tenantId;
 
 
@@ -737,7 +737,7 @@ static async processBusQRScan(req, res) {
   }
 }
 
-  // GET /api/buses/visit-history - Get all bus visit history
+// GET /api/buses/visit-history - Get all bus visit history
   static async getAllBusVisitHistory(req, res) {
     try {
       const {
@@ -759,6 +759,7 @@ static async processBusQRScan(req, res) {
         visitorRegId: visitorRegId ? parseInt(visitorRegId) : null,
         purposeId: purposeId ? parseInt(purposeId) : null
       };
+      console.log("filters: ", filters)
       const result = await BusService.getAllBusVisitHistory(
         userTenantId,
         filters

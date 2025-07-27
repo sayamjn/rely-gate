@@ -2,7 +2,7 @@ const { query } = require("../config/database");
 
 class VisitorModel {
   // Get visitor purposes by category
-  static async getVisitorPurposeByCategory(tenantId, purposeCatId = 0) {
+  static async getVisitorPurposeByCategory(tenantId, purposeCatId = 1) {
     const sql = `
       SELECT 
         VisitPurposeID as "purposeId",
@@ -95,8 +95,6 @@ class VisitorModel {
       vehicleNo,
       visitorCatId,
       visitorCatName,
-      visitorSubCatId,
-      visitorSubCatName,
       visitPurposeId,
       visitPurpose,
       purposeCatId,
@@ -113,7 +111,7 @@ class VisitorModel {
     const sql = `
     INSERT INTO VisitorMaster (
       TenantID, Fname, Mobile, FlatID, FlatName, VisitorCatID,
-      VisitorCatName, VisitorSubCatID, VisitorSubCatName, VisitPurposeID,
+      VisitorCatName, VisitPurposeID,
       VisitPurpose, TotalVisitor, VehiclelNo, 
       PhotoFlag, PhotoPath, PhotoName,
       VehiclePhotoFlag, VehiclePhotoPath, VehiclePhotoName,
@@ -123,10 +121,10 @@ class VisitorModel {
     ) VALUES (
       $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13,
       $14, $15, $16, 
-      $17, $18, $19,
+      $17,
       NOW(), EXTRACT(EPOCH FROM NOW())::TEXT, NULL, NULL,
       'Y', 1, 'ACTIVE',
-      NOW(), NOW(), $20, $20
+      NOW(), NOW(), $18, $18
     ) RETURNING VisitorID, INTime, INTimeTxt
   `;
 
@@ -148,8 +146,6 @@ class VisitorModel {
       flatName || "",
       visitorCatId,
       visitorCatName || "Visitor",
-      visitorSubCatId,
-      visitorSubCatName || "General",
       visitPurposeId || null,
       visitPurpose || "Visit",
       totalVisitor || 1,

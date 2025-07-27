@@ -14,7 +14,8 @@ class StaffController {
         fromDate = null,
         toDate = null,
         visitorRegId = null,
-        designation = null
+        designation = null,
+        VisitorSubCatID = null
       } = req.query;
       const userTenantId = req.user.tenantId;
       const filters = {
@@ -24,7 +25,8 @@ class StaffController {
         fromDate,
         toDate,
         visitorRegId: visitorRegId ? parseInt(visitorRegId) : null,
-        designation
+        designation,
+        VisitorSubCatID: VisitorSubCatID ? parseInt(VisitorSubCatID) : null
       };
       const result = await StaffService.getAllStaffVisitHistory(
         userTenantId,
@@ -604,7 +606,7 @@ static async downloadTemplate(req, res) {
         {
           tenantId: userTenantId,
           visitorRegNo: staff.data.staffCode, // Use staffCode as mainid
-          visitorCatId: 1, // Staff category
+          visitorCatId: 3, // Staff category
           SecurityCode: staff.data.staffCode,
         },
         "checkin-checkout"
@@ -720,19 +722,10 @@ static async downloadTemplate(req, res) {
         });
       }
 
-      // Determine next action and current status
-      const nextAction = statusResult.data.availableAction === "CHECKIN" ? "checkin" : "checkout";
-      
-      let currentStatus;
-      if (statusResult.data.availableAction === "CHECKIN") {
-        if (statusResult.data.isFirstVisit) {
-          currentStatus = "CHECKED_OUT"; // First visit, never checked in
-        } else {
-          currentStatus = "CHECKED_OUT"; // Previously checked out
-        }
-      } else {
-        currentStatus = "AVAILABLE"; // Currently checked in, can check out
-      }
+      // Determine next action and current status based on actual check-in state
+      const isCurrentlyCheckedIn = statusResult.data.isCurrentlyCheckedIn;
+      const nextAction = isCurrentlyCheckedIn ? "checkout" : "checkin";
+      const currentStatus = isCurrentlyCheckedIn ? "CHECKED_IN" : "CHECKED_OUT";
 
       res.json({
         responseCode: responseUtils.RESPONSE_CODES.SUCCESS,

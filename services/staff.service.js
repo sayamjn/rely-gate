@@ -322,7 +322,7 @@ class StaffService {
         vistorName: staff.vistorname,
         mobile: staff.mobile,
         vehicleNo: staff.vehicleno || "",
-        visitorCatId: 1, // Staff category
+        visitorCatId: 3, // Staff category
         visitorCatName: "Staff",
         visitorSubCatId: staff.visitorsubcatid,
         visitorSubCatName: staff.visitorsubcatname,
@@ -495,14 +495,23 @@ class StaffService {
         };
       }
 
+      // Debug logging
+      console.log(`[DEBUG] getStaffStatus for staffId ${staffId}:`, {
+        isFirstVisit: status.isfirstvisit,
+        isCurrentlyCheckedIn: status.iscurrentlycheckedin,
+        totalVisits: status.totalvisits,
+        lastCheckinTime: status.lastcheckintime,
+        lastCheckoutTime: status.lastcheckouttime
+      });
+
       // Determine what action is available
       let availableAction = "";
       let actionDescription = "";
 
-      if (status.isFirstVisit) {
+      if (status.isfirstvisit) {
         availableAction = "CHECKIN";
         actionDescription = "Staff can check in (first visit)";
-      } else if (status.isCurrentlyCheckedIn) {
+      } else if (status.iscurrentlycheckedin) {
         availableAction = "CHECKOUT";
         actionDescription = "Staff can check out (currently checked in)";
       } else {
@@ -517,6 +526,12 @@ class StaffService {
           ...status,
           availableAction,
           actionDescription,
+          // Add camelCase versions for backward compatibility
+          isFirstVisit: status.isfirstvisit,
+          isCurrentlyCheckedIn: status.iscurrentlycheckedin,
+          totalVisits: status.totalvisits,
+          lastCheckinTime: status.lastcheckintime,
+          lastCheckoutTime: status.lastcheckouttime
         },
       };
     } catch (error) {
@@ -677,7 +692,7 @@ class StaffService {
       const designationSql = `
       SELECT VisitorSubCatID
       FROM VisitorSubCategory
-      WHERE TenantID = $1 AND VisitorSubCatName = $2 AND VisitorCatID = 1 AND IsActive = 'Y'
+      WHERE TenantID = $1 AND VisitorSubCatName = $2 AND VisitorCatID = 3 AND IsActive = 'Y'
       LIMIT 1
     `;
       const designationResult = await query(designationSql, [

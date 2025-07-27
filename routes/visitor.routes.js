@@ -68,11 +68,11 @@ router.post('/create-unregistered', uploadVisitorImages, handleUploadError, [
     .matches(/^\d{10}$/)
     .withMessage('Mobile must be 10 digits'),
   body('flatName').notEmpty().withMessage('Flat name is required'),
-  body('visitorCatId')
-    .notEmpty()
-    .withMessage('Visitor category ID is required')
-    .isNumeric()
-    .withMessage('Visitor category ID must be numeric'),
+  // body('visitorCatId')
+  //   .notEmpty()
+  //   .withMessage('Visitor category ID is required')
+  //   .isNumeric()
+  //   .withMessage('Visitor category ID must be numeric'),
   // body('visitorSubCatId')
   //   .notEmpty()
   //   .withMessage('Visitor subcategory ID is required')

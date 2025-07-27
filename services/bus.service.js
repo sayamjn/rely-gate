@@ -87,7 +87,7 @@ class BusService {
   }
 
   // Get bus purposes 
-  static async getBusPurposes(tenantId, purposeCatId = 2) {
+  static async getBusPurposes(tenantId, purposeCatId = 5) {
     try {
       const purposes = await BusModel.getBusPurposes(tenantId, purposeCatId);
       return {
@@ -218,7 +218,7 @@ class BusService {
       // Handle purpose logic
       let finalPurposeId = null;
       let finalPurposeName = '';
-      let purposeCatId = 2; // Bus category
+      let purposeCatId = 5; // Bus category
       let purposeCatName = 'Bus';
 
       if (purposeId === -1) {
@@ -858,6 +858,7 @@ static async getAllBusVisitHistory(tenantId, filters = {}) {
       durationHours: h.durationhours || null,
       durationDisplay: h.durationdisplay || ''
     }));
+    
 
     // Remove total_count from individual records
     const cleanedData = mapped.map(item => {

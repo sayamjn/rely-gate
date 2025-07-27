@@ -662,7 +662,7 @@ class StudentController {
         {
           tenantId: userTenantId,
           visitorRegNo: student.data.studentCode, // Use VisitorRegNo as mainid
-          visitorCatId: 3, // Student category
+          visitorCatId: 2, // Student category
           SecurityCode: student.data.studentCode,
         },
         "checkin-checkout"

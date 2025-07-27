@@ -129,8 +129,6 @@ class VisitorController {
         flatName,
         visitorCatId,
         visitorCatName,
-        visitorSubCatId,
-        visitorSubCatName,
         visitPurposeId,
         visitPurpose,
         totalVisitor,
@@ -153,11 +151,11 @@ class VisitorController {
       }
 
       // Validate required fields
-      if (!fname || !mobile || !flatName || !visitorCatId || !visitorSubCatId) {
+      if (!fname || !mobile || !flatName || !visitorCatId) {
         return res.status(400).json({
           responseCode: "E",
           responseMessage:
-            "Required fields: fname, mobile, flatName, visitorCatId, visitorSubCatId",
+            "Required fields: fname, mobile, flatName, visitorCatId",
         });
       }
 
@@ -169,8 +167,6 @@ class VisitorController {
         flatName,
         visitorCatId: parseInt(visitorCatId),
         visitorCatName,
-        visitorSubCatId: parseInt(visitorSubCatId),
-        visitorSubCatName,
         visitPurposeId: visitPurposeId ? parseInt(visitPurposeId) : null,
         visitPurpose,
         totalVisitor: totalVisitor ? parseInt(totalVisitor) : 1,
@@ -728,12 +724,12 @@ class VisitorController {
   // GET /api/visitors/template - Download CSV template
   static async downloadTemplate(req, res) {
     try {
-      const { visitorCatId = 2 } = req.query; // Default to Unregistered category
+      const { visitorCatId = 1 } = req.query; // Default to Unregistered category
 
       const templates = {
-        1: "Staff_ID,Name,Mobile,Email,Designation,Department,Address,Vehicle_Number",
         2: "Name,Mobile,Email,Flat_Name,Vehicle_Number,ID_Type,ID_Number,Purpose",
         3: "Student_ID,Name,Mobile,Email,Course,Hostel,Vehicle_Number",
+        1: "Staff_ID,Name,Mobile,Email,Designation,Department,Address,Vehicle_Number",
         4: "Name,Mobile,Email,Flat_Name,Vehicle_Number,Relationship,Purpose",
         5: "Bus_Number,Registration_Number,Driver_Name,Driver_Mobile,Route,Purpose",
       };

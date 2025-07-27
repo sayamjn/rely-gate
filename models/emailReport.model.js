@@ -1,6 +1,44 @@
 const { query } = require("../config/database");
 
 class EmailReportModel {
+  static getDateFilter(date, timeColumn) {
+    return date
+      ? `DATE(${timeColumn} AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata') = $2`
+      : `DATE(${timeColumn} AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata') = CURRENT_DATE`;
+  }
+
+  static getQueryParams(tenantId, date) {
+    return date ? [tenantId, date] : [tenantId];
+  }
+
+  static getTimezoneConversion(timeColumn) {
+    return `${timeColumn} AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata'`;
+  }
+
+  static getDateComparison(date) {
+    return date ? "$2" : "CURRENT_DATE";
+  }
+
+  static buildVisitorCategoryFilter(visitorCatId, date, timeColumn) {
+    const dateFilter = this.getDateFilter(date, timeColumn);
+    return `TenantID = $1 AND IsActive = 'Y' AND VisitorCatID = ${visitorCatId} AND ${dateFilter}`;
+  }
+
+  static buildCheckoutFilter(visitorCatId, date) {
+    const dateComparison = this.getDateComparison(date);
+    return `VisitorCatID = ${visitorCatId} AND DATE(OutTime AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata') = ${dateComparison}`;
+  }
+
+  static buildInsideFilter(visitorCatId) {
+    return `VisitorCatID = ${visitorCatId} AND INTime IS NOT NULL AND OutTime IS NULL`;
+  }
+
+  static buildPurposeNameCase() {
+    return `CASE 
+      WHEN VisitPurposeID = -1 OR VisitPurpose IS NULL THEN 'Other'
+      ELSE VisitPurpose
+    END`;
+  }
   // Get all email recipients for a tenant
   static async getEmailRecipients(tenantId) {
     const sql = `
@@ -62,50 +100,146 @@ class EmailReportModel {
 
   // Get daily statistics for email report
   static async getDailyStats(tenantId, date = null) {
-    const dateFilter = date
-      ? `DATE(INTime AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata') = $2`
-      : `DATE(INTime AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata') = CURRENT_DATE`;
-    const params = date ? [tenantId, date] : [tenantId];
+    const params = this.getQueryParams(tenantId, date);
 
     const sql = `
+      WITH UnregisteredStats AS (
+        SELECT 
+          -- Visitor stats from VisitorMaster
+          COUNT(CASE WHEN VisitorCatID = 1 AND ${this.getDateFilter(
+            date,
+            "INTime"
+          )} THEN 1 END) as visitor_checkins,
+          COUNT(CASE WHEN VisitorCatID = 1 AND ${this.getDateFilter(
+            date,
+            "OutTime"
+          )} THEN 1 END) as visitor_checkouts,
+          
+          -- Staff stats from VisitorMaster
+          COUNT(CASE WHEN VisitorCatID = 3 AND ${this.getDateFilter(
+            date,
+            "INTime"
+          )} THEN 1 END) as staff_checkins,
+          COUNT(CASE WHEN VisitorCatID = 3 AND ${this.getDateFilter(
+            date,
+            "OutTime"
+          )} THEN 1 END) as staff_checkouts,
+          
+          -- Student stats from VisitorMaster
+          COUNT(CASE WHEN VisitorCatID = 2 AND ${this.getDateFilter(
+            date,
+            "INTime"
+          )} THEN 1 END) as student_checkins,
+          COUNT(CASE WHEN VisitorCatID = 2 AND ${this.getDateFilter(
+            date,
+            "OutTime"
+          )} THEN 1 END) as student_checkouts,
+          
+          -- Bus stats from VisitorMaster
+          COUNT(CASE WHEN VisitorCatID = 5 AND ${this.getDateFilter(
+            date,
+            "INTime"
+          )} THEN 1 END) as bus_checkins,
+          COUNT(CASE WHEN VisitorCatID = 5 AND ${this.getDateFilter(
+            date,
+            "OutTime"
+          )} THEN 1 END) as bus_checkouts,
+          
+          -- Gate Pass stats from VisitorMaster
+          COUNT(CASE WHEN VisitorCatID = 6 AND ${this.getDateFilter(
+            date,
+            "INTime"
+          )} THEN 1 END) as gatepass_checkins,
+          COUNT(CASE WHEN VisitorCatID = 6 AND ${this.getDateFilter(
+            date,
+            "OutTime"
+          )} THEN 1 END) as gatepass_checkouts
+          
+        FROM VisitorMaster
+        WHERE TenantID = $1 AND IsActive = 'Y'
+      ),
+      RegisteredStats AS (
+        SELECT 
+          -- Visitor stats from VisitorRegVisitHistory
+          COUNT(CASE WHEN VisitorCatID = 1 AND ${this.getDateFilter(
+            date,
+            "INTime"
+          )} THEN 1 END) as visitor_checkins,
+          COUNT(CASE WHEN VisitorCatID = 1 AND ${this.getDateFilter(
+            date,
+            "OutTime"
+          )} THEN 1 END) as visitor_checkouts,
+          
+          -- Staff stats from VisitorRegVisitHistory
+          COUNT(CASE WHEN VisitorCatID = 3 AND ${this.getDateFilter(
+            date,
+            "INTime"
+          )} THEN 1 END) as staff_checkins,
+          COUNT(CASE WHEN VisitorCatID = 3 AND ${this.getDateFilter(
+            date,
+            "OutTime"
+          )} THEN 1 END) as staff_checkouts,
+          
+          -- Student stats from VisitorRegVisitHistory
+          COUNT(CASE WHEN VisitorCatID = 2 AND ${this.getDateFilter(
+            date,
+            "INTime"
+          )} THEN 1 END) as student_checkins,
+          COUNT(CASE WHEN VisitorCatID = 2 AND ${this.getDateFilter(
+            date,
+            "OutTime"
+          )} THEN 1 END) as student_checkouts,
+          
+          -- Bus stats from VisitorRegVisitHistory
+          COUNT(CASE WHEN VisitorCatID = 5 AND ${this.getDateFilter(
+            date,
+            "INTime"
+          )} THEN 1 END) as bus_checkins,
+          COUNT(CASE WHEN VisitorCatID = 5 AND ${this.getDateFilter(
+            date,
+            "OutTime"
+          )} THEN 1 END) as bus_checkouts,
+          
+          -- Gate Pass stats from VisitorRegVisitHistory
+          COUNT(CASE WHEN VisitorCatID = 6 AND ${this.getDateFilter(
+            date,
+            "INTime"
+          )} THEN 1 END) as gatepass_checkins,
+          COUNT(CASE WHEN VisitorCatID = 6 AND ${this.getDateFilter(
+            date,
+            "OutTime"
+          )} THEN 1 END) as gatepass_checkouts
+          
+        FROM VisitorRegVisitHistory
+        WHERE TenantID = $1 AND IsActive = 'Y'
+      )
       SELECT 
-        -- Visitor stats
-        COUNT(CASE WHEN VisitorCatID = 1 AND ${dateFilter} THEN 1 END) as visitor_checkins,
-        COUNT(CASE WHEN VisitorCatID = 1 AND DATE(OutTime AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata') = ${
-          date ? "$2" : "CURRENT_DATE"
-        } THEN 1 END) as visitor_checkouts,
-        COUNT(CASE WHEN VisitorCatID = 1 AND INTime IS NOT NULL AND OutTime IS NULL THEN 1 END) as visitor_inside,
+        -- Combined visitor stats
+        (us.visitor_checkins + rs.visitor_checkins) as visitor_checkins,
+        (us.visitor_checkouts + rs.visitor_checkouts) as visitor_checkouts,
+        ((us.visitor_checkins + rs.visitor_checkins) - (us.visitor_checkouts + rs.visitor_checkouts)) as visitor_inside,
         
-        -- Staff stats  
-        COUNT(CASE WHEN VisitorCatID = 3 AND ${dateFilter} THEN 1 END) as staff_checkins,
-        COUNT(CASE WHEN VisitorCatID = 3 AND DATE(OutTime AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata') = ${
-          date ? "$2" : "CURRENT_DATE"
-        } THEN 1 END) as staff_checkouts,
-        COUNT(CASE WHEN VisitorCatID = 3 AND INTime IS NOT NULL AND OutTime IS NULL THEN 1 END) as staff_inside,
+        -- Combined staff stats
+        (us.staff_checkins + rs.staff_checkins) as staff_checkins,
+        (us.staff_checkouts + rs.staff_checkouts) as staff_checkouts,
+        ((us.staff_checkins + rs.staff_checkins) - (us.staff_checkouts + rs.staff_checkouts)) as staff_inside,
         
-        -- Student stats
-        COUNT(CASE WHEN VisitorCatID = 2 AND ${dateFilter} THEN 1 END) as student_checkins,
-        COUNT(CASE WHEN VisitorCatID = 2 AND DATE(OutTime AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata') = ${
-          date ? "$2" : "CURRENT_DATE"
-        } THEN 1 END) as student_checkouts,
-        COUNT(CASE WHEN VisitorCatID = 2 AND INTime IS NOT NULL AND OutTime IS NULL THEN 1 END) as student_inside,
+        -- Combined student stats
+        (us.student_checkins + rs.student_checkins) as student_checkins,
+        (us.student_checkouts + rs.student_checkouts) as student_checkouts,
+        ((us.student_checkins + rs.student_checkins) - (us.student_checkouts + rs.student_checkouts)) as student_inside,
         
-        -- Bus stats
-        COUNT(CASE WHEN VisitorCatID = 5 AND ${dateFilter} THEN 1 END) as bus_checkins,
-        COUNT(CASE WHEN VisitorCatID = 5 AND DATE(OutTime AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata') = ${
-          date ? "$2" : "CURRENT_DATE"
-        } THEN 1 END) as bus_checkouts,
-        COUNT(CASE WHEN VisitorCatID = 5 AND INTime IS NOT NULL AND OutTime IS NULL THEN 1 END) as bus_inside,
+        -- Combined bus stats
+        (us.bus_checkins + rs.bus_checkins) as bus_checkins,
+        (us.bus_checkouts + rs.bus_checkouts) as bus_checkouts,
+        ((us.bus_checkins + rs.bus_checkins) - (us.bus_checkouts + rs.bus_checkouts)) as bus_inside,
         
-        -- Gate Pass stats
-        COUNT(CASE WHEN VisitorCatID = 6 AND ${dateFilter} THEN 1 END) as gatepass_checkins,
-        COUNT(CASE WHEN VisitorCatID = 6 AND DATE(OutTime AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata') = ${
-          date ? "$2" : "CURRENT_DATE"
-        } THEN 1 END) as gatepass_checkouts,
-        COUNT(CASE WHEN VisitorCatID = 6 AND INTime IS NOT NULL AND OutTime IS NULL THEN 1 END) as gatepass_inside
+        -- Combined gate pass stats
+        (us.gatepass_checkins + rs.gatepass_checkins) as gatepass_checkins,
+        (us.gatepass_checkouts + rs.gatepass_checkouts) as gatepass_checkouts,
+        ((us.gatepass_checkins + rs.gatepass_checkins) - (us.gatepass_checkouts + rs.gatepass_checkouts)) as gatepass_inside
         
-      FROM VisitorMaster
-      WHERE TenantID = $1 AND IsActive = 'Y'
+      FROM UnregisteredStats us, RegisteredStats rs
     `;
 
     const result = await query(sql, params);
@@ -127,58 +261,48 @@ class EmailReportModel {
 
   // Get purpose-based analytics for visitors
   static async getVisitorPurposeStats(tenantId, date = null) {
-    const dateFilter = date
-      ? `DATE(COALESCE(INTime, InTime) AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata') = $2`
-      : `DATE(COALESCE(INTime, InTime) AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata') = CURRENT_DATE`;
-    const params = date ? [tenantId, date] : [tenantId];
+    const params = this.getQueryParams(tenantId, date);
 
     const sql = `
       WITH UnregisteredPurposes AS (
         SELECT 
-          CASE 
-            WHEN VisitPurposeID = -1 OR VisitPurpose IS NULL THEN 'Other'
-            ELSE VisitPurpose
-          END as purpose_name,
-          COUNT(CASE WHEN InTime IS NOT NULL AND ${dateFilter} THEN 1 END) as checkin_count,
-          COUNT(CASE WHEN OutTime IS NOT NULL AND ${
-            date
-              ? `DATE(OutTime AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata') = $2`
-              : `DATE(OutTime AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata') = CURRENT_DATE`
-          } THEN 1 END) as checkout_count
+          ${this.buildPurposeNameCase()} as purpose_name,
+          COUNT(CASE WHEN INTime IS NOT NULL AND ${this.getDateFilter(
+            date,
+            "INTime"
+          )} THEN 1 END) as checkin_count,
+          COUNT(CASE WHEN OutTime IS NOT NULL AND ${this.getDateFilter(
+            date,
+            "OutTime"
+          )} THEN 1 END) as checkout_count
         FROM VisitorMaster
         WHERE TenantID = $1 
           AND IsActive = 'Y'
           AND VisitorCatID = 1
-        GROUP BY CASE 
-          WHEN VisitPurposeID = -1 OR VisitPurpose IS NULL THEN 'Other'
-          ELSE VisitPurpose
-        END
+        GROUP BY ${this.buildPurposeNameCase()}
       ),
       RegisteredPurposes AS (
         SELECT 
-          CASE 
-            WHEN VisitPurposeID = -1 OR VisitPurpose IS NULL THEN 'Other'
-            ELSE VisitPurpose
-          END as purpose_name,
-          COUNT(CASE WHEN INTime IS NOT NULL AND ${dateFilter} THEN 1 END) as checkin_count,
-          COUNT(CASE WHEN OutTime IS NOT NULL AND ${
-            date
-              ? `DATE(OutTime AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata') = $2`
-              : `DATE(OutTime AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata') = CURRENT_DATE`
-          } THEN 1 END) as checkout_count
+          ${this.buildPurposeNameCase()} as purpose_name,
+          COUNT(CASE WHEN INTime IS NOT NULL AND ${this.getDateFilter(
+            date,
+            "INTime"
+          )} THEN 1 END) as checkin_count,
+          COUNT(CASE WHEN OutTime IS NOT NULL AND ${this.getDateFilter(
+            date,
+            "OutTime"
+          )} THEN 1 END) as checkout_count
         FROM VisitorRegVisitHistory
         WHERE TenantID = $1 
           AND IsActive = 'Y'
           AND VisitorCatID = 1
-        GROUP BY CASE 
-          WHEN VisitPurposeID = -1 OR VisitPurpose IS NULL THEN 'Other'
-          ELSE VisitPurpose
-        END
+        GROUP BY ${this.buildPurposeNameCase()}
       )
       SELECT 
         COALESCE(up.purpose_name, rp.purpose_name) as purpose_name,
         (COALESCE(up.checkin_count, 0) + COALESCE(rp.checkin_count, 0)) as checkin_count,
-        (COALESCE(up.checkout_count, 0) + COALESCE(rp.checkout_count, 0)) as checkout_count
+        (COALESCE(up.checkout_count, 0) + COALESCE(rp.checkout_count, 0)) as checkout_count,
+        ((COALESCE(up.checkin_count, 0) + COALESCE(rp.checkin_count, 0)) - (COALESCE(up.checkout_count, 0) + COALESCE(rp.checkout_count, 0))) as inside_count
       FROM UnregisteredPurposes up
       FULL OUTER JOIN RegisteredPurposes rp ON up.purpose_name = rp.purpose_name
       WHERE (COALESCE(up.checkin_count, 0) + COALESCE(rp.checkin_count, 0)) > 0 
@@ -193,58 +317,48 @@ class EmailReportModel {
 
   // Get purpose-based analytics for staff
   static async getStaffPurposeStats(tenantId, date = null) {
-    const dateFilter = date
-      ? `DATE(COALESCE(INTime, InTime) AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata') = $2`
-      : `DATE(COALESCE(INTime, InTime) AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata') = CURRENT_DATE`;
-    const params = date ? [tenantId, date] : [tenantId];
+    const params = this.getQueryParams(tenantId, date);
 
     const sql = `
       WITH UnregisteredPurposes AS (
         SELECT 
-          CASE 
-            WHEN VisitPurposeID = -1 OR VisitPurpose IS NULL THEN 'Other'
-            ELSE VisitPurpose
-          END as purpose_name,
-          COUNT(CASE WHEN InTime IS NOT NULL AND ${dateFilter} THEN 1 END) as checkin_count,
-          COUNT(CASE WHEN OutTime IS NOT NULL AND ${
-            date
-              ? `DATE(OutTime AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata') = $2`
-              : `DATE(OutTime AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata') = CURRENT_DATE`
-          } THEN 1 END) as checkout_count
+          ${this.buildPurposeNameCase()} as purpose_name,
+          COUNT(CASE WHEN INTime IS NOT NULL AND ${this.getDateFilter(
+            date,
+            "INTime"
+          )} THEN 1 END) as checkin_count,
+          COUNT(CASE WHEN OutTime IS NOT NULL AND ${this.getDateFilter(
+            date,
+            "OutTime"
+          )} THEN 1 END) as checkout_count
         FROM VisitorMaster
         WHERE TenantID = $1 
           AND IsActive = 'Y'
           AND VisitorCatID = 3
-        GROUP BY CASE 
-          WHEN VisitPurposeID = -1 OR VisitPurpose IS NULL THEN 'Other'
-          ELSE VisitPurpose
-        END
+        GROUP BY ${this.buildPurposeNameCase()}
       ),
       RegisteredPurposes AS (
         SELECT 
-          CASE 
-            WHEN VisitPurposeID = -1 OR VisitPurpose IS NULL THEN 'Other'
-            ELSE VisitPurpose
-          END as purpose_name,
-          COUNT(CASE WHEN INTime IS NOT NULL AND ${dateFilter} THEN 1 END) as checkin_count,
-          COUNT(CASE WHEN OutTime IS NOT NULL AND ${
-            date
-              ? `DATE(OutTime AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata') = $2`
-              : `DATE(OutTime AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata') = CURRENT_DATE`
-          } THEN 1 END) as checkout_count
+          ${this.buildPurposeNameCase()} as purpose_name,
+          COUNT(CASE WHEN INTime IS NOT NULL AND ${this.getDateFilter(
+            date,
+            "INTime"
+          )} THEN 1 END) as checkin_count,
+          COUNT(CASE WHEN OutTime IS NOT NULL AND ${this.getDateFilter(
+            date,
+            "OutTime"
+          )} THEN 1 END) as checkout_count
         FROM VisitorRegVisitHistory
         WHERE TenantID = $1 
           AND IsActive = 'Y'
           AND VisitorCatID = 3
-        GROUP BY CASE 
-          WHEN VisitPurposeID = -1 OR VisitPurpose IS NULL THEN 'Other'
-          ELSE VisitPurpose
-        END
+        GROUP BY ${this.buildPurposeNameCase()}
       )
       SELECT 
         COALESCE(up.purpose_name, rp.purpose_name) as purpose_name,
         (COALESCE(up.checkin_count, 0) + COALESCE(rp.checkin_count, 0)) as checkin_count,
-        (COALESCE(up.checkout_count, 0) + COALESCE(rp.checkout_count, 0)) as checkout_count
+        (COALESCE(up.checkout_count, 0) + COALESCE(rp.checkout_count, 0)) as checkout_count,
+        ((COALESCE(up.checkin_count, 0) + COALESCE(rp.checkin_count, 0)) - (COALESCE(up.checkout_count, 0) + COALESCE(rp.checkout_count, 0))) as inside_count
       FROM UnregisteredPurposes up
       FULL OUTER JOIN RegisteredPurposes rp ON up.purpose_name = rp.purpose_name
       WHERE (COALESCE(up.checkin_count, 0) + COALESCE(rp.checkin_count, 0)) > 0 
@@ -259,58 +373,48 @@ class EmailReportModel {
 
   // Get purpose-based analytics for students
   static async getStudentPurposeStats(tenantId, date = null) {
-    const dateFilter = date
-      ? `DATE(COALESCE(INTime, InTime) AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata') = $2`
-      : `DATE(COALESCE(INTime, InTime) AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata') = CURRENT_DATE`;
-    const params = date ? [tenantId, date] : [tenantId];
+    const params = this.getQueryParams(tenantId, date);
 
     const sql = `
       WITH UnregisteredPurposes AS (
         SELECT 
-          CASE 
-            WHEN VisitPurposeID = -1 OR VisitPurpose IS NULL THEN 'Other'
-            ELSE VisitPurpose
-          END as purpose_name,
-          COUNT(CASE WHEN InTime IS NOT NULL AND ${dateFilter} THEN 1 END) as checkin_count,
-          COUNT(CASE WHEN OutTime IS NOT NULL AND ${
-            date
-              ? `DATE(OutTime AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata') = $2`
-              : `DATE(OutTime AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata') = CURRENT_DATE`
-          } THEN 1 END) as checkout_count
+          ${this.buildPurposeNameCase()} as purpose_name,
+          COUNT(CASE WHEN INTime IS NOT NULL AND ${this.getDateFilter(
+            date,
+            "INTime"
+          )} THEN 1 END) as checkin_count,
+          COUNT(CASE WHEN OutTime IS NOT NULL AND ${this.getDateFilter(
+            date,
+            "OutTime"
+          )} THEN 1 END) as checkout_count
         FROM VisitorMaster
         WHERE TenantID = $1 
           AND IsActive = 'Y'
           AND VisitorCatID = 2
-        GROUP BY CASE 
-          WHEN VisitPurposeID = -1 OR VisitPurpose IS NULL THEN 'Other'
-          ELSE VisitPurpose
-        END
+        GROUP BY ${this.buildPurposeNameCase()}
       ),
       RegisteredPurposes AS (
         SELECT 
-          CASE 
-            WHEN VisitPurposeID = -1 OR VisitPurpose IS NULL THEN 'Other'
-            ELSE VisitPurpose
-          END as purpose_name,
-          COUNT(CASE WHEN INTime IS NOT NULL AND ${dateFilter} THEN 1 END) as checkin_count,
-          COUNT(CASE WHEN OutTime IS NOT NULL AND ${
-            date
-              ? `DATE(OutTime AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata') = $2`
-              : `DATE(OutTime AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata') = CURRENT_DATE`
-          } THEN 1 END) as checkout_count
+          ${this.buildPurposeNameCase()} as purpose_name,
+          COUNT(CASE WHEN INTime IS NOT NULL AND ${this.getDateFilter(
+            date,
+            "INTime"
+          )} THEN 1 END) as checkin_count,
+          COUNT(CASE WHEN OutTime IS NOT NULL AND ${this.getDateFilter(
+            date,
+            "OutTime"
+          )} THEN 1 END) as checkout_count
         FROM VisitorRegVisitHistory
         WHERE TenantID = $1 
           AND IsActive = 'Y'
           AND VisitorCatID = 2
-        GROUP BY CASE 
-          WHEN VisitPurposeID = -1 OR VisitPurpose IS NULL THEN 'Other'
-          ELSE VisitPurpose
-        END
+        GROUP BY ${this.buildPurposeNameCase()}
       )
       SELECT 
         COALESCE(up.purpose_name, rp.purpose_name) as purpose_name,
         (COALESCE(up.checkin_count, 0) + COALESCE(rp.checkin_count, 0)) as checkin_count,
-        (COALESCE(up.checkout_count, 0) + COALESCE(rp.checkout_count, 0)) as checkout_count
+        (COALESCE(up.checkout_count, 0) + COALESCE(rp.checkout_count, 0)) as checkout_count,
+        ((COALESCE(up.checkin_count, 0) + COALESCE(rp.checkin_count, 0)) - (COALESCE(up.checkout_count, 0) + COALESCE(rp.checkout_count, 0))) as inside_count
       FROM UnregisteredPurposes up
       FULL OUTER JOIN RegisteredPurposes rp ON up.purpose_name = rp.purpose_name
       WHERE (COALESCE(up.checkin_count, 0) + COALESCE(rp.checkin_count, 0)) > 0 
@@ -325,37 +429,39 @@ class EmailReportModel {
 
   // Get purpose-based analytics for gate pass
   static async getGatePassPurposeStats(tenantId, date = null) {
-    const dateFilter = date
-      ? `DATE(InTime AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata') = $2`
-      : `DATE(InTime AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata') = CURRENT_DATE`;
-    const params = date ? [tenantId, date] : [tenantId];
+    const params = this.getQueryParams(tenantId, date);
 
     const sql = `
       SELECT 
-        CASE 
-          WHEN VisitPurposeID = -1 OR VisitPurpose IS NULL THEN 'Other'
-          ELSE VisitPurpose
-        END as purpose_name,
-        COUNT(CASE WHEN InTime IS NOT NULL AND ${dateFilter} THEN 1 END) as checkin_count,
-        COUNT(CASE WHEN OutTime IS NOT NULL AND ${
-          date
-            ? `DATE(OutTime AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata') = $2`
-            : `DATE(OutTime AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata') = CURRENT_DATE`
-        } THEN 1 END) as checkout_count
+        ${this.buildPurposeNameCase()} as purpose_name,
+        COUNT(CASE WHEN INTime IS NOT NULL AND ${this.getDateFilter(
+          date,
+          "INTime"
+        )} THEN 1 END) as checkin_count,
+        COUNT(CASE WHEN OutTime IS NOT NULL AND ${this.getDateFilter(
+          date,
+          "OutTime"
+        )} THEN 1 END) as checkout_count,
+        (COUNT(CASE WHEN INTime IS NOT NULL AND ${this.getDateFilter(
+          date,
+          "INTime"
+        )} THEN 1 END) - COUNT(CASE WHEN OutTime IS NOT NULL AND ${this.getDateFilter(
+          date,
+          "OutTime"
+        )} THEN 1 END)) as inside_count
       FROM VisitorMaster
       WHERE TenantID = $1 
         AND IsActive = 'Y'
         AND VisitorCatID = 6
-      GROUP BY CASE 
-        WHEN VisitPurposeID = -1 OR VisitPurpose IS NULL THEN 'Other'
-        ELSE VisitPurpose
-      END
-      HAVING COUNT(CASE WHEN InTime IS NOT NULL AND ${dateFilter} THEN 1 END) > 0 
-        OR COUNT(CASE WHEN OutTime IS NOT NULL AND ${
-          date
-            ? `DATE(OutTime AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata') = $2`
-            : `DATE(OutTime AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata') = CURRENT_DATE`
-        } THEN 1 END) > 0
+      GROUP BY ${this.buildPurposeNameCase()}
+      HAVING COUNT(CASE WHEN INTime IS NOT NULL AND ${this.getDateFilter(
+        date,
+        "INTime"
+      )} THEN 1 END) > 0 
+        OR COUNT(CASE WHEN OutTime IS NOT NULL AND ${this.getDateFilter(
+          date,
+          "OutTime"
+        )} THEN 1 END) > 0
       ORDER BY checkin_count DESC
     `;
 

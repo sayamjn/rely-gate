@@ -119,7 +119,7 @@ class StudentService {
 
 
   // Get student purposes
-  static async getStudentPurposes(tenantId, purposeCatId = 3) {
+  static async getStudentPurposes(tenantId, purposeCatId = 2) {
     try {
       const purposes = await StudentModel.getStudentPurposes(
         tenantId,
@@ -291,7 +291,7 @@ class StudentService {
 
       let finalPurposeId = null;
       let finalPurposeName = "";
-      let purposeCatId = 3; // Student category
+      let purposeCatId = 2; // Student category
       let purposeCatName = "Student";
 
       if (purposeId === -1) {
@@ -324,7 +324,7 @@ class StudentService {
         vistorName: student.vistorname,
         mobile: student.mobile,
         vehicleNo: student.vehicleno || "",
-        visitorCatId: 3, // Students category
+        visitorCatId: 2, // Students category
         visitorCatName: "Student",
         visitorSubCatId: student.visitorsubcatid,
         visitorSubCatName: student.visitorsubcatname,
