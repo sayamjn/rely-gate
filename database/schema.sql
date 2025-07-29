@@ -99,6 +99,10 @@ CREATE TABLE Tenant (
     Custom_1 VARCHAR(50),
     Custom_2 VARCHAR(50),
     Custom_3 VARCHAR(50),
+    Currency VARCHAR(50),
+    TimeZone VARCHAR(100),
+    CountryCode VARCHAR(10),
+    Country VARCHAR(100),
     CreatedDate TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     UpdatedDate TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
@@ -985,6 +989,9 @@ CREATE TABLE TenantSetting (
     UpdatedDate TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     CurrencyFlag CHAR(1) DEFAULT 'N',
     CurrencyName VARCHAR(50),
+    TimeZone VARCHAR(100),
+    CountryCode VARCHAR(10),
+    Country VARCHAR(100),
     FOREIGN KEY (TenantID) REFERENCES Tenant(TenantID)
 );
 
@@ -1040,6 +1047,11 @@ CREATE INDEX idx_status_tenant_process ON StatusCodeMaster(TenantID, Process);
 CREATE INDEX idx_incident_tenant_status ON IncidentEntry(TenantID, StatusID);
 CREATE INDEX idx_bulk_upload_tenant_type ON BulkVisitorUpload(TenantID, Type);
 
+
+CREATE INDEX IF NOT EXISTS idx_tenant_timezone ON Tenant(TimeZone);
+CREATE INDEX IF NOT EXISTS idx_tenant_country ON Tenant(CountryCode);
+CREATE INDEX IF NOT EXISTS idx_tenantsetting_timezone ON TenantSetting(TimeZone);
+CREATE INDEX IF NOT EXISTS idx_tenantsetting_country ON TenantSetting(CountryCode);
 -- ================================================================================
 -- SECTION 12: COMMENTS AND DOCUMENTATION
 -- ================================================================================

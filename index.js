@@ -14,6 +14,9 @@ const { handleError, notFound } = require('./middleware/error');
 // Import models for initialization
 const EmailReportModel = require('./models/emailReport.model');
 
+// Import services
+const CronJobService = require('./services/cronJob.service');
+
 // Import routes
 const authRoutes = require('./routes/auth.routes');
 const protectedRoutes = require('./routes/protected.routes');
@@ -29,6 +32,7 @@ const busRoutes = require('./routes/bus.routes');
 const staffRoutes = require('./routes/staff.routes');
 const gatePassRoutes = require('./routes/gatepass.routes');
 const emailReportRoutes = require('./routes/emailReport.routes');
+const tenantSettingRoutes = require('./routes/tenantSetting.routes');
 
 const app = express();
 const PORT = config.port || 3000;
@@ -107,6 +111,7 @@ app.use('/api/buses', busRoutes);
 app.use('/api/staff', staffRoutes); 
 app.use("/api/gatepass", gatePassRoutes);
 app.use('/api/email-reports', emailReportRoutes);
+app.use('/api/tenant-settings', tenantSettingRoutes);
 
 // Error handling middleware (must be last)
 app.use(handleError);
@@ -126,6 +131,10 @@ const server = app.listen(PORT, async () => {
     // await EmailReportModel.createEmailRecipientsTable();
     // console.log('✅ EmailRecipients table initialized successfully');
     console.log(`📧 Email reports available at: http://localhost:${PORT}/api/email-reports`);
+    
+    // Initialize cron jobs
+    CronJobService.initializeJobs();
+    console.log('⏰ Cron jobs initialized successfully');
   } catch (error) {
     console.error('❌ Failed to connect to database:', error.message);
     console.error('Please check your database configuration in .env file');

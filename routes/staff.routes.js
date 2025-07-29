@@ -33,6 +33,7 @@ router.get('/list', [
   query('department').optional().isString().trim().withMessage('Department must be a string'),
   query('fromDate').optional().matches(/^\d{2}\/\d{2}\/\d{4}$/).withMessage('FromDate must be in DD/MM/YYYY format'),
   query('toDate').optional().matches(/^\d{2}\/\d{2}\/\d{4}$/).withMessage('ToDate must be in DD/MM/YYYY format'),
+  query('isCheckedIn').optional().isIn(['true', 'false', '1', '0', 'yes', 'no']).withMessage('isCheckedIn must be a boolean value'),
 ], handleValidationErrors, StaffController.getStaffList);
 
 // GET /api/staff/:staffId/status - Get staff's current status (first visit check)

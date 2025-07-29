@@ -124,7 +124,14 @@ class UserModel {
   // Get tenant details
   static async getTenantDetails(tenantId) {
     const sql = `
-      SELECT TenantID, TenantName, IsActive
+      SELECT 
+        TenantID, 
+        TenantName, 
+        IsActive,
+        Currency,
+        TimeZone,
+        CountryCode,
+        Country
       FROM Tenant
       WHERE TenantID = $1 AND IsActive = 'Y'
     `;
@@ -145,7 +152,15 @@ class UserModel {
         TenantID,
         TenantCode,
         TenantName,
-        CreatedDate
+        ShortName,
+        Email,
+        Mobile,
+        Currency,
+        TimeZone,
+        CountryCode,
+        Country,
+        CreatedDate,
+        UpdatedDate
       FROM Tenant
       WHERE TenantID = $1 AND IsActive = 'Y'
     `;

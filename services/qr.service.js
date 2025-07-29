@@ -39,7 +39,7 @@ class QRService {
   static getTypeCode(visitorCatId) {
     const typeCodes = {
       1: "vis", // Staff
-      2: "stuf", // Unregistered
+      2: "stu", // Unregistered
       3: "sta", // Student
       6: "gat", // Guest
       5: "bus", // Bus

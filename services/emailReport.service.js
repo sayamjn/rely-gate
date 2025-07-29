@@ -782,9 +782,10 @@ class EmailReportService {
       });
 
       // Validate that bus data is consistent (bus data doesn't have purpose breakdown)
-      const busInside = summaryStats.bus_checkins - summaryStats.bus_checkouts;
-      if (summaryStats.bus_inside !== busInside) {
-        warnings.push(`Bus inside count mismatch: Expected=${busInside}, Actual=${summaryStats.bus_inside}`);
+      const busInside = (summaryStats.bus_checkins || 0) - (summaryStats.bus_checkouts || 0);
+      const actualBusInside = summaryStats.bus_inside || 0;
+      if (actualBusInside !== busInside) {
+        warnings.push(`Bus inside count mismatch: Expected=${busInside}, Actual=${actualBusInside}`);
         isValid = false;
       }
 
@@ -793,9 +794,9 @@ class EmailReportService {
         isValid,
         warningCount: warnings.length,
         summaryTotals: {
-          checkins: summaryStats.visitor_checkins + summaryStats.staff_checkins + summaryStats.student_checkins + summaryStats.bus_checkins + summaryStats.gatepass_checkins,
-          checkouts: summaryStats.visitor_checkouts + summaryStats.staff_checkouts + summaryStats.student_checkouts + summaryStats.bus_checkouts + summaryStats.gatepass_checkouts,
-          inside: summaryStats.visitor_inside + summaryStats.staff_inside + summaryStats.student_inside + summaryStats.bus_inside + summaryStats.gatepass_inside
+          checkins: (summaryStats.visitor_checkins || 0) + (summaryStats.staff_checkins || 0) + (summaryStats.student_checkins || 0) + (summaryStats.bus_checkins || 0) + (summaryStats.gatepass_checkins || 0),
+          checkouts: (summaryStats.visitor_checkouts || 0) + (summaryStats.staff_checkouts || 0) + (summaryStats.student_checkouts || 0) + (summaryStats.bus_checkouts || 0) + (summaryStats.gatepass_checkouts || 0),
+          inside: (summaryStats.visitor_inside || 0) + (summaryStats.staff_inside || 0) + (summaryStats.student_inside || 0) + (summaryStats.bus_inside || 0) + (summaryStats.gatepass_inside || 0)
         },
         dataSourcesValidated: 'Both VisitorMaster and VisitorRegVisitHistory tables included'
       });
@@ -1167,6 +1168,32 @@ class EmailReportService {
            (parseInt(stats.student_inside) || 0) + 
            (parseInt(stats.bus_inside) || 0) + 
            (parseInt(stats.gatepass_inside) || 0);
+  }
+
+  // Get all tenants that have email recipients configured
+  static async getTenantsWithEmailRecipients() {
+    try {
+      return await EmailReportModel.getTenantsWithEmailRecipients();
+    } catch (error) {
+      console.error('Error getting tenants with email recipients:', error);
+      throw error;
+    }
+  }
+
+  // Send daily report for a specific tenant
+  static async sendDailyReportForTenant(tenantId, date) {
+    try {
+      const result = await this.generateAndSendDailyReport(tenantId, date);
+      
+      if (result.responseCode !== 'S') {
+        throw new Error(result.responseMessage);
+      }
+      
+      return result;
+    } catch (error) {
+      console.error(`Error sending daily report for tenant ${tenantId}:`, error);
+      throw error;
+    }
   }
 }
 

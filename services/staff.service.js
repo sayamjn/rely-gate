@@ -221,6 +221,7 @@ class StaffService {
         purposecatid: staff.purposecatid,
         purposecatname: staff.purposecatname,
         currentstatus: staff.currentstatus,
+        isCheckedIn: staff.ischeckedin !== undefined ? staff.ischeckedin : false
       }));
 
       return {

@@ -470,6 +470,19 @@ class EmailReportModel {
     return result.rows;
   }
 
+  // Get all tenants that have email recipients configured
+  static async getTenantsWithEmailRecipients() {
+    const sql = `
+      SELECT DISTINCT t.tenantid as "TenantID", t.tenantname as "TenantName", t.tenantcode as "TenantCode"
+      FROM Tenant t
+      INNER JOIN EmailRecipients er ON t.tenantid = er.TenantID
+      WHERE t.isactive = 'Y' AND er.IsActive = 'Y'
+      ORDER BY t.tenantname
+    `;
+    const result = await query(sql);
+    return result.rows;
+  }
+
   // Create EmailRecipients table if it doesn't exist
   // static async createEmailRecipientsTable() {
   //   const sql = `

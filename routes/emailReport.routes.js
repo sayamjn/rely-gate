@@ -36,4 +36,12 @@ router.post('/send-daily-report', [
     .withMessage('Date must be in valid format (YYYY-MM-DD)')
 ], handleValidationErrors, EmailReportController.sendDailyReport);
 
+// POST /api/email-reports/trigger-cron-job
+router.post('/trigger-cron-job', [
+  body('date')
+    .optional()
+    .isDate()
+    .withMessage('Date must be in valid format (YYYY-MM-DD)')
+], handleValidationErrors, EmailReportController.triggerCronJob);
+
 module.exports = router;

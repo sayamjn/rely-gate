@@ -1,4 +1,5 @@
 const EmailReportService = require('../services/emailReport.service');
+const CronJobService = require('../services/cronJob.service');
 const responseUtils = require('../utils/constants');
 const { validationResult } = require('express-validator');
 
@@ -82,6 +83,31 @@ class EmailReportController {
       res.status(500).json({
         responseCode: responseUtils.RESPONSE_CODES.ERROR,
         responseMessage: responseUtils.RESPONSE_MESSAGES.ERROR
+      });
+    }
+  }
+
+  static async triggerCronJob(req, res) {
+    try {
+      const { date } = req.body;
+
+      console.log('Manually triggering daily email report cron job...');
+      await CronJobService.triggerDailyReportManually(date);
+      
+      res.json({
+        responseCode: responseUtils.RESPONSE_CODES.SUCCESS,
+        responseMessage: 'Daily email report cron job triggered successfully',
+        data: {
+          date: date || 'previous day',
+          triggeredAt: new Date().toISOString()
+        }
+      });
+    } catch (error) {
+      console.error('Error triggering cron job:', error);
+      res.status(500).json({
+        responseCode: responseUtils.RESPONSE_CODES.ERROR,
+        responseMessage: 'Failed to trigger daily email report cron job',
+        error: error.message
       });
     }
   }

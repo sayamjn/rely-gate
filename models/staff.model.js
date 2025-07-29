@@ -647,7 +647,8 @@ class StaffModel {
       name = '',
       department = '',
       fromDate = '',
-      toDate = ''
+      toDate = '',
+      isCheckedIn = null
     } = filters;
 
     let whereConditions = [
@@ -720,6 +721,30 @@ class StaffModel {
       paramIndex++;
     }
 
+    // Add isCheckedIn filter
+    if (isCheckedIn !== null && isCheckedIn !== undefined && isCheckedIn !== '') {
+      const isCheckedInBool = isCheckedIn === 'true' || isCheckedIn === true || isCheckedIn === '1';
+      if (isCheckedInBool) {
+        // Filter for checked-in staff (those with active visits)
+        whereConditions.push(`EXISTS (
+          SELECT 1 FROM VisitorRegVisitHistory vh 
+          WHERE vh.VisitorRegID = vr.VisitorRegID 
+          AND vh.TenantID = vr.TenantID 
+          AND vh.IsActive = 'Y'
+          AND (vh.OutTime IS NULL OR vh.OutTimeTxt IS NULL OR vh.OutTimeTxt = '')
+        )`);
+      } else {
+        // Filter for not checked-in staff (available staff)
+        whereConditions.push(`NOT EXISTS (
+          SELECT 1 FROM VisitorRegVisitHistory vh 
+          WHERE vh.VisitorRegID = vr.VisitorRegID 
+          AND vh.TenantID = vr.TenantID 
+          AND vh.IsActive = 'Y'
+          AND (vh.OutTime IS NULL OR vh.OutTimeTxt IS NULL OR vh.OutTimeTxt = '')
+        )`);
+      }
+    }
+
     const whereClause = whereConditions.join(' AND ');
     const offset = (page - 1) * pageSize;
 
@@ -776,7 +801,12 @@ class StaffModel {
           WHEN latest_visit.RegVisitorHistoryID IS NULL THEN 'AVAILABLE'
           WHEN latest_visit.OutTime IS NULL OR latest_visit.OutTimeTxt IS NULL OR latest_visit.OutTimeTxt = '' THEN 'CHECKED_IN'
           ELSE 'AVAILABLE'
-        END as CurrentStatus
+        END as CurrentStatus,
+        -- Add isCheckedIn boolean field
+        CASE 
+          WHEN latest_visit.OutTime IS NULL OR latest_visit.OutTimeTxt IS NULL OR latest_visit.OutTimeTxt = '' THEN true
+          ELSE false
+        END as isCheckedIn
       FROM VisitorRegistration vr
       LEFT JOIN (
         SELECT DISTINCT ON (vh.VisitorRegID)

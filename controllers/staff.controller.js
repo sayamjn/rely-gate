@@ -54,7 +54,8 @@ class StaffController {
         name = '',
         fromDate = null,
         toDate = null,
-        tenantId
+        tenantId,
+        isCheckedIn = null
       } = req.body;
       
       const userTenantId = req.user.tenantId;
@@ -68,7 +69,8 @@ class StaffController {
         staffId,
         name,
         fromDate,
-        toDate
+        toDate,
+        isCheckedIn
       };
 
       const result = await StaffService.getStaffList(userTenantId, filters);
@@ -548,7 +550,8 @@ static async downloadTemplate(req, res) {
         name = '',
         department = '',
         fromDate = '',
-        toDate = ''
+        toDate = '',
+        isCheckedIn = null
       } = req.query;
 
       const userTenantId = req.user.tenantId;
@@ -563,7 +566,8 @@ static async downloadTemplate(req, res) {
         name: name.trim(),
         department: department.trim(),
         fromDate: fromDate.trim(),
-        toDate: toDate.trim()
+        toDate: toDate.trim(),
+        isCheckedIn: isCheckedIn
       };
 
       const result = await StaffService.getStaffList(userTenantId, filters);
