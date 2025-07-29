@@ -67,7 +67,7 @@ class AuthController {
       }
 
       const user = await UserModel.findByUsernameAndTenant(username, tenantid);
-
+      
       if (!user) {
         return res.status(401).json({
           responseCode: responseUtils.RESPONSE_CODES.ERROR,
@@ -120,7 +120,8 @@ class AuthController {
         linkFlatFlag: user.linkflatflag,
         linkeFlatId: user.linkeflatid,
         linkeFlatName: user.linkeflatname,
-        tenantName: tenantDetails ? tenantDetails.tenantname : null
+        tenantName: tenantDetails ? tenantDetails.tenantname : null,
+        lastLogin: user.lastlogin
       };
 
       res.json({
@@ -178,7 +179,8 @@ static async getUserInfo(req, res) {
       mobile: fullUser.mobile,
       linkFlatFlag: fullUser.linkflatflag,
       linkeFlatId: fullUser.linkeflatid,
-      linkeFlatName: fullUser.linkeflatname
+      linkeFlatName: fullUser.linkeflatname,
+      // lastLogin: fullUser.lastlogin
     };
 
     // Format tenant information if available

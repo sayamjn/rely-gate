@@ -1281,13 +1281,13 @@ class VisitorModel {
 
     // Date range filters
     if (from) {
-      sql += ` AND CreatedDate >= TO_TIMESTAMP($${paramIndex})`;
+      sql += ` AND CreatedDate >= $${paramIndex}::date`;
       params.push(from);
       paramIndex++;
     }
 
     if (to) {
-      sql += ` AND CreatedDate <= TO_TIMESTAMP($${paramIndex})`;
+      sql += ` AND CreatedDate <= $${paramIndex}::date + INTERVAL '1 day'`;
       params.push(to);
       paramIndex++;
     }

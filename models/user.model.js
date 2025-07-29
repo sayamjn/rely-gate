@@ -21,7 +21,8 @@ class UserModel {
         IsActive,
         LinkFlatFlag,
         LinkeFlatID,
-        LinkeFlatName
+        LinkeFlatName,
+        EXTRACT(EPOCH FROM LastLogin) AS LastLogin
       FROM LoginUser
       WHERE UserName = $1 AND TenantID = $2 AND IsActive = 'Y'
     `;
