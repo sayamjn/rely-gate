@@ -216,6 +216,97 @@ class TenantSettingController {
       });
     }
   }
+
+  static async getCommonCurrencies(req, res) {
+  try {
+    const result = TenantSettingService.getCommonCurrencies();
+    res.json(result);
+  } catch (error) {
+    console.error('Error in getCommonCurrencies:', error);
+    res.status(500).json({
+      responseCode: responseUtils.RESPONSE_CODES.ERROR,
+      responseMessage: 'Internal server error',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+}
+
+  // PUT /api/tenant-settings/update-name - Update tenant name and basic details
+  static async updateTenantName(req, res) {
+    try {
+      const userTenantId = req.user.tenantId;
+      const updatedBy = req.user.username;
+      const { tenantName, shortname, email, mobile, address1, address2, address3 } = req.body;
+
+      // Validate required fields
+      if (!tenantName || tenantName.trim() === '') {
+        return res.status(400).json({
+          responseCode: responseUtils.RESPONSE_CODES.ERROR,
+          responseMessage: 'Tenant name is required'
+        });
+      }
+
+      const result = await TenantSettingService.updateTenantName(
+        userTenantId,
+        {
+          tenantName: tenantName.trim(),
+          shortname: shortname?.trim(),
+          email: email?.trim(),
+          mobile: mobile?.trim(),
+          address1: address1?.trim(),
+          address2: address2?.trim(),
+          address3: address3?.trim()
+        },
+        updatedBy
+      );
+
+      const statusCode = result.responseCode === responseUtils.RESPONSE_CODES.SUCCESS ? 200 : 400;
+      res.status(statusCode).json(result);
+    } catch (error) {
+      console.error('Error in updateTenantName:', error);
+      res.status(500).json({
+        responseCode: responseUtils.RESPONSE_CODES.ERROR,
+        responseMessage: 'Internal server error',
+        error: process.env.NODE_ENV === 'development' ? error.message : undefined
+      });
+    }
+  }
+
+  // PUT /api/tenant-settings/update-logo - Update tenant logo
+  static async updateTenantLogo(req, res) {
+    try {
+      const userTenantId = req.user.tenantId;
+      const updatedBy = req.user.username;
+      const { logo, logoFlag = 'Y' } = req.body;
+
+      // Validate logo data
+      if (!logo || logo.trim() === '') {
+        return res.status(400).json({
+          responseCode: responseUtils.RESPONSE_CODES.ERROR,
+          responseMessage: 'Logo data is required (base64 format)'
+        });
+      }
+
+      const result = await TenantSettingService.updateTenantLogo(
+        userTenantId,
+        {
+          logo: logo.trim(),
+          logoFlag: logoFlag
+        },
+        updatedBy
+      );
+
+      const statusCode = result.responseCode === responseUtils.RESPONSE_CODES.SUCCESS ? 200 : 400;
+      res.status(statusCode).json(result);
+    } catch (error) {
+      console.error('Error in updateTenantLogo:', error);
+      res.status(500).json({
+        responseCode: responseUtils.RESPONSE_CODES.ERROR,
+        responseMessage: 'Internal server error',
+        error: process.env.NODE_ENV === 'development' ? error.message : undefined
+      });
+    }
+  }
 }
 
 module.exports = TenantSettingController;

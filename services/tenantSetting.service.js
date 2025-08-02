@@ -1,4 +1,5 @@
 const TenantSettingModel = require('../models/tenantSetting.model');
+const FileService = require('./file.service');
 const responseUtils = require('../utils/constants');
 
 class TenantSettingService {
@@ -134,78 +135,81 @@ class TenantSettingService {
   }
 
   // Update tenant settings
-  static async updateTenantSettings(tenantId, settingsData, updatedBy) {
-    try {
-      // Validate required fields
-      const { currencyName, timeZone, countryCode, country } = settingsData;
+static async updateTenantSettings(tenantId, settingsData, updatedBy) {
+  try {
+    // Validate required fields that are being updated
+    const { currencyName, timeZone, countryCode, country } = settingsData;
 
-      // Validate timezone format
-      if (timeZone && !TenantSettingModel.isValidTimezone(timeZone)) {
-        return {
-          responseCode: responseUtils.RESPONSE_CODES.ERROR,
-          responseMessage: 'Invalid timezone format. Please use IANA timezone format (e.g., Asia/Kolkata, America/New_York)'
-        };
-      }
-
-      // Validate country code format
-      if (countryCode && !TenantSettingModel.isValidCountryCode(countryCode)) {
-        return {
-          responseCode: responseUtils.RESPONSE_CODES.ERROR,
-          responseMessage: 'Invalid country code format. Please use phone dialing code format (e.g., +91, +1, +44)'
-        };
-      }
-
-      // Check if settings exist
-      const settingsExist = await TenantSettingModel.settingsExist(tenantId);
-
-      let result;
-      if (settingsExist) {
-        // Update existing settings
-        result = await TenantSettingModel.updateTenantSettings(tenantId, {
-          ...settingsData,
-          updatedBy
-        });
-      } else {
-        // Create new settings
-        result = await TenantSettingModel.createTenantSettings({
-          tenantId,
-          ...settingsData,
-          createdBy: updatedBy
-        });
-      }
-
-      if (!result) {
-        return {
-          responseCode: responseUtils.RESPONSE_CODES.ERROR,
-          responseMessage: 'Failed to update tenant settings'
-        };
-      }
-
-      // Sync the settings to Tenant table for easier access
-      await TenantSettingModel.syncTenantTable(tenantId, {
-        currencyName,
-        timeZone,
-        countryCode,
-        country
-      });
-
-      // Return the updated settings
-      const updatedSettings = await this.getTenantSettings(tenantId);
-
-      return {
-        responseCode: responseUtils.RESPONSE_CODES.SUCCESS,
-        responseMessage: settingsExist ? 'Tenant settings updated successfully' : 'Tenant settings created successfully',
-        data: updatedSettings.data
-      };
-    } catch (error) {
-      console.error('Error in updateTenantSettings service:', error);
+    // Validate timezone format if provided
+    if (settingsData.hasOwnProperty('timeZone') && timeZone && !TenantSettingModel.isValidTimezone(timeZone)) {
       return {
         responseCode: responseUtils.RESPONSE_CODES.ERROR,
-        responseMessage: 'Failed to update tenant settings',
-        error: process.env.NODE_ENV === 'development' ? error.message : undefined
+        responseMessage: 'Invalid timezone format. Please use IANA timezone format (e.g., Asia/Kolkata, America/New_York)'
       };
     }
+
+    // Validate country code format if provided
+    if (settingsData.hasOwnProperty('countryCode') && countryCode && !TenantSettingModel.isValidCountryCode(countryCode)) {
+      return {
+        responseCode: responseUtils.RESPONSE_CODES.ERROR,
+        responseMessage: 'Invalid country code format. Please use phone dialing code format (e.g., +91, +1, +44)'
+      };
+    }
+
+    // Check if settings exist
+    const settingsExist = await TenantSettingModel.settingsExist(tenantId);
+
+    let result;
+    if (settingsExist) {
+      // Update existing settings
+      result = await TenantSettingModel.updateTenantSettings(tenantId, {
+        ...settingsData,
+        updatedBy
+      });
+    } else {
+      // Create new settings if they don't exist
+      result = await TenantSettingModel.createTenantSettings({
+        tenantId,
+        ...settingsData,
+        createdBy: updatedBy
+      });
+    }
+
+    if (!result) {
+      return {
+        responseCode: responseUtils.RESPONSE_CODES.ERROR,
+        responseMessage: 'Failed to update tenant settings'
+      };
+    }
+
+    // Sync only the fields that were updated to Tenant table
+    const fieldsToSync = {};
+    if (settingsData.hasOwnProperty('currencyName')) fieldsToSync.currencyName = currencyName;
+    if (settingsData.hasOwnProperty('timeZone')) fieldsToSync.timeZone = timeZone;
+    if (settingsData.hasOwnProperty('countryCode')) fieldsToSync.countryCode = countryCode;
+    if (settingsData.hasOwnProperty('country')) fieldsToSync.country = country;
+
+    if (Object.keys(fieldsToSync).length > 0) {
+      await TenantSettingModel.syncTenantTable(tenantId, fieldsToSync);
+    }
+
+    // Return the updated settings
+    const updatedSettings = await this.getTenantSettings(tenantId);
+
+    return {
+      responseCode: responseUtils.RESPONSE_CODES.SUCCESS,
+      responseMessage: settingsExist ? 'Tenant settings updated successfully' : 'Tenant settings created successfully',
+      data: updatedSettings.data
+    };
+  } catch (error) {
+    console.error('Error in updateTenantSettings service:', error);
+    return {
+      responseCode: responseUtils.RESPONSE_CODES.ERROR,
+      responseMessage: 'Failed to update tenant settings',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    };
   }
+}
 
   // Get tenant details with settings
   static async getTenantWithSettings(tenantId) {
@@ -366,16 +370,117 @@ class TenantSettingService {
         { code: '+44', name: 'United Kingdom' },
         { code: '+1', name: 'Canada' },
         { code: '+61', name: 'Australia' },
-        { code: '+49', name: 'Germany' },
-        { code: '+33', name: 'France' },
         { code: '+81', name: 'Japan' },
         { code: '+86', name: 'China' },
-        { code: '+65', name: 'Singapore' },
-        { code: '+971', name: 'United Arab Emirates' },
-        { code: '+55', name: 'Brazil' }
       ]
     };
   }
+
+  static getCommonCurrencies() {
+  return {
+    responseCode: responseUtils.RESPONSE_CODES.SUCCESS,
+    responseMessage: 'Common currencies retrieved successfully',
+    data: [
+      { code: 'INR', name: 'Indian Rupee', symbol: '₹', country: 'India' },
+      { code: 'USD', name: 'US Dollar', symbol: '$', country: 'United States' },
+      { code: 'GBP', name: 'British Pound Sterling', symbol: '£', country: 'United Kingdom' },
+      { code: 'JPY', name: 'Japanese Yen', symbol: '¥', country: 'Japan' },
+      { code: 'CNY', name: 'Chinese Yuan', symbol: '¥', country: 'China' },
+      { code: 'CAD', name: 'Canadian Dollar', symbol: 'C$', country: 'Canada' },
+      { code: 'AUD', name: 'Australian Dollar', symbol: 'A$', country: 'Australia' },
+    ]
+  };
+}
+
+  // Update tenant name and basic details
+  static async updateTenantName(tenantId, nameData, updatedBy) {
+    try {
+      const result = await TenantSettingModel.updateTenantName(tenantId, nameData, updatedBy);
+
+      if (result.affectedRows === 0) {
+        return {
+          responseCode: responseUtils.RESPONSE_CODES.ERROR,
+          responseMessage: 'Tenant not found or no changes made'
+        };
+      }
+
+      return {
+        responseCode: responseUtils.RESPONSE_CODES.SUCCESS,
+        responseMessage: 'Tenant name and details updated successfully',
+        data: {
+          tenantId: tenantId,
+          updatedFields: Object.keys(nameData).filter(key => nameData[key] !== undefined && nameData[key] !== null),
+          updatedBy: updatedBy,
+          updatedAt: new Date().toISOString()
+        }
+      };
+    } catch (error) {
+      console.error('Error updating tenant name:', error);
+      return {
+        responseCode: responseUtils.RESPONSE_CODES.ERROR,
+        responseMessage: 'Failed to update tenant name and details',
+        error: process.env.NODE_ENV === 'development' ? error.message : undefined
+      };
+    }
+  }
+
+  // Update tenant logo
+  static async updateTenantLogo(tenantId, logoData, updatedBy) {
+    try {
+      // Save the logo file to filesystem
+      const customFilename = `tenant_${tenantId}_logo_${Date.now()}.png`;
+      const fileResult = await FileService.saveBase64Image(
+        logoData.logo,
+        FileService.categories.LOGOS,
+        customFilename
+      );
+
+      if (!fileResult.success) {
+        return {
+          responseCode: responseUtils.RESPONSE_CODES.ERROR,
+          responseMessage: 'Failed to save logo file',
+          error: fileResult.error
+        };
+      }
+
+      // Update database with logo info and file path
+      const logoDataWithPath = {
+        ...logoData,
+        logoPath: `uploads/logos/${fileResult.filename}` // Store relative path
+      };
+
+      const result = await TenantSettingModel.updateTenantLogo(tenantId, logoDataWithPath, updatedBy);
+
+      if (result.affectedRows === 0) {
+        return {
+          responseCode: responseUtils.RESPONSE_CODES.ERROR,
+          responseMessage: 'Tenant not found or no changes made'
+        };
+      }
+
+      return {
+        responseCode: responseUtils.RESPONSE_CODES.SUCCESS,
+        responseMessage: 'Tenant logo updated successfully',
+        data: {
+          tenantId: tenantId,
+          logoFlag: logoData.logoFlag,
+          logoPath: logoDataWithPath.logoPath,
+          logoUrl: fileResult.url,
+          fileSize: fileResult.size,
+          updatedBy: updatedBy,
+          updatedAt: new Date().toISOString()
+        }
+      };
+    } catch (error) {
+      console.error('Error updating tenant logo:', error);
+      return {
+        responseCode: responseUtils.RESPONSE_CODES.ERROR,
+        responseMessage: 'Failed to update tenant logo',
+        error: process.env.NODE_ENV === 'development' ? error.message : undefined
+      };
+    }
+  }
+
 }
 
 module.exports = TenantSettingService;

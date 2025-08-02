@@ -23,6 +23,7 @@ class QRService {
       3: "STA", // Student
       6: "GAT", // Guest
       5: "BUS", // Bus
+      7: "DAY", // Day Boarding Student
     };
     return prefixes[visitorCatId] || "VIS";
   }
@@ -43,6 +44,7 @@ class QRService {
       3: "sta", // Student
       6: "gat", // Guest
       5: "bus", // Bus
+      7: "dayboard", // Day Boarding Student
     };
     return typeCodes[visitorCatId] || "vis";
   }

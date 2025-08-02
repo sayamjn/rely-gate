@@ -1,4 +1,4 @@
-const { query } = require('../config/database');
+const { query } = require("../config/database");
 
 class TenantSettingModel {
   // Get tenant settings by tenant ID
@@ -51,7 +51,7 @@ class TenantSettingModel {
       FROM TenantSetting
       WHERE TenantID = $1 AND IsActive = 'Y'
     `;
-    
+
     try {
       const result = await query(sql, [tenantId]);
       return result.rows[0] || null;
@@ -81,7 +81,7 @@ class TenantSettingModel {
       timeZone,
       countryCode,
       country,
-      createdBy
+      createdBy,
     } = settingsData;
 
     const sql = `
@@ -119,24 +119,24 @@ class TenantSettingModel {
 
     const values = [
       tenantId,
-      entityName || '',
-      entityAddress1 || '',
-      entityAddress2 || '',
-      entityAddress3 || '',
-      entityMobile1 || '',
-      entityMobile2 || '',
-      entityLanline1 || '',
-      entityLanline2 || '',
-      tin || '',
-      pan || '',
-      serviceRegNo || '',
-      gstNo || '',
-      companyNo || '',
+      entityName || "",
+      entityAddress1 || "",
+      entityAddress2 || "",
+      entityAddress3 || "",
+      entityMobile1 || "",
+      entityMobile2 || "",
+      entityLanline1 || "",
+      entityLanline2 || "",
+      tin || "",
+      pan || "",
+      serviceRegNo || "",
+      gstNo || "",
+      companyNo || "",
       currencyName,
       timeZone,
       countryCode,
       country,
-      createdBy
+      createdBy,
     ];
 
     try {
@@ -167,56 +167,71 @@ class TenantSettingModel {
       timeZone,
       countryCode,
       country,
-      updatedBy
+      updatedBy,
     } = settingsData;
 
-    const sql = `
-      UPDATE TenantSetting SET
-        EntityName = $2,
-        EntityAddress_1 = $3,
-        EntityAddress_2 = $4,
-        EntityAddress_3 = $5,
-        EntityMobile_1 = $6,
-        EntityMobile_2 = $7,
-        EntityLanline_1 = $8,
-        EntityLanline_2 = $9,
-        TIN = $10,
-        PAN = $11,
-        ServiceRegNo = $12,
-        GSTNo = $13,
-        CompanyNo = $14,
-        CurrencyFlag = CASE WHEN $15::VARCHAR IS NOT NULL AND $15::VARCHAR != '' THEN 'Y' ELSE 'N' END,
-        CurrencyName = $15,
-        TimeZone = $16,
-        CountryCode = $17,
-        Country = $18,
-        UpdatedDate = NOW(),
-        UpdatedBy = $19
-      WHERE TenantID = $1 AND IsActive = 'Y'
-      RETURNING SettingID, TenantID, CurrencyName, TimeZone, CountryCode, Country, UpdatedDate
-    `;
+    // Build dynamic SET clause - only include fields that are provided
+    const setFields = [];
+    const values = [tenantId]; // tenantId is always the first parameter
+    let paramCounter = 2; // Start from $2 since $1 is tenantId
 
-    const values = [
-      tenantId,
-      entityName || '',
-      entityAddress1 || '',
-      entityAddress2 || '',
-      entityAddress3 || '',
-      entityMobile1 || '',
-      entityMobile2 || '',
-      entityLanline1 || '',
-      entityLanline2 || '',
-      tin || '',
-      pan || '',
-      serviceRegNo || '',
-      gstNo || '',
-      companyNo || '',
-      currencyName,
-      timeZone,
-      countryCode,
-      country,
-      updatedBy
-    ];
+    // Helper function to add field to update if it exists in settingsData
+    const addFieldIfExists = (fieldName, dbColumnName, value) => {
+      if (settingsData.hasOwnProperty(fieldName)) {
+        setFields.push(`${dbColumnName} = $${paramCounter}`);
+        values.push(value || ""); // Convert null/undefined to empty string
+        paramCounter++;
+      }
+    };
+
+    // Add fields to update only if they exist in the request
+    addFieldIfExists("entityName", "EntityName", entityName);
+    addFieldIfExists("entityAddress1", "EntityAddress_1", entityAddress1);
+    addFieldIfExists("entityAddress2", "EntityAddress_2", entityAddress2);
+    addFieldIfExists("entityAddress3", "EntityAddress_3", entityAddress3);
+    addFieldIfExists("entityMobile1", "EntityMobile_1", entityMobile1);
+    addFieldIfExists("entityMobile2", "EntityMobile_2", entityMobile2);
+    addFieldIfExists("entityLanline1", "EntityLanline_1", entityLanline1);
+    addFieldIfExists("entityLanline2", "EntityLanline_2", entityLanline2);
+    addFieldIfExists("tin", "TIN", tin);
+    addFieldIfExists("pan", "PAN", pan);
+    addFieldIfExists("serviceRegNo", "ServiceRegNo", serviceRegNo);
+    addFieldIfExists("gstNo", "GSTNo", gstNo);
+    addFieldIfExists("companyNo", "CompanyNo", companyNo);
+
+    // Handle currency with its flag
+    if (settingsData.hasOwnProperty("currencyName")) {
+      setFields.push(
+        `CurrencyFlag = CASE WHEN $${paramCounter}::VARCHAR IS NOT NULL AND $${paramCounter}::VARCHAR != '' THEN 'Y' ELSE 'N' END`
+      );
+      setFields.push(`CurrencyName = $${paramCounter}`);
+      values.push(currencyName);
+      paramCounter++;
+    }
+
+    addFieldIfExists("timeZone", "TimeZone", timeZone);
+    addFieldIfExists("countryCode", "CountryCode", countryCode);
+    addFieldIfExists("country", "Country", country);
+
+    // Always update these fields
+    setFields.push(`UpdatedDate = NOW()`);
+    if (updatedBy) {
+      setFields.push(`UpdatedBy = $${paramCounter}`);
+      values.push(updatedBy);
+      paramCounter++;
+    }
+
+    // If no fields to update (except UpdatedDate), return error
+    if (setFields.length <= 1) {
+      throw new Error("No valid fields provided for update");
+    }
+
+    const sql = `
+    UPDATE TenantSetting SET
+      ${setFields.join(", ")}
+    WHERE TenantID = $1 AND IsActive = 'Y'
+    RETURNING SettingID, TenantID, CurrencyName, TimeZone, CountryCode, Country, UpdatedDate
+  `;
 
     try {
       const result = await query(sql, values);
@@ -318,7 +333,7 @@ class TenantSettingModel {
   // Validate timezone format (basic IANA timezone validation)
   static isValidTimezone(timezone) {
     if (!timezone) return false;
-    
+
     // Basic validation for IANA timezone format
     const timezoneRegex = /^[A-Za-z]+\/[A-Za-z_]+$/;
     return timezoneRegex.test(timezone);
@@ -327,10 +342,90 @@ class TenantSettingModel {
   // Validate country code format (Phone dialing codes)
   static isValidCountryCode(countryCode) {
     if (!countryCode) return false;
-    
+
     // Validation for phone dialing codes (+1 to +9999)
     const countryCodeRegex = /^\+[1-9]\d{0,3}$/;
     return countryCodeRegex.test(countryCode);
+  }
+
+  // Update tenant name and basic details in the Tenant table
+  static async updateTenantName(tenantId, nameData, updatedBy) {
+    const updateFields = [];
+    const values = [];
+    let paramCount = 0;
+
+    // Build dynamic update query based on provided fields
+    if (nameData.tenantName !== undefined) {
+      updateFields.push(`TenantName = $${++paramCount}`);
+      values.push(nameData.tenantName);
+    }
+    if (nameData.shortname !== undefined) {
+      updateFields.push(`ShortName = $${++paramCount}`);
+      values.push(nameData.shortname);
+    }
+    if (nameData.email !== undefined) {
+      updateFields.push(`Email = $${++paramCount}`);
+      values.push(nameData.email);
+    }
+    if (nameData.mobile !== undefined) {
+      updateFields.push(`Mobile = $${++paramCount}`);
+      values.push(nameData.mobile);
+    }
+    if (nameData.address1 !== undefined) {
+      updateFields.push(`Address1 = $${++paramCount}`);
+      values.push(nameData.address1);
+    }
+    if (nameData.address2 !== undefined) {
+      updateFields.push(`Address2 = $${++paramCount}`);
+      values.push(nameData.address2);
+    }
+    if (nameData.address3 !== undefined) {
+      updateFields.push(`Address3 = $${++paramCount}`);
+      values.push(nameData.address3);
+    }
+
+    if (updateFields.length === 0) {
+      throw new Error('No fields provided for update');
+    }
+
+    // Add UpdatedDate
+    updateFields.push(`UpdatedDate = NOW()`);
+
+    // Add WHERE clause parameters
+    values.push(tenantId);
+    const tenantIdParam = ++paramCount;
+
+    const sql = `
+      UPDATE Tenant 
+      SET ${updateFields.join(', ')}
+      WHERE TenantID = $${tenantIdParam} AND IsActive = 'Y'
+    `;
+
+    const result = await query(sql, values);
+    return result;
+  }
+
+  // Update tenant logo in the Tenant table
+  static async updateTenantLogo(tenantId, logoData, updatedBy) {
+    const sql = `
+      UPDATE Tenant 
+      SET 
+        EntityLogoFlag = $1,
+        EntityLogo = $2,
+        EntityLogoPath = $3,
+        UpdatedDate = NOW()
+      WHERE TenantID = $4 AND IsActive = 'Y'
+    `;
+
+    const values = [
+      logoData.logoFlag,
+      logoData.logo,
+      logoData.logoPath,
+      tenantId
+    ];
+
+    const result = await query(sql, values);
+    return result;
   }
 }
 

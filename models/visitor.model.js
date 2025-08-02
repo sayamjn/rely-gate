@@ -73,7 +73,7 @@ class VisitorModel {
         vm.VisitorSubCatName,
         vm.CreatedDate
       FROM VisitorMaster vm
-      WHERE vm.TenantID = $1 AND vm.Mobile = $2
+      WHERE vm.TenantID = $1 AND vm.Mobile = $2 AND vm.VisitorCatID != 6
       ORDER BY vm.CreatedDate DESC
       LIMIT 5
     `;
@@ -490,7 +490,7 @@ class VisitorModel {
         vm.FlatName,
         COALESCE(vm.VehiclePhotoName, '') as VehiclePhotoName
       FROM VisitorMaster vm
-      WHERE vm.TenantID = $1 AND vm.IsActive = 'Y'
+      WHERE vm.TenantID = $1 AND vm.IsActive = 'Y' AND vm.VisitorCatID != 6
         AND (vm.OutTime IS NULL OR vm.OutTimeTxt IS NULL OR vm.OutTimeTxt = '')
       
       ORDER BY INTime DESC
@@ -759,7 +759,7 @@ class VisitorModel {
       unregistered_today AS (
         SELECT COUNT(*) as unregistered_count
         FROM VisitorMaster 
-        WHERE TenantID = $1 AND CreatedDate >= TO_TIMESTAMP($2) AND CreatedDate < TO_TIMESTAMP($2) + INTERVAL '1 day' AND IsActive = 'Y'
+        WHERE TenantID = $1 AND CreatedDate >= TO_TIMESTAMP($2) AND CreatedDate < TO_TIMESTAMP($2) + INTERVAL '1 day' AND IsActive = 'Y' AND VisitorCatID != 6
       )
       SELECT 
         (SELECT json_build_object(
@@ -1064,7 +1064,7 @@ class VisitorModel {
         CreatedDate as "CreatedDate",
         COUNT(*) OVER() as total_count
       FROM VisitorMaster
-      WHERE TenantID = $1 AND IsActive = 'Y'
+      WHERE TenantID = $1 AND IsActive = 'Y' AND VisitorCatID != 6
     `;
 
     const params = [tenantId];
@@ -1125,7 +1125,7 @@ class VisitorModel {
     toDate = null,
     purposeId = 0
   ) {
-    let whereConditions = ["vm.TenantID = $1", "vm.IsActive = 'Y'"];
+    let whereConditions = ["vm.TenantID = $1", "vm.IsActive = 'Y'", "vm.VisitorCatID != 6"];
     let params = [tenantId];
     let paramIndex = 2;
 
@@ -1190,6 +1190,8 @@ class VisitorModel {
         vm.OutTime as "outtime",
         COALESCE(vm.OutTimeTxt::TEXT, '') as "outtimetxt",
         vm.VisitDate as "visitDate",
+        VisitPurposeID as "purposeId",
+        VisitPurpose as "purposeName",
         vm.VisitorSubCatID as "visitorsubcatid",
         vm.VisitorSubCatName as "visitorsubcatname",
         vm.Mobile as "mobile",
@@ -1259,7 +1261,7 @@ class VisitorModel {
         END as status,
         COUNT(*) OVER() as total_count
       FROM VisitorMaster
-      WHERE TenantID = $1 AND IsActive = 'Y'
+      WHERE TenantID = $1 AND IsActive = 'Y' AND VisitorCatID != 6
     `;
 
     const params = [tenantId];
@@ -1342,7 +1344,7 @@ class VisitorModel {
         Remark,
         CreatedDate
       FROM VisitorMaster
-      WHERE VisitorID = $1 AND TenantID = $2 AND IsActive = 'Y'
+      WHERE VisitorID = $1 AND TenantID = $2 AND IsActive = 'Y' AND VisitorCatID != 6
     `;
 
     const result = await query(sql, [visitorId, tenantId]);

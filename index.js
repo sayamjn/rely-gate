@@ -33,6 +33,8 @@ const staffRoutes = require('./routes/staff.routes');
 const gatePassRoutes = require('./routes/gatepass.routes');
 const emailReportRoutes = require('./routes/emailReport.routes');
 const tenantSettingRoutes = require('./routes/tenantSetting.routes');
+const studentDayBoardingRoutes = require('./routes/studentDayBoarding.routes');
+const linkedTenantsRoutes = require('./routes/linkedTenants.routes');
 
 const app = express();
 const PORT = config.port || 3000;
@@ -112,6 +114,8 @@ app.use('/api/staff', staffRoutes);
 app.use("/api/gatepass", gatePassRoutes);
 app.use('/api/email-reports', emailReportRoutes);
 app.use('/api/tenant-settings', tenantSettingRoutes);
+app.use('/api/student-day-boarding', studentDayBoardingRoutes);
+app.use('/api/linked-tenants', linkedTenantsRoutes);
 
 // Error handling middleware (must be last)
 app.use(handleError);

@@ -1,5 +1,6 @@
 const jwt = require('jsonwebtoken');
 const UserModel = require('../models/user.model');
+const LinkedTenantsModel = require('../models/linkedTenants.model');
 const bcrypt = require('bcrypt');
 
 const responseUtils = require("../utils/constants")
@@ -204,6 +205,98 @@ static async getUserInfo(req, res) {
     });
   }
 }
+
+  // Switch tenant - JWT re-issuing approach
+  static async switchTenant(req, res) {
+    try {
+      const { targetTenantId } = req.body;
+      const currentUser = req.user;
+
+      if (!targetTenantId) {
+        return res.status(400).json({
+          responseCode: responseUtils.RESPONSE_CODES.ERROR,
+          responseMessage: 'Target tenant ID is required'
+        });
+      }
+
+      // Verify user has access to the target tenant
+      const hasAccess = await LinkedTenantsModel.verifyAccess(
+        currentUser.loginId,
+        parseInt(targetTenantId)
+      );
+
+      if (!hasAccess) {
+        return res.status(403).json({
+          responseCode: responseUtils.RESPONSE_CODES.ERROR,
+          responseMessage: 'Access denied for requested tenant'
+        });
+      }
+
+      // Get tenant information for response
+      const tenantInfo = await LinkedTenantsModel.getTenantInfo(parseInt(targetTenantId));
+
+      if (!tenantInfo) {
+        return res.status(404).json({
+          responseCode: responseUtils.RESPONSE_CODES.ERROR,
+          responseMessage: 'Tenant not found or inactive'
+        });
+      }
+
+      // Generate new JWT with switched tenant
+      const newTokenPayload = {
+        loginId: currentUser.loginId,
+        username: currentUser.username,
+        tenantId: parseInt(targetTenantId),  // ← SWITCHED TENANT
+        roleAccessId: currentUser.roleAccessId,
+        roleName: currentUser.roleName
+      };
+
+      const newToken = generateToken(newTokenPayload);
+
+      res.json({
+        responseCode: responseUtils.RESPONSE_CODES.SUCCESS,
+        responseMessage: 'Tenant switched successfully',
+        token: newToken,
+        tenantInfo: {
+          tenantId: tenantInfo.tenantId,
+          tenantName: tenantInfo.tenantName,
+          tenantCode: tenantInfo.tenantCode
+        }
+      });
+
+    } catch (error) {
+      console.error('Switch tenant error:', error);
+      res.status(500).json({
+        responseCode: responseUtils.RESPONSE_CODES.ERROR,
+        responseMessage: responseUtils.RESPONSE_MESSAGES.ERROR,
+        error: process.env.NODE_ENV === 'development' ? error.message : undefined
+      });
+    }
+  }
+
+  // Get my linked tenants
+  static async getMyLinkedTenants(req, res) {
+    try {
+      const loginId = req.user.loginId;
+
+      const linkedTenants = await LinkedTenantsModel.getMyLinkedTenants(loginId);
+
+      res.json({
+        responseCode: responseUtils.RESPONSE_CODES.SUCCESS,
+        responseMessage: 'Linked tenants retrieved successfully',
+        data: linkedTenants,
+        count: linkedTenants.length
+      });
+
+    } catch (error) {
+      console.error('Get linked tenants error:', error);
+      res.status(500).json({
+        responseCode: responseUtils.RESPONSE_CODES.ERROR,
+        responseMessage: responseUtils.RESPONSE_MESSAGES.ERROR,
+        error: process.env.NODE_ENV === 'development' ? error.message : undefined
+      });
+    }
+  }
 
 }
 

@@ -462,7 +462,7 @@ const AnalyticsModel = {
       )
       SELECT 
         -- Combine stats from both tables
-        (COALESCE(us.inside_visitors, 0) + COALESCE(rs.inside_visitors, 0))::text as "todayOutside",
+        (COALESCE(us.checkin_visitors, 0) + COALESCE(rs.checkin_visitors, 0) + COALESCE(us.checkin_gatepass, 0))::text as "todayOutside",
         (COALESCE(us.checkin_visitors, 0) + COALESCE(rs.checkin_visitors, 0) + COALESCE(us.checkin_gatepass, 0))::text as "checkInVisitors",
         (COALESCE(us.checkout_visitors, 0) + COALESCE(rs.checkout_visitors, 0) + COALESCE(us.checkout_gatepass, 0))::text as "checkOutVisitors",
         (COALESCE(us.yesterday_visitors, 0) + COALESCE(rs.yesterday_visitors, 0))::text as "yesterdayOutside",

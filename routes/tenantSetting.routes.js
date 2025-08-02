@@ -285,6 +285,9 @@ router.get('/timezones', [
 router.get('/countries', [
 ], handleValidationErrors, TenantSettingController.getCommonCountries);
 
+// GET /api/tenant-settings/currencies - Get common currencies
+router.get('/currencies', TenantSettingController.getCommonCurrencies);
+
 // GET /api/tenant-settings/exists - Check if tenant settings exist
 router.get('/exists', [
 ], handleValidationErrors, TenantSettingController.checkSettingsExist);
@@ -309,5 +312,32 @@ router.post('/validate', [
   body('countryCode').optional().isString().trim(),
   body('country').optional().isString().trim()
 ], handleValidationErrors, TenantSettingController.validateSettings);
+
+// PUT /api/tenant-settings/update-name - Update tenant name and basic details
+router.put('/update-name', [
+  body('tenantName')
+    .notEmpty()
+    .withMessage('Tenant name is required')
+    .isString()
+    .trim()
+    .isLength({ min: 1, max: 200 })
+    .withMessage('Tenant name must be between 1 and 200 characters'),
+], handleValidationErrors, TenantSettingController.updateTenantName);
+
+// PUT /api/tenant-settings/update-logo - Update tenant logo
+router.put('/update-logo', [
+  body('logo')
+    .notEmpty()
+    .withMessage('Logo data is required')
+    .isString()
+    .withMessage('Logo must be a string (base64 format)')
+    .isLength({ min: 20 })
+    .withMessage('Logo data appears to be too short (minimum 20 characters)'),
+  
+  body('logoFlag')
+    .optional()
+    .isIn(['Y', 'N'])
+    .withMessage('Logo flag must be Y or N')
+], handleValidationErrors, TenantSettingController.updateTenantLogo);
 
 module.exports = router;

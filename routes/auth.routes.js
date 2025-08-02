@@ -45,4 +45,25 @@ router.get(
   AuthController.getUserInfo
 );
 
+// POST /auth/switch-tenant - Switch tenant and get new JWT
+router.post(
+  "/switch-tenant",
+  [
+    body("targetTenantId")
+      .notEmpty()
+      .isNumeric()
+      .withMessage("Valid target tenant ID is required"),
+  ],
+  handleValidationErrors,
+  authenticateToken,
+  AuthController.switchTenant
+);
+
+// GET /auth/my-linked-tenants - Get user's linked tenants
+router.get(
+  "/my-linked-tenants",
+  authenticateToken,
+  AuthController.getMyLinkedTenants
+);
+
 module.exports = router;

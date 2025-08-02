@@ -10,7 +10,8 @@ class FileService {
     REGISTERED_VISITORS: 'registered_visitors',
     VEHICLES: 'vehicles',
     VISITOR_IDS: 'visitor_ids',
-    QR_CODES: 'qr_codes'
+    QR_CODES: 'qr_codes',
+    LOGOS: 'logos'
   };
 
   static generateFilename(originalName, category) {
