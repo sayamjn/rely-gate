@@ -46,6 +46,13 @@ const AnalyticsModel = {
   },
 
   async getGatePassAnalytics(tenantId, days = 7) {
+    let dateFilter;
+    if (days === 1) {
+      dateFilter = `AND DATE(CreatedDate AT TIME ZONE 'Asia/Kolkata') = DATE(NOW() AT TIME ZONE 'Asia/Kolkata')`;
+    } else {
+      dateFilter = `AND CreatedDate >= CURRENT_DATE - INTERVAL '${days} days'`;
+    }
+
     const sql = `
       SELECT 
         COUNT(CASE WHEN StatusID = 1 THEN 1 END) as pending_approval,
@@ -53,12 +60,12 @@ const AnalyticsModel = {
         COUNT(CASE WHEN INTime IS NOT NULL AND OutTime IS NULL THEN 1 END) as checked_in_count,
         COUNT(CASE WHEN StatusID = 2 AND INTime IS NOT NULL AND OutTime IS NOT NULL THEN 1 END) as completed,
         COUNT(*) as total_gatepasses,
-        COUNT(CASE WHEN DATE(CreatedDate) = CURRENT_DATE THEN 1 END) as today_total
+        COUNT(CASE WHEN DATE(CreatedDate AT TIME ZONE 'Asia/Kolkata') = DATE(NOW() AT TIME ZONE 'Asia/Kolkata') THEN 1 END) as today_total
       FROM VisitorMaster
       WHERE TenantID = $1 
         AND VisitorCatID = 6 
         AND IsActive = 'Y'
-        AND CreatedDate >= CURRENT_DATE - INTERVAL '${days} days'
+        ${dateFilter}
     `;
 
     const result = await query(sql, [tenantId]);
@@ -66,6 +73,13 @@ const AnalyticsModel = {
   },
 
   async getGatePassEntriesByPurpose(tenantId, days = 7) {
+    let dateFilter;
+    if (days === 1) {
+      dateFilter = `AND DATE(CreatedDate AT TIME ZONE 'Asia/Kolkata') = DATE(NOW() AT TIME ZONE 'Asia/Kolkata')`;
+    } else {
+      dateFilter = `AND CreatedDate >= CURRENT_DATE - INTERVAL '${days} days'`;
+    }
+
     const sql = `
       SELECT 
         CASE 
@@ -79,7 +93,7 @@ const AnalyticsModel = {
       WHERE TenantID = $1 
         AND VisitorCatID = 6 
         AND IsActive = 'Y'
-        AND CreatedDate >= CURRENT_DATE - INTERVAL '${days} days'
+        ${dateFilter}
       GROUP BY 
         CASE 
           WHEN VisitPurposeID = -1 THEN 'Others'
