@@ -7,15 +7,17 @@ class MealService {
   // Main meal check-in service
   static async processMealCheckIn(studentId, tenantId, confirmed = false) {
     try {
-      // Get current meal type based on time
-      const currentMealType = MealModel.getCurrentMealType();
+      // Get current meal type based on tenant settings
+      const currentMealType = await MealModel.getCurrentMealTypeByTenant(tenantId);
       
       if (!currentMealType) {
+        // Get tenant meal timings for error message
+        const mealTimings = await MealModel.getMealTimingsFromSettings(tenantId);
         return {
           responseCode: responseUtils.RESPONSE_CODES.ERROR,
-          responseMessage: 'Meal check-in is not allowed at this time. Breakfast: 8-10 AM, Lunch: 1-3 PM, Dinner: 7-9 PM',
+          responseMessage: `Meal check-in is not allowed at this time. Lunch: ${mealTimings.lunch.start.substring(0,5)}-${mealTimings.lunch.end.substring(0,5)}, Dinner: ${mealTimings.dinner.start.substring(0,5)}-${mealTimings.dinner.end.substring(0,5)}`,
           data: {
-            allowedTimes: MealModel.getMealTimings()
+            allowedTimes: mealTimings
           }
         };
       }
@@ -135,7 +137,7 @@ class MealService {
   // Get current meal queue
   static async getCurrentMealQueue(tenantId, mealType = null) {
     try {
-      const currentMealType = mealType || MealModel.getCurrentMealType();
+      const currentMealType = mealType || await MealModel.getCurrentMealTypeByTenant(tenantId);
       
       if (!currentMealType) {
         return {

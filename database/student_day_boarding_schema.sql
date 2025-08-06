@@ -44,7 +44,10 @@ CREATE TABLE StudentDayBoardingAuthMasterLink (
     StudentDayBoardingID BIGINT NOT NULL,
     AuthMasterID BIGINT NOT NULL,
     StudentID VARCHAR(100) NOT NULL,
-    PhoneNumber VARCHAR(20) NOT NULL,
+    PhoneNumber VARCHAR(20) NOT NULL, 
+    -- PRIMARY phone number of parent/guardain - get only
+    -- name
+    -- view approvavl by student
     Relation VARCHAR(100),
     PhotoFlag CHAR(1) DEFAULT 'N',
     PhotoPath VARCHAR(750),

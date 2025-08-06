@@ -130,6 +130,300 @@ class QRService {
       };
     }
   }
+
+  // ===== MEAL-SPECIFIC QR CODE METHODS =====
+
+  // Generate meal registration QR code (Phase 1 - for booking window)
+  static generateMealRegistrationQR(studentData, mealType, tenantId) {
+    const qrData = {
+      student_id: studentData.studentId || studentData.visitorregid,
+      tenant_id: tenantId,
+      meal_type: mealType, // 'lunch' or 'dinner'
+      action: 'register', // Phase 1 action
+      timestamp: Date.now(),
+      security_hash: this.generateMealSecurityHash(studentData.studentId || studentData.visitorregid, tenantId, mealType, 'register')
+    };
+
+    return qrData;
+  }
+
+  // Generate meal consumption QR code (Phase 2 - for serving window)
+  static generateMealConsumptionQR(studentData, mealType, tenantId) {
+    const qrData = {
+      student_id: studentData.studentId || studentData.visitorregid,
+      tenant_id: tenantId,
+      meal_type: mealType, // 'lunch' or 'dinner'
+      action: 'consume', // Phase 2 action
+      timestamp: Date.now(),
+      security_hash: this.generateMealSecurityHash(studentData.studentId || studentData.visitorregid, tenantId, mealType, 'consume')
+    };
+
+    return qrData;
+  }
+
+  // Generate unified meal QR code (can be used for both registration and consumption)
+  static generateMealQR(studentData, mealType, tenantId, options = {}) {
+    const qrData = {
+      student_id: studentData.studentId || studentData.visitorregid,
+      tenant_id: tenantId,
+      meal_type: mealType, // 'lunch' or 'dinner'
+      student_name: studentData.name || studentData.studentname,
+      student_reg_no: studentData.visitorregno || studentData.studentregno,
+      mobile: studentData.mobile,
+      course: studentData.course,
+      hostel: studentData.hostel,
+      timestamp: Date.now(),
+      expires_at: Date.now() + (options.validHours || 24) * 60 * 60 * 1000, // Default 24 hours
+      security_hash: this.generateMealSecurityHash(studentData.studentId || studentData.visitorregid, tenantId, mealType, 'meal')
+    };
+
+    return qrData;
+  }
+
+  // Generate security hash for meal QR codes
+  static generateMealSecurityHash(studentId, tenantId, mealType, action) {
+    const data = `${studentId}-${tenantId}-${mealType}-${action}-${new Date().toISOString().split('T')[0]}`;
+    return crypto.createHash('sha256').update(data).digest('hex').substring(0, 16);
+  }
+
+  // Validate meal QR code data
+  static validateMealQR(qrData) {
+    try {
+      const required = ['student_id', 'tenant_id', 'meal_type'];
+      const missing = required.filter(field => !qrData[field]);
+      
+      if (missing.length > 0) {
+        return {
+          valid: false,
+          reason: `Missing required fields: ${missing.join(', ')}`
+        };
+      }
+
+      // Validate meal type
+      if (!['lunch', 'dinner'].includes(qrData.meal_type)) {
+        return {
+          valid: false,
+          reason: 'Invalid meal type. Must be lunch or dinner'
+        };
+      }
+
+      // Check expiration if expires_at is present
+      if (qrData.expires_at && Date.now() > qrData.expires_at) {
+        return {
+          valid: false,
+          reason: 'QR code has expired'
+        };
+      }
+
+      // Validate security hash if present
+      if (qrData.security_hash && qrData.action) {
+        const expectedHash = this.generateMealSecurityHash(
+          qrData.student_id, 
+          qrData.tenant_id, 
+          qrData.meal_type, 
+          qrData.action
+        );
+        
+        if (qrData.security_hash !== expectedHash) {
+          return {
+            valid: false,
+            reason: 'Invalid security hash'
+          };
+        }
+      }
+
+      return {
+        valid: true,
+        data: qrData
+      };
+
+    } catch (error) {
+      return {
+        valid: false,
+        reason: 'Invalid QR code format'
+      };
+    }
+  }
+
+  // Parse meal QR code string
+  static parseMealQR(qrString) {
+    try {
+      const qrData = JSON.parse(qrString);
+      return this.validateMealQR(qrData);
+    } catch (error) {
+      return {
+        valid: false,
+        reason: 'Invalid QR code format - not valid JSON'
+      };
+    }
+  }
+
+  // Generate meal QR code image for registration
+  static async generateMealRegistrationQRImage(studentData, mealType, tenantId, options = {}) {
+    try {
+      const qrData = this.generateMealRegistrationQR(studentData, mealType, tenantId);
+      const qrResult = await this.generateQRCode(qrData, options);
+      
+      if (qrResult.success) {
+        return {
+          success: true,
+          qrData,
+          qrImage: qrResult.qrImage,
+          qrBase64: qrResult.qrBase64,
+          qrString: qrResult.qrString,
+          phase: 'registration',
+          mealType,
+          studentInfo: {
+            id: studentData.studentId || studentData.visitorregid,
+            name: studentData.name || studentData.studentname,
+            regNo: studentData.visitorregno || studentData.studentregno
+          }
+        };
+      }
+      
+      return qrResult;
+    } catch (error) {
+      return {
+        success: false,
+        error: error.message
+      };
+    }
+  }
+
+  // Generate meal QR code image for consumption
+  static async generateMealConsumptionQRImage(studentData, mealType, tenantId, options = {}) {
+    try {
+      const qrData = this.generateMealConsumptionQR(studentData, mealType, tenantId);
+      const qrResult = await this.generateQRCode(qrData, options);
+      
+      if (qrResult.success) {
+        return {
+          success: true,
+          qrData,
+          qrImage: qrResult.qrImage,
+          qrBase64: qrResult.qrBase64,
+          qrString: qrResult.qrString,
+          phase: 'consumption',
+          mealType,
+          studentInfo: {
+            id: studentData.studentId || studentData.visitorregid,
+            name: studentData.name || studentData.studentname,
+            regNo: studentData.visitorregno || studentData.studentregno
+          }
+        };
+      }
+      
+      return qrResult;
+    } catch (error) {
+      return {
+        success: false,
+        error: error.message
+      };
+    }
+  }
+
+  // Generate unified meal QR code image (for both phases)
+  static async generateMealQRImage(studentData, mealType, tenantId, options = {}) {
+    try {
+      const qrData = this.generateMealQR(studentData, mealType, tenantId, options);
+      const qrResult = await this.generateQRCode(qrData, options);
+      
+      if (qrResult.success) {
+        return {
+          success: true,
+          qrData,
+          qrImage: qrResult.qrImage,
+          qrBase64: qrResult.qrBase64,
+          qrString: qrResult.qrString,
+          phase: 'unified',
+          mealType,
+          studentInfo: {
+            id: studentData.studentId || studentData.visitorregid,
+            name: studentData.name || studentData.studentname,
+            regNo: studentData.visitorregno || studentData.studentregno,
+            mobile: studentData.mobile,
+            course: studentData.course,
+            hostel: studentData.hostel
+          },
+          validUntil: new Date(qrData.expires_at).toISOString()
+        };
+      }
+      
+      return qrResult;
+    } catch (error) {
+      return {
+        success: false,
+        error: error.message
+      };
+    }
+  }
+
+  // Get meal window status for QR generation
+  static async getMealWindowStatus(tenantId, mealType) {
+    try {
+      const MealSettingsModel = require('../models/mealSettings.model');
+      const settings = await MealSettingsModel.getMealSettings(tenantId);
+      
+      if (!settings) {
+        return {
+          canGenerate: false,
+          reason: 'Meal settings not configured'
+        };
+      }
+
+      const now = new Date();
+      const currentTime = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:00`;
+
+      // Helper function to convert time to minutes
+      const timeToMinutes = (timeString) => {
+        const [hours, minutes] = timeString.split(':').map(Number);
+        return hours * 60 + minutes;
+      };
+
+      const currentMinutes = timeToMinutes(currentTime);
+
+      if (mealType === 'lunch') {
+        const bookingStart = timeToMinutes(settings.lunchbookingstarttime || settings.lunchBookingStartTime);
+        const servingEnd = timeToMinutes(settings.lunchendtime || settings.lunchEndTime);
+
+        if (currentMinutes >= bookingStart && currentMinutes <= servingEnd) {
+          const isBookingWindow = currentMinutes <= timeToMinutes(settings.lunchbookingendtime || settings.lunchBookingEndTime);
+          const isServingWindow = currentMinutes >= timeToMinutes(settings.lunchstarttime || settings.lunchStartTime);
+
+          return {
+            canGenerate: true,
+            currentWindow: isBookingWindow ? 'booking' : (isServingWindow ? 'serving' : 'between'),
+            mealType: 'lunch'
+          };
+        }
+      } else if (mealType === 'dinner') {
+        const bookingStart = timeToMinutes(settings.dinnerbookingstarttime || settings.dinnerBookingStartTime);
+        const servingEnd = timeToMinutes(settings.dinnerendtime || settings.dinnerEndTime);
+
+        if (currentMinutes >= bookingStart && currentMinutes <= servingEnd) {
+          const isBookingWindow = currentMinutes <= timeToMinutes(settings.dinnerbookingendtime || settings.dinnerBookingEndTime);
+          const isServingWindow = currentMinutes >= timeToMinutes(settings.dinnerstarttime || settings.dinnerStartTime);
+
+          return {
+            canGenerate: true,
+            currentWindow: isBookingWindow ? 'booking' : (isServingWindow ? 'serving' : 'between'),
+            mealType: 'dinner'
+          };
+        }
+      }
+
+      return {
+        canGenerate: false,
+        reason: `${mealType} window is closed`
+      };
+
+    } catch (error) {
+      return {
+        canGenerate: false,
+        reason: 'Failed to check meal window status'
+      };
+    }
+  }
 }
 
 module.exports = QRService;

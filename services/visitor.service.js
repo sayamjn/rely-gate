@@ -7,6 +7,7 @@ const QRService = require("./qr.service");
 const FCMService = require("./fcm.service");
 const { query } = require("../config/database");
 const MessagingService = require("./messaging.service");
+const SMSUtil = require("../utils/sms");
 
 class VisitorService {
   // Get visitor purposes by category
@@ -93,12 +94,15 @@ class VisitorService {
         };
       }
 
-      console.log(`OTP for ${mobile}: ${otpResult.otpNumber}`);
-
+      // Send actual SMS with OTP
+      const smsResult = await SMSUtil.sendOTPSMS(mobile, otpResult.otpNumber || otpResult.otp);
+      
       return {
         responseCode: responseUtils.RESPONSE_CODES.SUCCESS,
         responseMessage: responseUtils.RESPONSE_MESSAGES.OTP_SENT,
         refId: otpResult.refId,
+        smsSent: smsResult.success,
+        smsMessage: smsResult.message,
         otp:
           process.env.NODE_ENV === "development"
             ? otpResult.otpNumber
@@ -136,13 +140,16 @@ class VisitorService {
         mobile
       );
 
-      console.log(`OTP for ${mobile}: ${otpResult.otpNumber}`);
+      // Send actual SMS with OTP
+      const smsResult = await SMSUtil.sendOTPSMS(mobile, otpResult.otpNumber);
 
       return {
         responseCode: responseUtils.RESPONSE_CODES.SUCCESS,
         responseMessage: responseUtils.RESPONSE_MESSAGES.OTP_SENT,
         refId: otpResult.refId,
         data: recentVisitors,
+        smsSent: smsResult.success,
+        smsMessage: smsResult.message,
         otp:
           process.env.NODE_ENV === "development"
             ? otpResult.otpNumber
@@ -358,9 +365,12 @@ class VisitorService {
         idPhotoData,
       });
 
-      if (process.env.SMS_ENABLED === "Y") {
-        // TODO: Implement SMS service for security code
-        console.log(`Security code ${securityCode} would be sent to ${mobile}`);
+      // Send actual SMS with security code
+      let smsResult = { success: false, message: 'SMS sending disabled' };
+      try {
+        smsResult = await SMSUtil.sendSecurityCodeSMS(mobile, securityCode);
+      } catch (smsError) {
+        console.error('Failed to send security code SMS:', smsError);
       }
 
       return {
@@ -369,6 +379,8 @@ class VisitorService {
         visitorRegId: result.visitorregid,
         securityCode: result.securitycode,
         visitorRegNo: visitorRegNo,
+        smsSent: smsResult.success,
+        smsMessage: smsResult.message,
       };
     } catch (error) {
       console.error("Error creating registered visitor:", error);

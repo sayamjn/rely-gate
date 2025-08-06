@@ -3,6 +3,7 @@ const { query, param, body } = require('express-validator');
 const StudentDayBoardingController = require('../controllers/studentDayBoarding.controller');
 const { authenticateToken } = require('../middleware/auth');
 const { handleValidationErrors } = require('../middleware/validation');
+const { uploadApproverPhoto, handleUploadError } = require('../middleware/upload');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
@@ -10,7 +11,7 @@ const fs = require('fs');
 const router = express.Router();
 
 // Apply authentication middleware to all routes
-router.use(authenticateToken);
+// router.use(authenticateToken);
 
 // ================================================================================
 // MULTER CONFIGURATION FOR CSV UPLOADS
@@ -215,6 +216,111 @@ router.get('/checkout/history', [
 
 // GET /api/student-day-boarding/filter-data - Get filter dropdown data
 router.get('/filter-data', StudentDayBoardingController.getFilterData);
+
+// ================================================================================
+// NEW ENHANCED API ENDPOINTS
+// ================================================================================
+
+// 1. GET /api/tenants - Get all tenant lists  
+router.get('/tenants', StudentDayBoardingController.getAllTenants);
+
+// 2. POST /api/student-day-boarding/check-guardian-eligibility - Check guardian eligibility and send OTP
+router.post('/check-guardian-eligibility',
+  StudentDayBoardingController.getGuardianEligibilityValidation(),
+  handleValidationErrors,
+  StudentDayBoardingController.checkGuardianEligibility
+);
+
+// 3. POST /api/student-day-boarding/verify-otp-new - Verify OTP (enhanced version)
+router.post('/verify-otp-new',
+  StudentDayBoardingController.getNewOTPVerificationValidation(),
+  handleValidationErrors,
+  StudentDayBoardingController.verifyOTPNew
+);
+
+// 4. GET /api/student-day-boarding/students/:tenantId/:guardianPhone - Get students by guardian phone
+router.get('/students/:tenantId/:guardianPhone', [
+  param('tenantId')
+    .notEmpty()
+    .withMessage('Tenant ID is required')
+    .isNumeric()
+    .withMessage('Tenant ID must be numeric'),
+  param('guardianPhone')
+    .notEmpty()
+    .withMessage('Guardian phone is required')
+    .isMobilePhone('en-IN')
+    .withMessage('Invalid guardian phone format')
+], handleValidationErrors, StudentDayBoardingController.getStudentsByGuardianPhone);
+
+// 5. GET /api/student-day-boarding/authorized/:tenantId/:guardianPhone - Get authorized list
+router.get('/authorized/:tenantId/:guardianPhone', [
+  param('tenantId')
+    .notEmpty()
+    .withMessage('Tenant ID is required')
+    .isNumeric()
+    .withMessage('Tenant ID must be numeric'),
+  param('guardianPhone')
+    .notEmpty()
+    .withMessage('Guardian phone is required')
+    .isMobilePhone('en-IN')
+    .withMessage('Invalid guardian phone format')
+], handleValidationErrors,authenticateToken, StudentDayBoardingController.getAuthorizedList);
+
+// 6. GET /api/student-day-boarding/approvers/:tenantId/:studentId - Get active approvers
+router.get('/approvers/:tenantId/:studentId', [
+  param('tenantId')
+    .notEmpty()
+    .withMessage('Tenant ID is required')
+    .isNumeric()
+    .withMessage('Tenant ID must be numeric'),
+  param('studentId')
+    .notEmpty()
+    .withMessage('Student ID is required')
+    .trim()
+], handleValidationErrors, StudentDayBoardingController.getActiveApprovers);
+
+// 7. POST /api/student-day-boarding/link-students - Bulk link students to guardian
+router.post('/link-students',
+  uploadApproverPhoto,
+  StudentDayBoardingController.getLinkStudentsValidation(),
+  handleValidationErrors,
+  authenticateToken,
+  StudentDayBoardingController.linkStudentsToGuardian,
+  handleUploadError
+);
+
+// 8. PUT /api/student-day-boarding/deactivate-approver - Deactivate approver
+router.put('/deactivate-approver',
+  StudentDayBoardingController.getDeactivateApproverValidation(),
+  handleValidationErrors,
+  authenticateToken,
+  StudentDayBoardingController.deactivateApprover
+);
+
+// 9. PUT /api/student-day-boarding/activate-approver - Activate approver
+router.put('/activate-approver',
+  StudentDayBoardingController.getActivateApproverValidation(),
+  handleValidationErrors,
+  authenticateToken,
+  StudentDayBoardingController.activateApprover
+);
+
+// 10. PUT /api/student-day-boarding/approver/:approverId - Update approver details
+router.put('/approver/:approverId', 
+  uploadApproverPhoto,
+  [
+    param('approverId')
+      .notEmpty()
+      .withMessage('Approver ID is required')
+      .isNumeric()
+      .withMessage('Approver ID must be numeric')
+  ], 
+  StudentDayBoardingController.getUpdateApproverValidation(),
+  handleValidationErrors,
+  authenticateToken,
+  StudentDayBoardingController.updateApprover,
+  handleUploadError
+);
 
 // ================================================================================
 // ERROR HANDLING MIDDLEWARE

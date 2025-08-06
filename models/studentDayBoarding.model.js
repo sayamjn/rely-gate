@@ -543,6 +543,324 @@ class StudentDayBoardingModel {
     const result = await query(sql, [tenantId, studentId]);
     return result.rows[0];
   }
+
+  // ================================================================================
+  // NEW ENHANCED API MODEL METHODS
+  // ================================================================================
+
+  // 1. Get all tenants
+  static async getAllTenants() {
+    const sql = `
+      SELECT 
+        TenantID,
+        TenantName,
+        TenantCode,
+        IsActive
+      FROM Tenant
+      WHERE IsActive = 'Y'
+      ORDER BY TenantName
+    `;
+
+    const result = await query(sql, []);
+    return result.rows;
+  }
+
+  // 2. Get students by primary guardian phone
+  static async getStudentsByPrimaryGuardianPhone(tenantId, guardianPhone) {
+    const sql = `
+      SELECT 
+        sdbl.StudentDayBoardingID,
+        sdbl.StudentID,
+        sdbl.StudentName,
+        sdbl.Course,
+        sdbl.Section,
+        sdbl.Year,
+        sdbl.PrimaryGuardianName,
+        sdbl.PrimaryGuardianPhone,
+        sdbl.GuardianRelation
+      FROM StudentDayBoardingList sdbl
+      WHERE sdbl.TenantID = $1 AND sdbl.PrimaryGuardianPhone = $2 
+        AND sdbl.VisitorCatID = 7 AND sdbl.IsActive = 'Y'
+      ORDER BY sdbl.StudentName
+    `;
+
+    const result = await query(sql, [tenantId, guardianPhone]);
+    return result.rows;
+  }
+
+  // 3. Get authorized list by guardian phone
+  static async getAuthorizedListByGuardianPhone(tenantId, guardianPhone) {
+    const sql = `
+      SELECT 
+        sdbml.LinkID,
+        sdbml.StudentDayBoardingID,
+        sdbl.StudentID,
+        sdbl.StudentName,
+        sdbl.Course,
+        sdbl.Section,
+        sdbl.Year,
+        sdbml.Relation,
+        sdbml.PhotoFlag,
+        sdbml.PhotoPath,
+        sdbml.PhotoName,
+        sdbml.IsActive
+      FROM StudentDayBoardingAuthMasterLink sdbml
+      INNER JOIN StudentDayBoardingList sdbl ON sdbml.StudentDayBoardingID = sdbl.StudentDayBoardingID
+      INNER JOIN StudentDayBoardingAuthMaster sdbam ON sdbml.AuthMasterID = sdbam.AuthMasterID
+      WHERE sdbml.TenantID = $1 AND sdbam.PhoneNumber = $2 
+        AND sdbml.IsActive = 'Y' AND sdbl.IsActive = 'Y' AND sdbam.IsActive = 'Y'
+        AND sdbl.VisitorCatID = 7
+      ORDER BY sdbl.StudentName
+    `;
+
+    const result = await query(sql, [tenantId, guardianPhone]);
+    return result.rows;
+  }
+
+  // 4. Get active approvers by student ID
+  static async getActiveApproversByStudentId(tenantId, studentId) {
+    const sql = `
+      SELECT 
+        sdbml.LinkID,
+        sdbam.AuthMasterID,
+        sdbml.StudentDayBoardingID,
+        sdbam.Name,
+        sdbam.PhoneNumber,
+        sdbml.Relation,
+        sdbml.PhotoFlag,
+        sdbml.PhotoPath,
+        sdbml.PhotoName,
+        sdbml.IsActive
+      FROM StudentDayBoardingAuthMasterLink sdbml
+      INNER JOIN StudentDayBoardingAuthMaster sdbam ON sdbml.AuthMasterID = sdbam.AuthMasterID
+      INNER JOIN StudentDayBoardingList sdbl ON sdbml.StudentDayBoardingID = sdbl.StudentDayBoardingID
+      WHERE sdbml.TenantID = $1 AND sdbl.StudentID = $2 
+        AND sdbml.IsActive = 'Y' AND sdbam.IsActive = 'Y' AND sdbl.IsActive = 'Y'
+        AND sdbl.VisitorCatID = 7
+      ORDER BY sdbam.Name
+    `;
+
+    const result = await query(sql, [tenantId, studentId]);
+    return result.rows;
+  }
+
+  // 5. Bulk link students to guardian
+  static async bulkLinkStudentsToGuardian(linkData, createdBy) {
+    const client = await require('../config/database').getClient();
+    
+    try {
+      await client.query('BEGIN');
+      
+      const { tenantId, primaryGuardianPhone, studentIds, name, phoneNumber, relation, photoFlag, photoPath, photoName } = linkData;
+      const results = [];
+      
+      // First, check if guardian exists in auth master
+      let authMasterResult = await client.query(`
+        SELECT AuthMasterID FROM StudentDayBoardingAuthMaster
+        WHERE TenantID = $1 AND PhoneNumber = $2 AND IsActive = 'Y'
+        LIMIT 1
+      `, [tenantId, primaryGuardianPhone]);
+      
+      let authMasterId;
+      
+      if (authMasterResult.rows.length === 0) {
+        // Create new auth master record - use first student for reference
+        const firstStudentResult = await client.query(`
+          SELECT StudentDayBoardingID FROM StudentDayBoardingList 
+          WHERE TenantID = $1 AND StudentID = $2 AND IsActive = 'Y'
+          LIMIT 1
+        `, [tenantId, studentIds[0]]);
+        
+        if (firstStudentResult.rows.length === 0) {
+          throw new Error(`Student ${studentIds[0]} not found`);
+        }
+        
+        const newAuthMaster = await client.query(`
+          INSERT INTO StudentDayBoardingAuthMaster (
+            TenantID, StudentDayBoardingID, Name, PhoneNumber, PhotoFlag, PhotoPath, PhotoName,
+            Relation, IsActive, CreatedDate, UpdatedDate, CreatedBy, UpdatedBy
+          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'Y', NOW(), NOW(), $9, $9)
+          RETURNING AuthMasterID
+        `, [
+          tenantId, firstStudentResult.rows[0].studentdayboardingid, name, phoneNumber,
+          photoFlag, photoPath, photoName, relation, createdBy
+        ]);
+        
+        authMasterId = newAuthMaster.rows[0].authmasterid;
+      } else {
+        authMasterId = authMasterResult.rows[0].authmasterid;
+      }
+      
+      // Process each student
+      for (const studentId of studentIds) {
+        try {
+          // Get student info
+          const studentResult = await client.query(`
+            SELECT StudentDayBoardingID FROM StudentDayBoardingList
+            WHERE TenantID = $1 AND StudentID = $2 AND IsActive = 'Y'
+          `, [tenantId, studentId]);
+          
+          if (studentResult.rows.length === 0) {
+            results.push({
+              studentId,
+              status: 'ERROR',
+              message: 'Student not found'
+            });
+            continue;
+          }
+          
+          const studentDayBoardingId = studentResult.rows[0].studentdayboardingid;
+          
+          // Check if link already exists
+          const existingLink = await client.query(`
+            SELECT LinkID FROM StudentDayBoardingAuthMasterLink
+            WHERE TenantID = $1 AND StudentDayBoardingID = $2 AND AuthMasterID = $3 AND IsActive = 'Y'
+          `, [tenantId, studentDayBoardingId, authMasterId]);
+          
+          if (existingLink.rows.length > 0) {
+            results.push({
+              studentId,
+              status: 'DUPLICATE',
+              message: 'Student already linked to this guardian'
+            });
+            continue;
+          }
+          
+          // Create the link
+          await client.query(`
+            INSERT INTO StudentDayBoardingAuthMasterLink (
+              TenantID, StudentDayBoardingID, AuthMasterID, StudentID, PhoneNumber,
+              Relation, PhotoFlag, PhotoPath, PhotoName, IsActive,
+              CreatedDate, UpdatedDate, CreatedBy, UpdatedBy
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'Y', NOW(), NOW(), $10, $10)
+          `, [
+            tenantId, studentDayBoardingId, authMasterId, studentId, phoneNumber,
+            relation, photoFlag, photoPath, photoName, createdBy
+          ]);
+          
+          results.push({
+            studentId,
+            status: 'SUCCESS',
+            message: 'Student linked successfully',
+            authMasterId: authMasterId
+          });
+          
+        } catch (error) {
+          results.push({
+            studentId,
+            status: 'ERROR',
+            message: error.message
+          });
+        }
+      }
+      
+      await client.query('COMMIT');
+      return results;
+      
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
+  // 6. Deactivate approver
+  static async deactivateApprover(tenantId, guardianPhone, studentId, approverId, updatedBy) {
+    const sql = `
+      UPDATE StudentDayBoardingAuthMasterLink
+      SET IsActive = 'N',
+          UpdatedDate = NOW(),
+          UpdatedBy = $1
+      WHERE TenantID = $2 AND AuthMasterID = $3 AND StudentID = $4 AND IsActive = 'Y'
+        AND EXISTS (
+          SELECT 1 FROM StudentDayBoardingAuthMaster sdbam 
+          WHERE sdbam.AuthMasterID = StudentDayBoardingAuthMasterLink.AuthMasterID 
+            AND sdbam.PhoneNumber = $5 AND sdbam.IsActive = 'Y'
+        )
+      RETURNING LinkID
+    `;
+
+    const result = await query(sql, [updatedBy, tenantId, approverId, studentId, guardianPhone]);
+    return result.rows[0];
+  }
+
+  // 7. Activate approver
+  static async activateApprover(tenantId, guardianPhone, studentId, approverId, updatedBy) {
+    const sql = `
+      UPDATE StudentDayBoardingAuthMasterLink
+      SET IsActive = 'Y',
+          UpdatedDate = NOW(),
+          UpdatedBy = $1
+      WHERE TenantID = $2 AND AuthMasterID = $3 AND StudentID = $4 AND IsActive = 'N'
+        AND EXISTS (
+          SELECT 1 FROM StudentDayBoardingAuthMaster sdbam 
+          WHERE sdbam.AuthMasterID = StudentDayBoardingAuthMasterLink.AuthMasterID 
+            AND sdbam.PhoneNumber = $5 AND sdbam.IsActive = 'Y'
+        )
+      RETURNING LinkID
+    `;
+
+    const result = await query(sql, [updatedBy, tenantId, approverId, studentId, guardianPhone]);
+    return result.rows[0];
+  }
+
+  // 8. Update approver details
+  static async updateApprover(tenantId, approverId, approverData, updatedBy) {
+    const sql = `
+      UPDATE StudentDayBoardingAuthMaster
+      SET Name = $1,
+          Relation = $2,
+          PhoneNumber = $3,
+          PhotoFlag = $4,
+          PhotoPath = $5,
+          PhotoName = $6,
+          UpdatedDate = NOW(),
+          UpdatedBy = $7
+      WHERE TenantID = $8 AND AuthMasterID = $9 AND IsActive = 'Y'
+      RETURNING AuthMasterID, Name, PhoneNumber, Relation, PhotoFlag, PhotoPath, PhotoName
+    `;
+
+    const result = await query(sql, [
+      approverData.name,
+      approverData.relation,
+      approverData.phoneNumber,
+      approverData.photoFlag,
+      approverData.photoPath,
+      approverData.photoName,
+      updatedBy,
+      tenantId,
+      approverId
+    ]);
+    return result.rows[0];
+  }
+
+  // 9. Get all approvers by student ID (including inactive)
+  static async getAllApproversByStudentId(tenantId, studentId) {
+    const sql = `
+      SELECT 
+        sdbml.LinkID,
+        sdbam.AuthMasterID,
+        sdbml.StudentDayBoardingID,
+        sdbam.Name,
+        sdbam.PhoneNumber,
+        sdbml.Relation,
+        sdbml.PhotoFlag,
+        sdbml.PhotoPath,
+        sdbml.PhotoName,
+        sdbml.IsActive
+      FROM StudentDayBoardingAuthMasterLink sdbml
+      INNER JOIN StudentDayBoardingAuthMaster sdbam ON sdbml.AuthMasterID = sdbam.AuthMasterID
+      INNER JOIN StudentDayBoardingList sdbl ON sdbml.StudentDayBoardingID = sdbl.StudentDayBoardingID
+      WHERE sdbml.TenantID = $1 AND sdbl.StudentID = $2 
+        AND sdbam.IsActive = 'Y' AND sdbl.IsActive = 'Y'
+        AND sdbl.VisitorCatID = 7
+      ORDER BY sdbam.Name
+    `;
+
+    const result = await query(sql, [tenantId, studentId]);
+    return result.rows;
+  }
 }
 
 module.exports = StudentDayBoardingModel;

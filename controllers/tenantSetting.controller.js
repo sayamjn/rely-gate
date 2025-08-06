@@ -132,7 +132,7 @@ class TenantSettingController {
   // GET /api/tenant-settings/timezones - Get common timezones
   static async getCommonTimezones(req, res) {
     try {
-      const result = TenantSettingService.getCommonTimezones();
+      const result = await TenantSettingService.getCommonTimezones();
       res.json(result);
     } catch (error) {
       console.error('Error in getCommonTimezones:', error);
@@ -147,7 +147,7 @@ class TenantSettingController {
   // GET /api/tenant-settings/countries - Get common countries
   static async getCommonCountries(req, res) {
     try {
-      const result = TenantSettingService.getCommonCountries();
+      const result = await TenantSettingService.getCommonCountries();
       res.json(result);
     } catch (error) {
       console.error('Error in getCommonCountries:', error);
@@ -219,7 +219,7 @@ class TenantSettingController {
 
   static async getCommonCurrencies(req, res) {
   try {
-    const result = TenantSettingService.getCommonCurrencies();
+    const result = await TenantSettingService.getCommonCurrencies();
     res.json(result);
   } catch (error) {
     console.error('Error in getCommonCurrencies:', error);
@@ -230,6 +230,21 @@ class TenantSettingController {
     });
   }
 }
+
+  // GET /api/tenant-settings/common-data - Get all common data (countries, timezones, currencies)
+  static async getCommonData(req, res) {
+    try {
+      const result = await TenantSettingService.getCommonData();
+      res.json(result);
+    } catch (error) {
+      console.error('Error in getCommonData:', error);
+      res.status(500).json({
+        responseCode: responseUtils.RESPONSE_CODES.ERROR,
+        responseMessage: 'Internal server error',
+        error: process.env.NODE_ENV === 'development' ? error.message : undefined
+      });
+    }
+  }
 
   // PUT /api/tenant-settings/update-name - Update tenant name and basic details
   static async updateTenantName(req, res) {
@@ -272,7 +287,7 @@ class TenantSettingController {
     }
   }
 
-  // PUT /api/tenant-settings/update-logo - Update tenant logo
+  // PUT /api/tenant-settings/update-logo - Update tenant logo (base64)
   static async updateTenantLogo(req, res) {
     try {
       const userTenantId = req.user.tenantId;
@@ -283,7 +298,7 @@ class TenantSettingController {
       if (!logo || logo.trim() === '') {
         return res.status(400).json({
           responseCode: responseUtils.RESPONSE_CODES.ERROR,
-          responseMessage: 'Logo data is required (base64 format)'
+          responseMessage: 'Logo data is required'
         });
       }
 
@@ -300,6 +315,43 @@ class TenantSettingController {
       res.status(statusCode).json(result);
     } catch (error) {
       console.error('Error in updateTenantLogo:', error);
+      res.status(500).json({
+        responseCode: responseUtils.RESPONSE_CODES.ERROR,
+        responseMessage: 'Internal server error',
+        error: process.env.NODE_ENV === 'development' ? error.message : undefined
+      });
+    }
+  }
+
+  // PUT /api/tenant-settings/upload-logo - Update tenant logo (file upload)
+  static async uploadTenantLogo(req, res) {
+    try {
+      const userTenantId = req.user.tenantId;
+      const updatedBy = req.user.username;
+      const { logoFlag = 'Y' } = req.body;
+
+      // Check if file was uploaded
+      if (!req.file) {
+        return res.status(400).json({
+          responseCode: responseUtils.RESPONSE_CODES.ERROR,
+          responseMessage: 'Logo file is required'
+        });
+      }
+
+      const result = await TenantSettingService.updateTenantLogoFromFile(
+        userTenantId,
+        {
+          filePath: req.file.path,
+          filename: req.file.filename,
+          logoFlag: logoFlag
+        },
+        updatedBy
+      );
+
+      const statusCode = result.responseCode === responseUtils.RESPONSE_CODES.SUCCESS ? 200 : 400;
+      res.status(statusCode).json(result);
+    } catch (error) {
+      console.error('Error in uploadTenantLogo:', error);
       res.status(500).json({
         responseCode: responseUtils.RESPONSE_CODES.ERROR,
         responseMessage: 'Internal server error',

@@ -412,10 +412,10 @@ const AnalyticsModel = {
           COUNT(CASE WHEN VisitorCatID = 6 AND DATE(InTime) = CURRENT_DATE THEN 1 END) as checkin_gatepass,
           COUNT(CASE WHEN VisitorCatID = 6 AND DATE(OutTime) = CURRENT_DATE THEN 1 END) as checkout_gatepass,
           
-          -- Currently inside (checked in but not out today)
-          COUNT(CASE WHEN (VisitorCatName = 'Visitor' OR VisitorCatID = 1) AND InTime IS NOT NULL 
+          -- Currently inside (checked in today but not out today)
+          COUNT(CASE WHEN (VisitorCatName = 'Visitor' OR VisitorCatID = 1) AND DATE(InTime) = CURRENT_DATE 
                     AND OutTime IS NULL THEN 1 END) as inside_visitors,
-          COUNT(CASE WHEN (VisitorCatName = 'Staff' OR VisitorCatID = 3) AND InTime IS NOT NULL 
+          COUNT(CASE WHEN (VisitorCatName = 'Staff' OR VisitorCatID = 3) AND DATE(InTime) = CURRENT_DATE 
                     AND OutTime IS NULL THEN 1 END) as inside_staff,
           
           -- Yesterday's still inside (checked in yesterday but not out)
@@ -444,10 +444,10 @@ const AnalyticsModel = {
           COUNT(CASE WHEN (VisitorCatName = 'Bus' OR VisitorCatID = 5) AND DATE(INTime) = CURRENT_DATE THEN 1 END) as checkin_bus,
           COUNT(CASE WHEN (VisitorCatName = 'Bus' OR VisitorCatID = 5) AND DATE(OutTime) = CURRENT_DATE THEN 1 END) as checkout_bus,
           
-          -- Currently inside (checked in but not out)
-          COUNT(CASE WHEN (VisitorCatName = 'Visitor' OR VisitorCatID = 1) AND INTime IS NOT NULL 
+          -- Currently inside (checked in today but not out today)
+          COUNT(CASE WHEN (VisitorCatName = 'Visitor' OR VisitorCatID = 1) AND DATE(INTime) = CURRENT_DATE 
                     AND OutTime IS NULL THEN 1 END) as inside_visitors,
-          COUNT(CASE WHEN (VisitorCatName = 'Staff' OR VisitorCatID = 3) AND INTime IS NOT NULL 
+          COUNT(CASE WHEN (VisitorCatName = 'Staff' OR VisitorCatID = 3) AND DATE(INTime) = CURRENT_DATE 
                     AND OutTime IS NULL THEN 1 END) as inside_staff,
           
           -- Yesterday's still inside 
@@ -463,7 +463,7 @@ const AnalyticsModel = {
       SELECT 
         -- Combine stats from both tables
         (COALESCE(us.checkin_visitors, 0) + COALESCE(rs.checkin_visitors, 0) + COALESCE(us.checkin_gatepass, 0))::text as "todayOutside",
-        (COALESCE(us.checkin_visitors, 0) + COALESCE(rs.checkin_visitors, 0) + COALESCE(us.checkin_gatepass, 0))::text as "checkInVisitors",
+        (COALESCE(us.inside_visitors, 0) + COALESCE(rs.inside_visitors, 0))::text as "checkInVisitors",
         (COALESCE(us.checkout_visitors, 0) + COALESCE(rs.checkout_visitors, 0) + COALESCE(us.checkout_gatepass, 0))::text as "checkOutVisitors",
         (COALESCE(us.yesterday_visitors, 0) + COALESCE(rs.yesterday_visitors, 0))::text as "yesterdayOutside",
         (COALESCE(us.total_visitors, 0))::text as "totalVisitors",

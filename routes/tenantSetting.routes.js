@@ -3,6 +3,7 @@ const { body, validationResult } = require('express-validator');
 const TenantSettingController = require('../controllers/tenantSetting.controller');
 const { authenticateToken } = require('../middleware/auth');
 const { handleValidationErrors } = require('../middleware/validation');
+const { uploadLogo, handleUploadError } = require('../middleware/upload');
 
 const router = express.Router();
 
@@ -288,6 +289,10 @@ router.get('/countries', [
 // GET /api/tenant-settings/currencies - Get common currencies
 router.get('/currencies', TenantSettingController.getCommonCurrencies);
 
+// GET /api/tenant-settings/common-data - Get all common data (countries, timezones, currencies)
+router.get('/country-data', [
+], handleValidationErrors, TenantSettingController.getCommonData);
+
 // GET /api/tenant-settings/exists - Check if tenant settings exist
 router.get('/exists', [
 ], handleValidationErrors, TenantSettingController.checkSettingsExist);
@@ -324,13 +329,13 @@ router.put('/update-name', [
     .withMessage('Tenant name must be between 1 and 200 characters'),
 ], handleValidationErrors, TenantSettingController.updateTenantName);
 
-// PUT /api/tenant-settings/update-logo - Update tenant logo
+// PUT /api/tenant-settings/update-logo - Update tenant logo (base64)
 router.put('/update-logo', [
   body('logo')
     .notEmpty()
     .withMessage('Logo data is required')
     .isString()
-    .withMessage('Logo must be a string (base64 format)')
+    .withMessage('Logo must be a string')
     .isLength({ min: 20 })
     .withMessage('Logo data appears to be too short (minimum 20 characters)'),
   
@@ -339,5 +344,13 @@ router.put('/update-logo', [
     .isIn(['Y', 'N'])
     .withMessage('Logo flag must be Y or N')
 ], handleValidationErrors, TenantSettingController.updateTenantLogo);
+
+// PUT /api/tenant-settings/upload-logo - Update tenant logo (file upload)
+router.put('/upload-logo', uploadLogo, handleUploadError, [
+  body('logoFlag')
+    .optional()
+    .isIn(['Y', 'N'])
+    .withMessage('Logo flag must be Y or N')
+], handleValidationErrors, TenantSettingController.uploadTenantLogo);
 
 module.exports = router;

@@ -1,4 +1,5 @@
 const TenantSettingModel = require('../models/tenantSetting.model');
+const CountryDataMasterModel = require('../models/countryDataMaster.model');
 const FileService = require('./file.service');
 const responseUtils = require('../utils/constants');
 
@@ -31,7 +32,9 @@ class TenantSettingService {
         entityLanline1: settings.entitylanline_1,
         entityLanline2: settings.entitylanline_2,
         entityLogoFlag: settings.entitylogoflag,
-        entityLogo: settings.entitylogo,
+        entityLogo: settings.entitylogo, // Legacy base64 field from TenantSetting table
+        entityLogoPath: settings.entitylogopath,
+        entityLogoUrl: settings.entitylogopath ? FileService.getFileUrl('logos', settings.entitylogopath.replace('uploads/logos/', '')) : null,
         tin: settings.tin,
         pan: settings.pan,
         serviceRegNo: settings.serviceregno,
@@ -226,15 +229,39 @@ static async updateTenantSettings(tenantId, settingsData, updatedBy) {
 
       // Map the response to include both tenant and settings data
       const mappedData = {
-        // Basic tenant information
+        // Complete tenant information
         tenant: {
           tenantId: tenantData.tenantid,
           tenantCode: tenantData.tenantcode,
           tenantName: tenantData.tenantname,
           shortName: tenantData.shortname,
+          pan: tenantData.pan,
+          tin: tenantData.tin,
+          serviceRef: tenantData.serviceref,
+          address1: tenantData.address1,
+          address2: tenantData.address2,
+          address3: tenantData.address3,
+          tenantDesc: tenantData.tenantdesc,
+          fax: tenantData.fax,
           email: tenantData.email,
+          vatNo: tenantData.vatno,
+          dlNo: tenantData.dlno,
+          cstNo: tenantData.cstno,
+          landline: tenantData.lanline,
           mobile: tenantData.mobile,
+          website: tenantData.website,
           isActive: tenantData.isactive,
+          statusId: tenantData.statusid,
+          subscriptionStartDate: tenantData.suscriptionstartdate,
+          subscriptionEndDate: tenantData.suscriptionenddate,
+          tenantRemark: tenantData.tenantremark,
+          financialYear: tenantData.financialyear,
+          entityLogoFlag: tenantData.entitylogoflag,
+          entityLogo: tenantData.entitylogo, // May be null if using file storage
+          entityLogoPath: tenantData.entitylogopath,
+          entityLogoUrl: tenantData.entitylogopath ? FileService.getFileUrl('logos', tenantData.entitylogopath.replace('uploads/logos/', '')) : null,
+          companyNo: tenantData.companyno,
+          gstNo: tenantData.gstno,
           currency: tenantData.currency,
           timeZone: tenantData.timezone,
           countryCode: tenantData.countrycode,
@@ -247,15 +274,19 @@ static async updateTenantSettings(tenantId, settingsData, updatedBy) {
           entityAddress1: tenantData.entityaddress_1,
           entityAddress2: tenantData.entityaddress_2,
           entityAddress3: tenantData.entityaddress_3,
+          entityAddress4: tenantData.entityaddress_4,
+          entityAddress5: tenantData.entityaddress_5,
           entityMobile1: tenantData.entitymobile_1,
           entityMobile2: tenantData.entitymobile_2,
           entityLanline1: tenantData.entitylanline_1,
           entityLanline2: tenantData.entitylanline_2,
-          tin: tenantData.tin,
-          pan: tenantData.pan,
+          entityLogoFlag: tenantData.settingentitylogoflag,
+          entityLogo: tenantData.settingentitylogo, // From TenantSetting table (legacy)
+          entityLogoPath: tenantData.settingentitylogopath,
+          entityLogoUrl: tenantData.settingentitylogopath ? FileService.getFileUrl('logos', tenantData.settingentitylogopath.replace('uploads/logos/', '')) : null,
+          tin: tenantData.settingtin,
+          pan: tenantData.settingpan,
           serviceRegNo: tenantData.serviceregno,
-          gstNo: tenantData.gstno,
-          companyNo: tenantData.companyno,
           currencyFlag: tenantData.currencyflag,
           currencyName: tenantData.currencyname,
           timeZone: tenantData.settingtimezone,
@@ -340,57 +371,86 @@ static async updateTenantSettings(tenantId, settingsData, updatedBy) {
   }
 
   // Get available timezones (common ones)
-  static getCommonTimezones() {
-    return {
-      responseCode: responseUtils.RESPONSE_CODES.SUCCESS,
-      responseMessage: 'Common timezones retrieved successfully',
-      data: [
-        { code: 'Asia/Kolkata', name: 'India Standard Time (IST)', offset: 'UTC+05:30' },
-        { code: 'America/New_York', name: 'Eastern Time (EST/EDT)', offset: 'UTC-05:00/-04:00' },
-        { code: 'America/Los_Angeles', name: 'Pacific Time (PST/PDT)', offset: 'UTC-08:00/-07:00' },
-        { code: 'Europe/London', name: 'Greenwich Mean Time (GMT/BST)', offset: 'UTC+00:00/+01:00' },
-        { code: 'Europe/Berlin', name: 'Central European Time (CET/CEST)', offset: 'UTC+01:00/+02:00' },
-        { code: 'Asia/Tokyo', name: 'Japan Standard Time (JST)', offset: 'UTC+09:00' },
-        { code: 'Asia/Shanghai', name: 'China Standard Time (CST)', offset: 'UTC+08:00' },
-        { code: 'Australia/Sydney', name: 'Australian Eastern Time (AEST/AEDT)', offset: 'UTC+10:00/+11:00' },
-        { code: 'Asia/Dubai', name: 'Gulf Standard Time (GST)', offset: 'UTC+04:00' },
-        { code: 'Asia/Singapore', name: 'Singapore Standard Time (SGT)', offset: 'UTC+08:00' }
-      ]
-    };
+  static async getCommonTimezones() {
+    try {
+      const timezones = await CountryDataMasterModel.getTimezones();
+      return {
+        responseCode: responseUtils.RESPONSE_CODES.SUCCESS,
+        responseMessage: 'Common timezones retrieved successfully',
+        data: timezones
+      };
+    } catch (error) {
+      console.error('Error in getCommonTimezones service:', error);
+      return {
+        responseCode: responseUtils.RESPONSE_CODES.ERROR,
+        responseMessage: 'Error retrieving timezones',
+        data: null
+      };
+    }
   }
 
   // Get common countries
-  static getCommonCountries() {
-    return {
-      responseCode: responseUtils.RESPONSE_CODES.SUCCESS,
-      responseMessage: 'Common countries retrieved successfully',
-      data: [
-        { code: '+91', name: 'India' },
-        { code: '+1', name: 'United States' },
-        { code: '+44', name: 'United Kingdom' },
-        { code: '+1', name: 'Canada' },
-        { code: '+61', name: 'Australia' },
-        { code: '+81', name: 'Japan' },
-        { code: '+86', name: 'China' },
-      ]
-    };
+  static async getCommonCountries() {
+    try {
+      const countries = await CountryDataMasterModel.getCountries();
+      return {
+        responseCode: responseUtils.RESPONSE_CODES.SUCCESS,
+        responseMessage: 'Common countries retrieved successfully',
+        data: countries
+      };
+    } catch (error) {
+      console.error('Error in getCommonCountries service:', error);
+      return {
+        responseCode: responseUtils.RESPONSE_CODES.ERROR,
+        responseMessage: 'Error retrieving countries',
+        data: null
+      };
+    }
   }
 
-  static getCommonCurrencies() {
-  return {
-    responseCode: responseUtils.RESPONSE_CODES.SUCCESS,
-    responseMessage: 'Common currencies retrieved successfully',
-    data: [
-      { code: 'INR', name: 'Indian Rupee', symbol: '₹', country: 'India' },
-      { code: 'USD', name: 'US Dollar', symbol: '$', country: 'United States' },
-      { code: 'GBP', name: 'British Pound Sterling', symbol: '£', country: 'United Kingdom' },
-      { code: 'JPY', name: 'Japanese Yen', symbol: '¥', country: 'Japan' },
-      { code: 'CNY', name: 'Chinese Yuan', symbol: '¥', country: 'China' },
-      { code: 'CAD', name: 'Canadian Dollar', symbol: 'C$', country: 'Canada' },
-      { code: 'AUD', name: 'Australian Dollar', symbol: 'A$', country: 'Australia' },
-    ]
-  };
-}
+  static async getCommonCurrencies() {
+    try {
+      const currencies = await CountryDataMasterModel.getCurrencies();
+      return {
+        responseCode: responseUtils.RESPONSE_CODES.SUCCESS,
+        responseMessage: 'Common currencies retrieved successfully',
+        data: currencies
+      };
+    } catch (error) {
+      console.error('Error in getCommonCurrencies service:', error);
+      return {
+        responseCode: responseUtils.RESPONSE_CODES.ERROR,
+        responseMessage: 'Error retrieving currencies',
+        data: null
+      };
+    }
+  }
+
+  // Get all common data (countries, timezones, currencies) in one response
+  static async getCommonData() {
+    try {
+      const countries = await CountryDataMasterModel.getCountries();
+      const timezones = await CountryDataMasterModel.getTimezones();
+      const currencies = await CountryDataMasterModel.getCurrencies();
+
+      return {
+        responseCode: responseUtils.RESPONSE_CODES.SUCCESS,
+        responseMessage: 'Common data retrieved successfully',
+        data: {
+          countries,
+          // timezones,
+          // currencies
+        }
+      };
+    } catch (error) {
+      console.error('Error in getCommonData service:', error);
+      return {
+        responseCode: responseUtils.RESPONSE_CODES.ERROR,
+        responseMessage: 'Error retrieving common data',
+        data: null
+      };
+    }
+  }
 
   // Update tenant name and basic details
   static async updateTenantName(tenantId, nameData, updatedBy) {
@@ -443,13 +503,19 @@ static async updateTenantSettings(tenantId, settingsData, updatedBy) {
         };
       }
 
-      // Update database with logo info and file path
+      // Update database with logo info and file path only (no base64 in database)
       const logoDataWithPath = {
-        ...logoData,
-        logoPath: `uploads/logos/${fileResult.filename}` // Store relative path
+        logoFlag: logoData.logoFlag,
+        logoPath: `uploads/logos/${fileResult.filename}` // Store relative path only
       };
 
       const result = await TenantSettingModel.updateTenantLogo(tenantId, logoDataWithPath, updatedBy);
+
+      // Also update TenantSetting table if it exists
+      const settingsExist = await TenantSettingModel.settingsExist(tenantId);
+      if (settingsExist) {
+        await TenantSettingModel.updateTenantSettingLogo(tenantId, logoDataWithPath, updatedBy);
+      }
 
       if (result.affectedRows === 0) {
         return {
@@ -473,6 +539,56 @@ static async updateTenantSettings(tenantId, settingsData, updatedBy) {
       };
     } catch (error) {
       console.error('Error updating tenant logo:', error);
+      return {
+        responseCode: responseUtils.RESPONSE_CODES.ERROR,
+        responseMessage: 'Failed to update tenant logo',
+        error: process.env.NODE_ENV === 'development' ? error.message : undefined
+      };
+    }
+  }
+
+  // Update tenant logo from uploaded file
+  static async updateTenantLogoFromFile(tenantId, fileData, updatedBy) {
+    try {
+      // The file is already saved by multer, just need to update database
+      const logoDataWithPath = {
+        logoFlag: fileData.logoFlag,
+        logoPath: `uploads/logos/${fileData.filename}` // Store relative path
+      };
+
+      const result = await TenantSettingModel.updateTenantLogo(tenantId, logoDataWithPath, updatedBy);
+
+      // Also update TenantSetting table if it exists
+      const settingsExist = await TenantSettingModel.settingsExist(tenantId);
+      if (settingsExist) {
+        await TenantSettingModel.updateTenantSettingLogo(tenantId, logoDataWithPath, updatedBy);
+      }
+
+      if (result.affectedRows === 0) {
+        return {
+          responseCode: responseUtils.RESPONSE_CODES.ERROR,
+          responseMessage: 'Tenant not found or no changes made'
+        };
+      }
+
+      // Get file info for response
+      const fileInfo = await FileService.getFileInfo('logos', fileData.filename);
+
+      return {
+        responseCode: responseUtils.RESPONSE_CODES.SUCCESS,
+        responseMessage: 'Tenant logo uploaded successfully',
+        data: {
+          tenantId: tenantId,
+          logoFlag: fileData.logoFlag,
+          logoPath: logoDataWithPath.logoPath,
+          logoUrl: FileService.getFileUrl('logos', fileData.filename),
+          fileSize: fileInfo.success ? fileInfo.data.size : null,
+          updatedBy: updatedBy,
+          updatedAt: new Date().toISOString()
+        }
+      };
+    } catch (error) {
+      console.error('Error updating tenant logo from file:', error);
       return {
         responseCode: responseUtils.RESPONSE_CODES.ERROR,
         responseMessage: 'Failed to update tenant logo',

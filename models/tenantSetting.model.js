@@ -19,6 +19,7 @@ class TenantSettingModel {
         EntityLanline_2,
         EntityLogoFlag,
         EntityLogo,
+        EntityLogoPath,
         TIN,
         PAN,
         ServiceRegNo,
@@ -290,9 +291,32 @@ class TenantSettingModel {
         t.TenantCode,
         t.TenantName,
         t.ShortName,
+        t.PAN,
+        t.TIN,
+        t.ServiceRef,
+        t.Address1,
+        t.Address2,
+        t.Address3,
+        t.TenantDesc,
+        t.Fax,
         t.Email,
+        t.VATno,
+        t.DLNo,
+        t.CSTNo,
+        t.Lanline,
         t.Mobile,
+        t.Website,
         t.IsActive,
+        t.StatusID,
+        t.SuscriptionStartDate,
+        t.SuscriptionEndDate,
+        t.TenantRemark,
+        t.FinancialYear,
+        t.EntityLogoFlag,
+        t.EntityLogo,
+        t.EntityLogoPath,
+        t.CompanyNo,
+        t.GSTNo,
         t.Currency,
         t.TimeZone,
         t.CountryCode,
@@ -302,15 +326,18 @@ class TenantSettingModel {
         ts.EntityAddress_1,
         ts.EntityAddress_2,
         ts.EntityAddress_3,
+        ts.EntityAddress_4,
+        ts.EntityAddress_5,
         ts.EntityMobile_1,
         ts.EntityMobile_2,
         ts.EntityLanline_1,
         ts.EntityLanline_2,
-        ts.TIN,
-        ts.PAN,
+        ts.EntityLogoFlag as SettingEntityLogoFlag,
+        ts.EntityLogo as SettingEntityLogo,
+        ts.EntityLogoPath as SettingEntityLogoPath,
+        ts.TIN as SettingTIN,
+        ts.PAN as SettingPAN,
         ts.ServiceRegNo,
-        ts.GSTNo,
-        ts.CompanyNo,
         ts.CurrencyFlag,
         ts.CurrencyName,
         ts.TimeZone as SettingTimeZone,
@@ -411,15 +438,34 @@ class TenantSettingModel {
       UPDATE Tenant 
       SET 
         EntityLogoFlag = $1,
-        EntityLogo = $2,
-        EntityLogoPath = $3,
+        EntityLogoPath = $2,
         UpdatedDate = NOW()
-      WHERE TenantID = $4 AND IsActive = 'Y'
+      WHERE TenantID = $3 AND IsActive = 'Y'
     `;
 
     const values = [
       logoData.logoFlag,
-      logoData.logo,
+      logoData.logoPath,
+      tenantId
+    ];
+
+    const result = await query(sql, values);
+    return result;
+  }
+
+  // Update tenant logo in the TenantSetting table
+  static async updateTenantSettingLogo(tenantId, logoData, updatedBy) {
+    const sql = `
+      UPDATE TenantSetting 
+      SET 
+        EntityLogoFlag = $1,
+        EntityLogoPath = $2,
+        UpdatedDate = NOW()
+      WHERE TenantID = $3 AND IsActive = 'Y'
+    `;
+
+    const values = [
+      logoData.logoFlag,
       logoData.logoPath,
       tenantId
     ];

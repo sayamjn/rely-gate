@@ -1,8 +1,9 @@
 const ResponseFormatter = require("../utils/response");
-const MessagingService = require("./messaging.service");
 const GatePassModel = require("../models/gatepass.model");
 const DateFormatter = require("../utils/dateFormatter");
 const responseUtils = require("../utils/constants");
+const SMSUtil = require("../utils/sms");
+const MessagingService = require("./messaging.service");
 
 class GatepassService {
   static generateSecurityCode() {
@@ -46,9 +47,14 @@ class GatepassService {
       if (result) {
         const visitorId = result.visitorid || result.VisitorID;
 
+        // Only send SMS if status is 2 (Approved)
+        let smsResult = { success: false, message: 'SMS not sent - awaiting approval' };
+        
         if (statusId === 2) {
-          await this.sendApprovalSMS(mobile, fname, securityCode);
+          // Approved - send approval SMS with security code
+          smsResult = await this.sendApprovalSMS(mobile, fname, securityCode, tenantId);
         }
+        // For status 1 (Pending) - NO SMS sent, user will get SMS after admin approval
 
         let responseMessage;
         if (statusId === 2) {
@@ -60,7 +66,7 @@ class GatepassService {
         return ResponseFormatter.success(
           {
             visitorId,
-            securityCode,
+            securityCode: statusId === 2 ? securityCode : undefined, // Only show security code if approved
             status: statusName,
             fname,
             mobile,
@@ -69,6 +75,8 @@ class GatepassService {
             purposeId,
             visitDateTxt,
             remark,
+            smsSent: smsResult.success,
+            smsMessage: smsResult.message,
           },
           responseMessage
         );
@@ -124,10 +132,11 @@ class GatepassService {
       const result = await GatePassModel.approveGatePass(visitorId, tenantId, updatedBy);
 
       if (result) {
-        await this.sendApprovalSMS(
+        const smsResult = await this.sendApprovalSMS(
           gatepass.mobile,
           gatepass.fname,
-          gatepass.securityCode
+          gatepass.securityCode,
+          tenantId
         );
 
         return ResponseFormatter.success(
@@ -138,6 +147,8 @@ class GatepassService {
             fname: gatepass.fname,
             mobile: gatepass.mobile,
             currentState: "APPROVED_READY_FOR_CHECKIN",
+            smsSent: smsResult.success,
+            smsMessage: smsResult.message,
           },
           "Gate pass approved successfully"
         );
@@ -353,22 +364,43 @@ class GatepassService {
     }
   }
 
-  static async sendApprovalSMS(mobile, name, securityCode) {
+  static async sendApprovalSMS(mobile, name, securityCode, tenantId = 1) {
     try {
-      const message = `Hello ${name}, your Gate Pass has been approved. Security Code: ${securityCode}. Please show this code at the gate. - Rely Gate`;
-
-      const tenantId = 1; // TODO: Replace with actual tenantId
-
+      console.log(`Sending Gate Pass SMS to ${mobile} with security code: ${securityCode}`);
+      
+      // Get tenant name for template
+      const { query } = require("../config/database");
+      let tenantName = "RelyGate";
+      
       try {
-        await MessagingService.sendGenericSMS(tenantId, mobile, message);
-        console.log(`SMS sent to ${mobile}: ${message}`);
-      } catch (smsError) {
-        console.log(
-          `SMS Service (DISABLED) - To: ${mobile}, Message: ${message}`
-        );
+        const tenantSql = `SELECT TenantName FROM Tenant WHERE TenantID = $1`;
+        const tenantResult = await query(tenantSql, [tenantId]);
+        if (tenantResult.rows[0]) {
+          tenantName = tenantResult.rows[0].tenantname;
+        }
+      } catch (error) {
+        console.error("Error fetching tenant name:", error);
       }
+      
+      // Use direct SMS utility with proper template
+      const message = `Your Security Code for ${tenantName} : ${securityCode}`;
+      console.log(`SMS Message: ${message}`);
+      
+      const smsResult = await SMSUtil.sendSMS(mobile, message);
+      
+      console.log(`SMS API Response:`, smsResult);
+      
+      if (smsResult.success) {
+        console.log(`Gate Pass approval SMS sent successfully to ${mobile}`);
+        return { success: true, message: 'SMS sent successfully' };
+      } else {
+        console.error(`Failed to send Gate Pass approval SMS to ${mobile}:`, smsResult.message);
+        return { success: false, message: 'Failed to send SMS' };
+      }
+      
     } catch (error) {
       console.error("Error sending approval SMS:", error);
+      return { success: false, message: error.message };
     }
   }
 

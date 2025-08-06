@@ -1125,7 +1125,11 @@ class VisitorModel {
     toDate = null,
     purposeId = 0
   ) {
-    let whereConditions = ["vm.TenantID = $1", "vm.IsActive = 'Y'", "vm.VisitorCatID != 6"];
+    let whereConditions = [
+      "vm.TenantID = $1",
+      "vm.IsActive = 'Y'",
+      "vm.VisitorCatID != 6",
+    ];
     let params = [tenantId];
     let paramIndex = 2;
 
@@ -1180,25 +1184,35 @@ class VisitorModel {
     const offset = (page - 1) * pageSize;
     const dataSql = `
       SELECT 
-        vm.VisitorID,
-        COALESCE(vm.VehiclelNo, '') as "vehicleNumber",
+        vm.VisitorID::TEXT as "visitorid",
         COALESCE(vm.Fname, '') as "fname",
-        COALESCE(vm.Mname, '') as "mname",
-        COALESCE(vm.Lname, '') as "lname",
+        vm.Mobile as "mobile",
+        vm.FlatName as "flatname",
+        COALESCE(vm.VehiclelNo, '') as "VehicleNo",
+        vm.VisitorCatID as "visitorcatid",
+        vm.VisitorCatName as "visitorcatname",
+        vm.VisitorSubCatID as "visitorsubcatid",
+        vm.VisitorSubCatName as "visitorsubcatname",
+        vm.VisitPurposeID as "visitpurposeid",
+        vm.VisitPurpose as "visitpurpose",
+        vm.TotalVisitor as "totalvisitor",
         vm.INTime as "intime",
         COALESCE(vm.INTimeTxt::TEXT, '') as "intimetxt",
         vm.OutTime as "outtime",
         COALESCE(vm.OutTimeTxt::TEXT, '') as "outtimetxt",
-        vm.VisitDate as "visitDate",
-        VisitPurposeID as "purposeId",
-        VisitPurpose as "purposeName",
-        vm.VisitorSubCatID as "visitorsubcatid",
-        vm.VisitorSubCatName as "visitorsubcatname",
-        vm.Mobile as "mobile",
-        vm.FlatName as "flatname",
+        vm.PhotoFlag as "photoflag",
+        vm.PhotoPath as "photopath",
         COALESCE(vm.PhotoName, '') as "photoname",
+        vm.VehiclePhotoFlag as "vehiclephotoflag",
+        vm.VehiclePhotoPath as "vehiclephotopath",
         COALESCE(vm.VehiclePhotoName, '') as "vehiclephotoname",
-        COALESCE(vm.Remark, '') as "remark"
+        COALESCE(vm.Remark, '') as "remark",
+        vm.CreatedDate as "createddate",
+        CASE 
+          WHEN vm.OutTime IS NULL OR vm.OutTimeTxt IS NULL OR vm.OutTimeTxt = '' 
+          THEN 'CHECKED_IN' 
+          ELSE 'CHECKED_OUT' 
+        END as "status"
       FROM VisitorMaster vm
       WHERE ${whereClause}
       ORDER BY vm.CreatedDate DESC
@@ -1225,44 +1239,46 @@ class VisitorModel {
       flatid = 0,
       page = 1,
       pageSize = 50,
+      search = "",
+      purposeId = 0,
       status = "all", // 'checked_in', 'checked_out', 'all'
     } = filters;
 
     let sql = `
-      SELECT 
-        VisitorID,
-        Fname,
-        Mobile,
-        FlatName,
-        VehiclelNo as "VehicleNo",
-        VisitorCatID,
-        VisitorCatName,
-        VisitorSubCatID,
-        VisitorSubCatName,
-        VisitPurposeID,
-        VisitPurpose,
-        TotalVisitor,
-        INTime,
-        INTimeTxt,
-        OutTime,
-        OutTimeTxt,
-        PhotoFlag,
-        PhotoPath,
-        PhotoName,
-        VehiclePhotoFlag,
-        VehiclePhotoPath,
-        VehiclePhotoName,
-        Remark,
-        CreatedDate,
-        CASE 
-          WHEN OutTime IS NULL OR OutTimeTxt IS NULL OR OutTimeTxt = '' 
-          THEN 'CHECKED_IN' 
-          ELSE 'CHECKED_OUT' 
-        END as status,
-        COUNT(*) OVER() as total_count
-      FROM VisitorMaster
-      WHERE TenantID = $1 AND IsActive = 'Y' AND VisitorCatID != 6
-    `;
+    SELECT 
+      VisitorID,
+      Fname,
+      Mobile,
+      FlatName,
+      VehiclelNo as "VehicleNo",
+      VisitorCatID,
+      VisitorCatName,
+      VisitorSubCatID,
+      VisitorSubCatName,
+      VisitPurposeID,
+      VisitPurpose,
+      TotalVisitor,
+      INTime,
+      INTimeTxt,
+      OutTime,
+      OutTimeTxt,
+      PhotoFlag,
+      PhotoPath,
+      PhotoName,
+      VehiclePhotoFlag,
+      VehiclePhotoPath,
+      VehiclePhotoName,
+      Remark,
+      CreatedDate,
+      CASE 
+        WHEN OutTime IS NULL OR OutTimeTxt IS NULL OR OutTimeTxt = '' 
+        THEN 'CHECKED_IN' 
+        ELSE 'CHECKED_OUT' 
+      END as status,
+      COUNT(*) OVER() as total_count
+    FROM VisitorMaster
+    WHERE TenantID = $1 AND IsActive = 'Y' AND VisitorCatID != 6
+  `;
 
     const params = [tenantId];
     let paramIndex = 2;
@@ -1281,15 +1297,32 @@ class VisitorModel {
       paramIndex++;
     }
 
-    // Date range filters
+    // Purpose filter
+    if (purposeId > 0) {
+      sql += ` AND VisitPurposeID = $${paramIndex}`;
+      params.push(purposeId);
+      paramIndex++;
+    }
+
+    // Date range filters - Check if it's epoch timestamp or date string
     if (from) {
-      sql += ` AND CreatedDate >= $${paramIndex}::date`;
+      // Check if it's a numeric epoch timestamp
+      if (!isNaN(from) && from.toString().length >= 10) {
+        sql += ` AND CreatedDate >= TO_TIMESTAMP($${paramIndex})`;
+      } else {
+        sql += ` AND CreatedDate >= $${paramIndex}::date`;
+      }
       params.push(from);
       paramIndex++;
     }
 
     if (to) {
-      sql += ` AND CreatedDate <= $${paramIndex}::date + INTERVAL '1 day'`;
+      // Check if it's a numeric epoch timestamp
+      if (!isNaN(to) && to.toString().length >= 10) {
+        sql += ` AND CreatedDate <= TO_TIMESTAMP($${paramIndex})`;
+      } else {
+        sql += ` AND CreatedDate <= $${paramIndex}::date + INTERVAL '1 day'`;
+      }
       params.push(to);
       paramIndex++;
     }
@@ -1305,6 +1338,13 @@ class VisitorModel {
     if (flatid > 0) {
       sql += ` AND FlatID = $${paramIndex}`;
       params.push(flatid);
+      paramIndex++;
+    }
+
+    // Search filter
+    if (search && search.trim()) {
+      sql += ` AND (Fname ILIKE $${paramIndex} OR Mobile ILIKE $${paramIndex} OR VehiclelNo ILIKE $${paramIndex})`;
+      params.push(`%${search.trim()}%`);
       paramIndex++;
     }
 

@@ -1,6 +1,8 @@
 const StudentService = require("../services/student.service");
 const StudentModel = require("../models/student.model");
 const MealService = require("../services/meal.service");
+const MealRegistrationService = require("../services/mealRegistration.service");
+const MealConsumptionService = require("../services/mealConsumption.service");
 const QRService = require("../services/qr.service");
 const FileService = require("../services/file.service");
 const responseUtils = require("../utils/constants");
@@ -339,7 +341,7 @@ class StudentController {
     try {
       const { student_id, confirmed = false } = req.body;
       const userTenantId = req.user.tenantId;
-
+      const tenant_id = userTenantId
       // Validate required fields
       if (!student_id) {
         return res.status(400).json({
@@ -363,7 +365,7 @@ class StudentController {
       // Process meal check-in
       const result = await MealService.processMealCheckIn(
         parseInt(student_id),
-        userTenantId,
+        tenant_id,
         confirmed
       );
 
@@ -963,6 +965,1066 @@ class StudentController {
       res.status(500).json({
         responseCode: responseUtils.RESPONSE_CODES.ERROR,
         responseMessage: "Internal server error",
+      });
+    }
+  }
+
+  // ===== NEW MEAL REGISTRATION ENDPOINTS (Phase 1) =====
+
+  // POST /api/students/:studentId/meal-register - Register student for meal (Phase 1)
+  static async registerStudentForMeal(req, res) {
+    try {
+      const { studentId } = req.params;
+      const { mealType, isSpecial = false, specialRemarks = "" } = req.body;
+      const userTenantId = req.user.tenantId;
+      const createdBy = req.user.username || "System";
+
+      if (!studentId) {
+        return res.status(400).json({
+          responseCode: responseUtils.RESPONSE_CODES.ERROR,
+          responseMessage: "Student ID is required",
+        });
+      }
+
+      if (!mealType || !['lunch', 'dinner'].includes(mealType)) {
+        return res.status(400).json({
+          responseCode: responseUtils.RESPONSE_CODES.ERROR,
+          responseMessage: "Valid meal type (lunch/dinner) is required",
+        });
+      }
+
+      const result = await MealRegistrationService.registerStudentForMeal(
+        parseInt(studentId),
+        userTenantId,
+        mealType,
+        isSpecial,
+        specialRemarks,
+        createdBy
+      );
+
+      const statusCode = result.responseCode === responseUtils.RESPONSE_CODES.SUCCESS ? 200 : 400;
+      res.status(statusCode).json(result);
+    } catch (error) {
+      console.error("Error in registerStudentForMeal:", error);
+      res.status(500).json({
+        responseCode: responseUtils.RESPONSE_CODES.ERROR,
+        responseMessage: "Internal server error",
+        error: process.env.NODE_ENV === "development" ? error.message : undefined,
+      });
+    }
+  }
+
+  // POST /api/students/meal-register-qr - Register for meal via QR code (Phase 1)
+  static async registerMealViaQR(req, res) {
+    try {
+      const { qrData, isSpecial = false, specialRemarks = "" } = req.body;
+      const userTenantId = req.user.tenantId;
+      const createdBy = req.user.username || "System";
+
+      if (!qrData) {
+        return res.status(400).json({
+          responseCode: responseUtils.RESPONSE_CODES.ERROR,
+          responseMessage: "QR data is required",
+        });
+      }
+
+      // Parse QR data
+      let parsedQRData;
+      try {
+        parsedQRData = typeof qrData === 'string' ? JSON.parse(qrData) : qrData;
+      } catch (parseError) {
+        return res.status(400).json({
+          responseCode: responseUtils.RESPONSE_CODES.ERROR,
+          responseMessage: "Invalid QR data format",
+        });
+      }
+
+      const result = await MealRegistrationService.registerViaQR(
+        parsedQRData,
+        userTenantId,
+        isSpecial,
+        specialRemarks,
+        createdBy
+      );
+
+      const statusCode = result.responseCode === responseUtils.RESPONSE_CODES.SUCCESS ? 200 : 400;
+      res.status(statusCode).json(result);
+    } catch (error) {
+      console.error("Error in registerMealViaQR:", error);
+      res.status(500).json({
+        responseCode: responseUtils.RESPONSE_CODES.ERROR,
+        responseMessage: "Internal server error",
+        error: process.env.NODE_ENV === "development" ? error.message : undefined,
+      });
+    }
+  }
+
+  // GET /api/students/:studentId/meal-registrations - Get student's meal registrations for today
+  static async getStudentMealRegistrations(req, res) {
+    try {
+      const { studentId } = req.params;
+      const userTenantId = req.user.tenantId;
+
+      if (!studentId) {
+        return res.status(400).json({
+          responseCode: responseUtils.RESPONSE_CODES.ERROR,
+          responseMessage: "Student ID is required",
+        });
+      }
+
+      const result = await MealRegistrationService.getStudentRegistrations(
+        userTenantId,
+        parseInt(studentId)
+      );
+
+      res.json(result);
+    } catch (error) {
+      console.error("Error in getStudentMealRegistrations:", error);
+      res.status(500).json({
+        responseCode: responseUtils.RESPONSE_CODES.ERROR,
+        responseMessage: "Internal server error",
+        error: process.env.NODE_ENV === "development" ? error.message : undefined,
+      });
+    }
+  }
+
+  // GET /api/students/meal-registrations/:mealType - Get all registrations for a meal type
+  static async getMealRegistrations(req, res) {
+    try {
+      const { mealType } = req.params;
+      const { date } = req.query;
+      const userTenantId = req.user.tenantId;
+
+      if (!mealType || !['lunch', 'dinner'].includes(mealType)) {
+        return res.status(400).json({
+          responseCode: responseUtils.RESPONSE_CODES.ERROR,
+          responseMessage: "Valid meal type (lunch/dinner) is required",
+        });
+      }
+
+      const result = await MealRegistrationService.getMealRegistrations(
+        userTenantId,
+        mealType,
+        date
+      );
+
+      res.json(result);
+    } catch (error) {
+      console.error("Error in getMealRegistrations:", error);
+      res.status(500).json({
+        responseCode: responseUtils.RESPONSE_CODES.ERROR,
+        responseMessage: "Internal server error",
+        error: process.env.NODE_ENV === "development" ? error.message : undefined,
+      });
+    }
+  }
+
+  // GET /api/students/meal-registration-status/:mealType - Get registration status for a meal type
+  static async getMealRegistrationStatus(req, res) {
+    try {
+      const { mealType } = req.params;
+      const userTenantId = req.user.tenantId;
+
+      if (!mealType || !['lunch', 'dinner'].includes(mealType)) {
+        return res.status(400).json({
+          responseCode: responseUtils.RESPONSE_CODES.ERROR,
+          responseMessage: "Valid meal type (lunch/dinner) is required",
+        });
+      }
+
+      const result = await MealRegistrationService.getRegistrationStatus(
+        userTenantId,
+        mealType
+      );
+
+      res.json(result);
+    } catch (error) {
+      console.error("Error in getMealRegistrationStatus:", error);
+      res.status(500).json({
+        responseCode: responseUtils.RESPONSE_CODES.ERROR,
+        responseMessage: "Internal server error",
+        error: process.env.NODE_ENV === "development" ? error.message : undefined,
+      });
+    }
+  }
+
+  // PUT /api/students/meal-registration/:mealId - Update meal registration (special requests)
+  static async updateMealRegistration(req, res) {
+    try {
+      const { mealId } = req.params;
+      const { isSpecial, specialRemarks } = req.body;
+      const userTenantId = req.user.tenantId;
+      const updatedBy = req.user.username || "System";
+
+      if (!mealId) {
+        return res.status(400).json({
+          responseCode: responseUtils.RESPONSE_CODES.ERROR,
+          responseMessage: "Meal ID is required",
+        });
+      }
+
+      const result = await MealRegistrationService.updateRegistration(
+        userTenantId,
+        parseInt(mealId),
+        { isSpecial, specialRemarks },
+        updatedBy
+      );
+
+      const statusCode = result.responseCode === responseUtils.RESPONSE_CODES.SUCCESS ? 200 : 400;
+      res.status(statusCode).json(result);
+    } catch (error) {
+      console.error("Error in updateMealRegistration:", error);
+      res.status(500).json({
+        responseCode: responseUtils.RESPONSE_CODES.ERROR,
+        responseMessage: "Internal server error",
+        error: process.env.NODE_ENV === "development" ? error.message : undefined,
+      });
+    }
+  }
+
+  // DELETE /api/students/meal-registration/:mealId - Cancel meal registration
+  static async cancelMealRegistration(req, res) {
+    try {
+      const { mealId } = req.params;
+      const userTenantId = req.user.tenantId;
+      const cancelledBy = req.user.username || "System";
+
+      if (!mealId) {
+        return res.status(400).json({
+          responseCode: responseUtils.RESPONSE_CODES.ERROR,
+          responseMessage: "Meal ID is required",
+        });
+      }
+
+      const result = await MealRegistrationService.cancelRegistration(
+        userTenantId,
+        parseInt(mealId),
+        cancelledBy
+      );
+
+      const statusCode = result.responseCode === responseUtils.RESPONSE_CODES.SUCCESS ? 200 : 400;
+      res.status(statusCode).json(result);
+    } catch (error) {
+      console.error("Error in cancelMealRegistration:", error);
+      res.status(500).json({
+        responseCode: responseUtils.RESPONSE_CODES.ERROR,
+        responseMessage: "Internal server error",
+        error: process.env.NODE_ENV === "development" ? error.message : undefined,
+      });
+    }
+  }
+
+  // ===== NEW MEAL CONSUMPTION ENDPOINTS (Phase 2) =====
+
+  // POST /api/students/meal-consume/:mealId - Consume meal (Phase 2)
+  static async consumeMeal(req, res) {
+    try {
+      const { mealId } = req.params;
+      const userTenantId = req.user.tenantId;
+      const consumedBy = req.user.username || "System";
+
+      if (!mealId) {
+        return res.status(400).json({
+          responseCode: responseUtils.RESPONSE_CODES.ERROR,
+          responseMessage: "Meal ID is required",
+        });
+      }
+
+      const result = await MealConsumptionService.consumeMeal(
+        parseInt(mealId),
+        userTenantId,
+        consumedBy
+      );
+
+      const statusCode = result.responseCode === responseUtils.RESPONSE_CODES.SUCCESS ? 200 : 400;
+      res.status(statusCode).json(result);
+    } catch (error) {
+      console.error("Error in consumeMeal:", error);
+      res.status(500).json({
+        responseCode: responseUtils.RESPONSE_CODES.ERROR,
+        responseMessage: "Internal server error",
+        error: process.env.NODE_ENV === "development" ? error.message : undefined,
+      });
+    }
+  }
+
+  // POST /api/students/meal-consume-qr - Consume meal via QR code (Phase 2)
+  static async consumeMealViaQR(req, res) {
+    try {
+      const { qrData } = req.body;
+      const userTenantId = req.user.tenantId;
+      const consumedBy = req.user.username || "System";
+
+      if (!qrData) {
+        return res.status(400).json({
+          responseCode: responseUtils.RESPONSE_CODES.ERROR,
+          responseMessage: "QR data is required",
+        });
+      }
+
+      // Parse QR data
+      let parsedQRData;
+      try {
+        parsedQRData = typeof qrData === 'string' ? JSON.parse(qrData) : qrData;
+      } catch (parseError) {
+        return res.status(400).json({
+          responseCode: responseUtils.RESPONSE_CODES.ERROR,
+          responseMessage: "Invalid QR data format",
+        });
+      }
+
+      const result = await MealConsumptionService.consumeViaQR(
+        parsedQRData,
+        userTenantId,
+        consumedBy
+      );
+
+      const statusCode = result.responseCode === responseUtils.RESPONSE_CODES.SUCCESS ? 200 : 400;
+      res.status(statusCode).json(result);
+    } catch (error) {
+      console.error("Error in consumeMealViaQR:", error);
+      res.status(500).json({
+        responseCode: responseUtils.RESPONSE_CODES.ERROR,
+        responseMessage: "Internal server error",
+        error: process.env.NODE_ENV === "development" ? error.message : undefined,
+      });
+    }
+  }
+
+  // GET /api/students/meal-serving-status/:mealType - Get serving status for a meal type
+  static async getMealServingStatus(req, res) {
+    try {
+      const { mealType } = req.params;
+      const userTenantId = req.user.tenantId;
+
+      if (!mealType || !['lunch', 'dinner'].includes(mealType)) {
+        return res.status(400).json({
+          responseCode: responseUtils.RESPONSE_CODES.ERROR,
+          responseMessage: "Valid meal type (lunch/dinner) is required",
+        });
+      }
+
+      const result = await MealConsumptionService.getServingStatus(
+        userTenantId,
+        mealType
+      );
+
+      res.json(result);
+    } catch (error) {
+      console.error("Error in getMealServingStatus:", error);
+      res.status(500).json({
+        responseCode: responseUtils.RESPONSE_CODES.ERROR,
+        responseMessage: "Internal server error",
+        error: process.env.NODE_ENV === "development" ? error.message : undefined,
+      });
+    }
+  }
+
+  // GET /api/students/meal-queue/:mealType - Get meal queue with real-time status
+  static async getMealQueue(req, res) {
+    try {
+      const { mealType } = req.params;
+      const { date } = req.query;
+      const userTenantId = req.user.tenantId;
+
+      if (!mealType || !['lunch', 'dinner'].includes(mealType)) {
+        return res.status(400).json({
+          responseCode: responseUtils.RESPONSE_CODES.ERROR,
+          responseMessage: "Valid meal type (lunch/dinner) is required",
+        });
+      }
+
+      const result = await MealConsumptionService.getMealQueue(
+        userTenantId,
+        mealType,
+        date
+      );
+
+      res.json(result);
+    } catch (error) {
+      console.error("Error in getMealQueue:", error);
+      res.status(500).json({
+        responseCode: responseUtils.RESPONSE_CODES.ERROR,
+        responseMessage: "Internal server error",
+        error: process.env.NODE_ENV === "development" ? error.message : undefined,
+      });
+    }
+  }
+
+  // GET /api/students/meal-pending/:mealType - Get pending meals for consumption
+  static async getPendingMeals(req, res) {
+    try {
+      const { mealType } = req.params;
+      const { date } = req.query;
+      const userTenantId = req.user.tenantId;
+
+      if (!mealType || !['lunch', 'dinner'].includes(mealType)) {
+        return res.status(400).json({
+          responseCode: responseUtils.RESPONSE_CODES.ERROR,
+          responseMessage: "Valid meal type (lunch/dinner) is required",
+        });
+      }
+
+      const result = await MealConsumptionService.getPendingMeals(
+        userTenantId,
+        mealType,
+        date
+      );
+
+      res.json(result);
+    } catch (error) {
+      console.error("Error in getPendingMeals:", error);
+      res.status(500).json({
+        responseCode: responseUtils.RESPONSE_CODES.ERROR,
+        responseMessage: "Internal server error",
+        error: process.env.NODE_ENV === "development" ? error.message : undefined,
+      });
+    }
+  }
+
+  // GET /api/students/meal-consumed/:mealType - Get consumed meals
+  static async getConsumedMeals(req, res) {
+    try {
+      const { mealType } = req.params;
+      const { date } = req.query;
+      const userTenantId = req.user.tenantId;
+
+      if (!mealType || !['lunch', 'dinner'].includes(mealType)) {
+        return res.status(400).json({
+          responseCode: responseUtils.RESPONSE_CODES.ERROR,
+          responseMessage: "Valid meal type (lunch/dinner) is required",
+        });
+      }
+
+      const result = await MealConsumptionService.getConsumedMeals(
+        userTenantId,
+        mealType,
+        date
+      );
+
+      res.json(result);
+    } catch (error) {
+      console.error("Error in getConsumedMeals:", error);
+      res.status(500).json({
+        responseCode: responseUtils.RESPONSE_CODES.ERROR,
+        responseMessage: "Internal server error",
+        error: process.env.NODE_ENV === "development" ? error.message : undefined,
+      });
+    }
+  }
+
+  // POST /api/students/meal-validate-consumption - Validate meal consumption before consuming
+  static async validateMealConsumption(req, res) {
+    try {
+      const { studentId, mealType } = req.body;
+      const userTenantId = req.user.tenantId;
+
+      if (!studentId) {
+        return res.status(400).json({
+          responseCode: responseUtils.RESPONSE_CODES.ERROR,
+          responseMessage: "Student ID is required",
+        });
+      }
+
+      if (!mealType || !['lunch', 'dinner'].includes(mealType)) {
+        return res.status(400).json({
+          responseCode: responseUtils.RESPONSE_CODES.ERROR,
+          responseMessage: "Valid meal type (lunch/dinner) is required",
+        });
+      }
+
+      const result = await MealConsumptionService.validateMealConsumption(
+        userTenantId,
+        parseInt(studentId),
+        mealType
+      );
+
+      const statusCode = result.responseCode === responseUtils.RESPONSE_CODES.SUCCESS ? 200 : 400;
+      res.status(statusCode).json(result);
+    } catch (error) {
+      console.error("Error in validateMealConsumption:", error);
+      res.status(500).json({
+        responseCode: responseUtils.RESPONSE_CODES.ERROR,
+        responseMessage: "Internal server error",
+        error: process.env.NODE_ENV === "development" ? error.message : undefined,
+      });
+    }
+  }
+
+  // ===== MEAL ANALYTICS AND HISTORY ENDPOINTS =====
+
+  // GET /api/students/meal-analytics - Get comprehensive meal analytics
+  static async getMealAnalytics(req, res) {
+    try {
+      const { fromDate, toDate } = req.query;
+      const userTenantId = req.user.tenantId;
+
+      // Helper function to convert DD/MM/YYYY to YYYY-MM-DD
+      const convertDateFormat = (dateStr) => {
+        if (!dateStr) return null;
+        const [day, month, year] = dateStr.split("/");
+        return `${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`;
+      };
+
+      // Default to last 7 days if no dates provided
+      let startDate, endDate;
+
+      if (fromDate) {
+        startDate = convertDateFormat(fromDate);
+      } else {
+        startDate = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
+          .toISOString()
+          .split("T")[0];
+      }
+
+      if (toDate) {
+        endDate = convertDateFormat(toDate);
+      } else {
+        endDate = new Date().toISOString().split("T")[0];
+      }
+
+      // Validate converted dates
+      if ((fromDate && !startDate) || (toDate && !endDate)) {
+        return res.status(400).json({
+          responseCode: responseUtils.RESPONSE_CODES.ERROR,
+          responseMessage: "Invalid date format. Please use DD/MM/YYYY format",
+        });
+      }
+
+      // Get meal analytics from the enhanced model
+      const MealModel = require("../models/meal.model");
+      const analytics = await MealModel.getMealRegistrationAnalytics(
+        userTenantId,
+        startDate,
+        endDate
+      );
+
+      return res.json({
+        responseCode: responseUtils.RESPONSE_CODES.SUCCESS,
+        responseMessage: "Meal analytics retrieved successfully",
+        data: {
+          dateRange: {
+            startDate,
+            endDate
+          },
+          analytics: analytics.map(stat => ({
+            date: stat.mealdate,
+            mealType: stat.mealtype,
+            totalRegistrations: parseInt(stat.totalregistrations),
+            totalConsumed: parseInt(stat.totalconsumed),
+            totalWasted: parseInt(stat.totalwasted),
+            specialMeals: parseInt(stat.specialmeals),
+            consumptionRate: parseFloat(stat.consumptionrate)
+          }))
+        }
+      });
+
+    } catch (error) {
+      console.error("Error in getMealAnalytics:", error);
+      res.status(500).json({
+        responseCode: responseUtils.RESPONSE_CODES.ERROR,
+        responseMessage: "Internal server error",
+        error: process.env.NODE_ENV === "development" ? error.message : undefined,
+      });
+    }
+  }
+
+  // GET /api/students/meal-dashboard - Get today's meal dashboard data
+  static async getMealDashboard(req, res) {
+    try {
+      const userTenantId = req.user.tenantId;
+      const today = new Date().toISOString().split('T')[0];
+
+      // Get registration status for both meals
+      const lunchStatus = await MealRegistrationService.getRegistrationStatus(userTenantId, 'lunch');
+      const dinnerStatus = await MealRegistrationService.getRegistrationStatus(userTenantId, 'dinner');
+
+      // Get serving status for both meals  
+      const lunchServing = await MealConsumptionService.getServingStatus(userTenantId, 'lunch');
+      const dinnerServing = await MealConsumptionService.getServingStatus(userTenantId, 'dinner');
+
+      return res.json({
+        responseCode: responseUtils.RESPONSE_CODES.SUCCESS,
+        responseMessage: "Meal dashboard data retrieved successfully",
+        data: {
+          date: today,
+          lunch: {
+            registration: lunchStatus.success ? lunchStatus.data : null,
+            serving: lunchServing.success ? lunchServing.data : null
+          },
+          dinner: {
+            registration: dinnerStatus.success ? dinnerStatus.data : null,
+            serving: dinnerServing.success ? dinnerServing.data : null
+          }
+        }
+      });
+
+    } catch (error) {
+      console.error("Error in getMealDashboard:", error);
+      res.status(500).json({
+        responseCode: responseUtils.RESPONSE_CODES.ERROR,
+        responseMessage: "Internal server error",
+        error: process.env.NODE_ENV === "development" ? error.message : undefined,
+      });
+    }
+  }
+
+  // GET /api/students/meal-history-detailed - Get detailed meal history with registration and consumption data
+  static async getDetailedMealHistory(req, res) {
+    try {
+      const { 
+        page = 1, 
+        pageSize = 20, 
+        mealType, 
+        fromDate, 
+        toDate,
+        status,
+        isSpecial
+      } = req.query;
+      const userTenantId = req.user.tenantId;
+
+      // Helper function to convert DD/MM/YYYY to YYYY-MM-DD
+      const convertDateFormat = (dateStr) => {
+        if (!dateStr) return null;
+        const [day, month, year] = dateStr.split("/");
+        return `${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`;
+      };
+
+      // Build where conditions
+      let whereConditions = [`TenantID = $1`, `IsActive = 'Y'`];
+      let params = [userTenantId];
+      let paramIndex = 2;
+
+      if (mealType && ['lunch', 'dinner'].includes(mealType)) {
+        whereConditions.push(`MealType = $${paramIndex}`);
+        params.push(mealType);
+        paramIndex++;
+      }
+
+      if (fromDate) {
+        const startDate = convertDateFormat(fromDate);
+        if (startDate) {
+          whereConditions.push(`MealDate >= $${paramIndex}`);
+          params.push(startDate);
+          paramIndex++;
+        }
+      }
+
+      if (toDate) {
+        const endDate = convertDateFormat(toDate);
+        if (endDate) {
+          whereConditions.push(`MealDate <= $${paramIndex}`);
+          params.push(endDate);
+          paramIndex++;
+        }
+      }
+
+      if (status && ['registered', 'consumed', 'cancelled'].includes(status)) {
+        whereConditions.push(`Status = $${paramIndex}`);
+        params.push(status);
+        paramIndex++;
+      }
+
+      if (isSpecial && ['Y', 'N'].includes(isSpecial)) {
+        whereConditions.push(`IsSpecial = $${paramIndex}`);
+        params.push(isSpecial);
+        paramIndex++;
+      }
+
+      // Count total records
+      const { query } = require('../config/database');
+      const countSql = `
+        SELECT COUNT(*) as total
+        FROM MealMaster 
+        WHERE ${whereConditions.join(' AND ')}
+      `;
+      
+      const countResult = await query(countSql, params);
+      const totalItems = parseInt(countResult.rows[0].total);
+      const totalPages = Math.ceil(totalItems / parseInt(pageSize));
+
+      // Get paginated data
+      const offset = (parseInt(page) - 1) * parseInt(pageSize);
+      const dataSql = `
+        SELECT 
+          MealID,
+          StudentID,
+          StudentRegNo,
+          StudentName,
+          Mobile,
+          Course,
+          Hostel,
+          MealType,
+          MealDate,
+          MealTime,
+          TokenNumber,
+          Status,
+          IsSpecial,
+          SpecialRemarks,
+          IsConsumed,
+          ConsumedTime,
+          CreatedDate
+        FROM MealMaster 
+        WHERE ${whereConditions.join(' AND ')}
+        ORDER BY MealDate DESC, MealTime DESC
+        LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
+      `;
+
+      params.push(parseInt(pageSize), offset);
+      const dataResult = await query(dataSql, params);
+
+      return res.json({
+        responseCode: responseUtils.RESPONSE_CODES.SUCCESS,
+        responseMessage: "Detailed meal history retrieved successfully",
+        data: dataResult.rows.map(meal => ({
+          mealId: meal.mealid,
+          studentId: meal.studentid,
+          studentRegNo: meal.studentregno,
+          studentName: meal.studentname,
+          mobile: meal.mobile,
+          course: meal.course,
+          hostel: meal.hostel,
+          mealType: meal.mealtype,
+          mealDate: meal.mealdate,
+          mealTime: meal.mealtime,
+          tokenNumber: meal.tokennumber,
+          status: meal.status,
+          isSpecial: meal.isspecial === 'Y',
+          specialRemarks: meal.specialremarks,
+          isConsumed: meal.isconsumed === 'Y',
+          consumedTime: meal.consumedtime,
+          registrationTime: meal.createddate
+        })),
+        pagination: {
+          page: parseInt(page),
+          pageSize: parseInt(pageSize),
+          totalPages,
+          totalItems
+        }
+      });
+
+    } catch (error) {
+      console.error("Error in getDetailedMealHistory:", error);
+      res.status(500).json({
+        responseCode: responseUtils.RESPONSE_CODES.ERROR,
+        responseMessage: "Internal server error",
+        error: process.env.NODE_ENV === "development" ? error.message : undefined,
+      });
+    }
+  }
+
+  // GET /api/students/meal-waste-report - Get meal waste report
+  static async getMealWasteReport(req, res) {
+    try {
+      const { fromDate, toDate, mealType } = req.query;
+      const userTenantId = req.user.tenantId;
+
+      // Helper function to convert DD/MM/YYYY to YYYY-MM-DD
+      const convertDateFormat = (dateStr) => {
+        if (!dateStr) return null;
+        const [day, month, year] = dateStr.split("/");
+        return `${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`;
+      };
+
+      // Default to last 30 days if no dates provided
+      let startDate, endDate;
+
+      if (fromDate) {
+        startDate = convertDateFormat(fromDate);
+      } else {
+        startDate = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
+          .toISOString()
+          .split("T")[0];
+      }
+
+      if (toDate) {
+        endDate = convertDateFormat(toDate);
+      } else {
+        endDate = new Date().toISOString().split("T")[0];
+      }
+
+      // Build query with optional meal type filter
+      const { query } = require('../config/database');
+      let sql = `
+        SELECT 
+          MealDate,
+          MealType,
+          COUNT(*) as TotalRegistered,
+          COUNT(CASE WHEN IsConsumed = 'Y' THEN 1 END) as TotalConsumed,
+          COUNT(CASE WHEN IsConsumed = 'N' AND Status != 'cancelled' THEN 1 END) as TotalWasted,
+          ROUND(
+            (COUNT(CASE WHEN IsConsumed = 'N' AND Status != 'cancelled' THEN 1 END) * 100.0 / 
+             NULLIF(COUNT(*), 0)), 2
+          ) as WastePercentage
+        FROM MealMaster
+        WHERE TenantID = $1 
+          AND MealDate BETWEEN $2 AND $3
+          AND IsActive = 'Y'
+          AND Status IN ('registered', 'consumed')
+      `;
+      
+      let params = [userTenantId, startDate, endDate];
+      
+      if (mealType && ['lunch', 'dinner'].includes(mealType)) {
+        sql += ` AND MealType = $4`;
+        params.push(mealType);
+      }
+
+      sql += `
+        GROUP BY MealDate, MealType
+        ORDER BY MealDate DESC, 
+                 CASE MealType 
+                   WHEN 'lunch' THEN 1 
+                   WHEN 'dinner' THEN 2 
+                 END
+      `;
+
+      const result = await query(sql, params);
+
+      return res.json({
+        responseCode: responseUtils.RESPONSE_CODES.SUCCESS,
+        responseMessage: "Meal waste report retrieved successfully",
+        data: {
+          dateRange: {
+            startDate,
+            endDate
+          },
+          mealTypeFilter: mealType || 'all',
+          wasteReport: result.rows.map(row => ({
+            date: row.mealdate,
+            mealType: row.mealtype,
+            totalRegistered: parseInt(row.totalregistered),
+            totalConsumed: parseInt(row.totalconsumed),
+            totalWasted: parseInt(row.totalwasted),
+            wastePercentage: parseFloat(row.wastepercentage)
+          }))
+        }
+      });
+
+    } catch (error) {
+      console.error("Error in getMealWasteReport:", error);
+      res.status(500).json({
+        responseCode: responseUtils.RESPONSE_CODES.ERROR,
+        responseMessage: "Internal server error",
+        error: process.env.NODE_ENV === "development" ? error.message : undefined,
+      });
+    }
+  }
+
+  // ===== MEAL QR CODE GENERATION ENDPOINTS =====
+
+  // POST /api/students/:studentId/generate-meal-qr - Generate meal QR code for student
+  static async generateMealQR(req, res) {
+    try {
+      const { studentId } = req.params;
+      const { mealType, qrType = 'unified', validHours = 24 } = req.body;
+      const userTenantId = req.user.tenantId;
+
+      if (!studentId) {
+        return res.status(400).json({
+          responseCode: responseUtils.RESPONSE_CODES.ERROR,
+          responseMessage: "Student ID is required",
+        });
+      }
+
+      if (!mealType || !['lunch', 'dinner'].includes(mealType)) {
+        return res.status(400).json({
+          responseCode: responseUtils.RESPONSE_CODES.ERROR,
+          responseMessage: "Valid meal type (lunch/dinner) is required",
+        });
+      }
+
+      // Get student details
+      const student = await StudentModel.getStudentById(parseInt(studentId), userTenantId);
+      if (!student) {
+        return res.status(404).json({
+          responseCode: responseUtils.RESPONSE_CODES.ERROR,
+          responseMessage: "Student not found",
+        });
+      }
+
+      // Check meal window status
+      const windowStatus = await QRService.getMealWindowStatus(userTenantId, mealType);
+      if (!windowStatus.canGenerate) {
+        return res.status(400).json({
+          responseCode: responseUtils.RESPONSE_CODES.ERROR,
+          responseMessage: windowStatus.reason,
+        });
+      }
+
+      let qrResult;
+      const studentData = {
+        studentId: student.visitorregid,
+        name: student.name,
+        visitorregno: student.visitorregno,
+        mobile: student.mobile,
+        course: student.course,
+        hostel: student.hostel
+      };
+
+      // Generate appropriate QR code based on type
+      if (qrType === 'registration') {
+        qrResult = await QRService.generateMealRegistrationQRImage(studentData, mealType, userTenantId);
+      } else if (qrType === 'consumption') {
+        qrResult = await QRService.generateMealConsumptionQRImage(studentData, mealType, userTenantId);
+      } else {
+        qrResult = await QRService.generateMealQRImage(studentData, mealType, userTenantId, { validHours });
+      }
+
+      if (!qrResult.success) {
+        return res.status(500).json({
+          responseCode: responseUtils.RESPONSE_CODES.ERROR,
+          responseMessage: "Failed to generate meal QR code",
+          error: qrResult.error
+        });
+      }
+
+      // Save QR code to uploads folder
+      const fileName = `meal_qr_${studentId}_${mealType}_${Date.now()}.png`;
+      const filePath = await FileService.saveBase64Image(
+        qrResult.qrBase64,
+        FileService.categories.QR_CODES,
+        fileName
+      );
+
+      res.json({
+        responseCode: responseUtils.RESPONSE_CODES.SUCCESS,
+        responseMessage: "Meal QR code generated successfully",
+        data: {
+          studentId: parseInt(studentId),
+          mealType,
+          qrType,
+          qrData: qrResult.qrData,
+          qrImage: qrResult.qrImage,
+          qrFilePath: filePath,
+          phase: qrResult.phase,
+          currentWindow: windowStatus.currentWindow,
+          studentInfo: qrResult.studentInfo,
+          validUntil: qrResult.validUntil
+        }
+      });
+
+    } catch (error) {
+      console.error("Error in generateMealQR:", error);
+      res.status(500).json({
+        responseCode: responseUtils.RESPONSE_CODES.ERROR,
+        responseMessage: "Internal server error",
+        error: process.env.NODE_ENV === "development" ? error.message : undefined,
+      });
+    }
+  }
+
+  // POST /api/students/validate-meal-qr - Validate meal QR code
+  static async validateMealQR(req, res) {
+    try {
+      const { qrData } = req.body;
+      const userTenantId = req.user.tenantId;
+
+      if (!qrData) {
+        return res.status(400).json({
+          responseCode: responseUtils.RESPONSE_CODES.ERROR,
+          responseMessage: "QR data is required",
+        });
+      }
+
+      // Parse QR data
+      let parsedQRData;
+      try {
+        parsedQRData = typeof qrData === 'string' ? JSON.parse(qrData) : qrData;
+      } catch (parseError) {
+        return res.status(400).json({
+          responseCode: responseUtils.RESPONSE_CODES.ERROR,
+          responseMessage: "Invalid QR data format",
+        });
+      }
+
+      // Validate QR code
+      const validation = QRService.validateMealQR(parsedQRData);
+      if (!validation.valid) {
+        return res.status(400).json({
+          responseCode: responseUtils.RESPONSE_CODES.ERROR,
+          responseMessage: validation.reason,
+        });
+      }
+
+      // Check tenant access
+      if (parseInt(parsedQRData.tenant_id) !== userTenantId) {
+        return res.status(403).json({
+          responseCode: responseUtils.RESPONSE_CODES.ERROR,
+          responseMessage: "Access denied for this tenant",
+        });
+      }
+
+      // Get student details for validation
+      const student = await StudentModel.getStudentById(parseInt(parsedQRData.student_id), userTenantId);
+      if (!student) {
+        return res.status(404).json({
+          responseCode: responseUtils.RESPONSE_CODES.ERROR,
+          responseMessage: "Student not found",
+        });
+      }
+
+      // Check meal window status
+      const windowStatus = await QRService.getMealWindowStatus(userTenantId, parsedQRData.meal_type);
+
+      res.json({
+        responseCode: responseUtils.RESPONSE_CODES.SUCCESS,
+        responseMessage: "Meal QR code validated successfully",
+        data: {
+          valid: true,
+          qrData: parsedQRData,
+          student: {
+            id: student.visitorregid,
+            name: student.name,
+            regNo: student.visitorregno,
+            mobile: student.mobile,
+            course: student.course,
+            hostel: student.hostel
+          },
+          mealType: parsedQRData.meal_type,
+          canGenerate: windowStatus.canGenerate,
+          currentWindow: windowStatus.currentWindow,
+          windowReason: windowStatus.reason
+        }
+      });
+
+    } catch (error) {
+      console.error("Error in validateMealQR:", error);
+      res.status(500).json({
+        responseCode: responseUtils.RESPONSE_CODES.ERROR,
+        responseMessage: "Internal server error",
+        error: process.env.NODE_ENV === "development" ? error.message : undefined,
+      });
+    }
+  }
+
+  // GET /api/students/meal-window-status/:mealType - Get meal window status
+  static async getMealWindowStatus(req, res) {
+    try {
+      const { mealType } = req.params;
+      const userTenantId = req.user.tenantId;
+
+      if (!mealType || !['lunch', 'dinner'].includes(mealType)) {
+        return res.status(400).json({
+          responseCode: responseUtils.RESPONSE_CODES.ERROR,
+          responseMessage: "Valid meal type (lunch/dinner) is required",
+        });
+      }
+
+      const windowStatus = await QRService.getMealWindowStatus(userTenantId, mealType);
+
+      res.json({
+        responseCode: responseUtils.RESPONSE_CODES.SUCCESS,
+        responseMessage: "Meal window status retrieved successfully",
+        data: windowStatus
+      });
+
+    } catch (error) {
+      console.error("Error in getMealWindowStatus:", error);
+      res.status(500).json({
+        responseCode: responseUtils.RESPONSE_CODES.ERROR,
+        responseMessage: "Internal server error",
+        error: process.env.NODE_ENV === "development" ? error.message : undefined,
       });
     }
   }

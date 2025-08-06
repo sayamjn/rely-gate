@@ -12,6 +12,10 @@ const storage = multer.diskStorage({
       category = 'visitors';
     } else if (file.fieldname === 'vehiclePhotoPath' || file.fieldname === 'vehiclePhoto') {
       category = 'vehicles';
+    } else if (file.fieldname === 'approverPhoto') {
+      category = 'approvers';
+    } else if (file.fieldname === 'logo') {
+      category = 'logos';
     } else if (req.body.category) {
       category = req.body.category;
     }
@@ -36,6 +40,10 @@ const storage = multer.diskStorage({
       prefix = 'visitor';
     } else if (file.fieldname === 'vehiclePhotoPath' || file.fieldname === 'vehiclePhoto') {
       prefix = 'vehicle';
+    } else if (file.fieldname === 'approverPhoto') {
+      prefix = 'approver';
+    } else if (file.fieldname === 'logo') {
+      prefix = `tenant_${req.user?.tenantId || 'unknown'}_logo`;
     } else if (file.fieldname === 'image') {
       prefix = 'purpose';
     }
@@ -68,6 +76,9 @@ const upload = multer({
 // Single file upload middleware for purpose images
 const uploadPurposeImage = upload.single('image');
 
+// Single file upload middleware for logo
+const uploadLogo = upload.single('logo');
+
 // Multiple file upload middleware for visitor registration (photo and vehicle)
 const uploadVisitorImages = upload.fields([
   { name: 'photoPath', maxCount: 1 },
@@ -79,6 +90,9 @@ const uploadVisitorImagesAlt = upload.fields([
   { name: 'photo', maxCount: 1 },
   { name: 'vehiclePhoto', maxCount: 1 }
 ]);
+
+// Single file upload middleware for approver photos
+const uploadApproverPhoto = upload.single('approverPhoto');
 
 // Error handling middleware for multer
 const handleUploadError = (err, req, res, next) => {
@@ -115,7 +129,9 @@ const handleUploadError = (err, req, res, next) => {
 
 module.exports = {
   uploadPurposeImage,
+  uploadLogo,
   uploadVisitorImages,
   uploadVisitorImagesAlt,
+  uploadApproverPhoto,
   handleUploadError
 };

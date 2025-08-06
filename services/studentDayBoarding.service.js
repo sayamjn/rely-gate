@@ -5,6 +5,7 @@ const responseUtils = require('../utils/constants');
 const path = require('path');
 const fs = require('fs');
 const csv = require('csv-parser');
+const SMSUtil = require('../utils/sms');
 
 class StudentDayBoardingService {
 
@@ -210,8 +211,8 @@ class StudentDayBoardingService {
       // Generate OTP
       const otpResult = await OTPModel.generateOTP(tenantId, phoneNumber, createdBy);
       
-      // In production, send SMS here
-      console.log(`OTP ${otpResult.otpNumber} generated for ${phoneNumber}`);
+      // Send actual SMS with OTP
+      const smsResult = await SMSUtil.sendOTPSMS(phoneNumber, otpResult.otpNumber);
 
       return {
         responseCode: responseUtils.RESPONSE_CODES.SUCCESS,
@@ -221,6 +222,8 @@ class StudentDayBoardingService {
           name: guardian.name,
           relation: guardian.relation,
           otpRef: otpResult.refId,
+          smsSent: smsResult.success,
+          smsMessage: smsResult.message,
           // Don't send OTP in production
           ...(process.env.NODE_ENV === 'development' && { otp: otpResult.otpNumber })
         }
@@ -474,7 +477,8 @@ class StudentDayBoardingService {
         createdBy
       );
 
-      console.log(`OTP ${otpResult.otpNumber} sent to primary guardian ${student.primaryguardianphone}`);
+      // Send actual SMS with OTP
+      const smsResult = await SMSUtil.sendOTPSMS(student.primaryguardianphone, otpResult.otpNumber);
 
       return {
         responseCode: responseUtils.RESPONSE_CODES.SUCCESS,
@@ -485,6 +489,8 @@ class StudentDayBoardingService {
           guardianName: guardian.name,
           primaryGuardianPhone: student.primaryguardianphone,
           otpRef: otpResult.refId,
+          smsSent: smsResult.success,
+          smsMessage: smsResult.message,
           // Don't send OTP in production
           ...(process.env.NODE_ENV === 'development' && { otp: otpResult.otpNumber })
         }
@@ -626,6 +632,380 @@ class StudentDayBoardingService {
       return {
         responseCode: responseUtils.RESPONSE_CODES.ERROR,
         responseMessage: 'Failed to fetch filter data',
+        error: process.env.NODE_ENV === 'development' ? error.message : undefined
+      };
+    }
+  }
+
+  // ================================================================================
+  // NEW ENHANCED API METHODS
+  // ================================================================================
+
+  // 1. Get all tenant lists
+  static async getAllTenants() {
+    try {
+      const tenants = await StudentDayBoardingModel.getAllTenants();
+      
+      const mapped = tenants.map(t => ({
+        tenantId: t.tenantid,
+        tenantName: t.tenantname,
+        tenantCode: t.tenantcode,
+        isActive: t.isactive
+      }));
+
+      return {
+        responseCode: responseUtils.RESPONSE_CODES.SUCCESS,
+        responseMessage: 'Tenants retrieved successfully',
+        data: {
+          tenants: mapped
+        }
+      };
+
+    } catch (error) {
+      console.error('Error fetching tenants:', error);
+      return {
+        responseCode: responseUtils.RESPONSE_CODES.ERROR,
+        responseMessage: 'Failed to fetch tenants',
+        error: process.env.NODE_ENV === 'development' ? error.message : undefined
+      };
+    }
+  }
+
+  // 2. Check guardian eligibility and send OTP
+  static async checkGuardianEligibility(tenantId, guardianPhone, createdBy) {
+    try {
+      // Check if guardian has students in the tenant
+      const students = await StudentDayBoardingModel.getStudentsByPrimaryGuardianPhone(tenantId, guardianPhone);
+      
+      if (!students || students.length === 0) {
+        return {
+          responseCode: responseUtils.RESPONSE_CODES.ERROR,
+          responseMessage: 'No students found for this guardian'
+        };
+      }
+
+      // Generate OTP since guardian is eligible
+      const otpResult = await OTPModel.generateOTP(tenantId, guardianPhone, createdBy);
+      
+      // Send actual SMS with OTP
+      const smsResult = await SMSUtil.sendOTPSMS(guardianPhone, otpResult.otpNumber);
+
+      return {
+        responseCode: responseUtils.RESPONSE_CODES.SUCCESS,
+        responseMessage: 'OTP sent successfully',
+        data: {
+          eligible: true,
+          otpSent: true,
+          otpRef: otpResult.refId,
+          smsSent: smsResult.success,
+          smsMessage: smsResult.message,
+          // Don't send OTP in production
+          ...(process.env.NODE_ENV === 'development' && { otp: otpResult.otpNumber })
+        }
+      };
+
+    } catch (error) {
+      console.error('Error checking guardian eligibility:', error);
+      return {
+        responseCode: responseUtils.RESPONSE_CODES.ERROR,
+        responseMessage: 'Failed to check guardian eligibility',
+        error: process.env.NODE_ENV === 'development' ? error.message : undefined
+      };
+    }
+  }
+
+  // 3. Verify OTP (enhanced version)
+  static async verifyOTPNew(tenantId, guardianPhone, otp) {
+    try {
+      const verification = await OTPModel.verifyOTPByPhoneAndCode(tenantId, guardianPhone, otp);
+      
+      if (!verification.verified) {
+        return {
+          responseCode: responseUtils.RESPONSE_CODES.ERROR,
+          responseMessage: 'Invalid or expired OTP'
+        };
+      }
+
+      // Get guardian auth master info if available
+      const guardian = await StudentDayBoardingModel.getGuardianByPhone(tenantId, guardianPhone);
+
+      return {
+        responseCode: responseUtils.RESPONSE_CODES.SUCCESS,
+        responseMessage: 'OTP verified successfully',
+        data: {
+          verified: true,
+          sessionToken: 'abc123', // You can implement proper session token generation
+          authMasterId: guardian ? guardian.authmasterid : null,
+          tenantId: verification.tenantId
+        }
+      };
+
+    } catch (error) {
+      console.error('Error verifying OTP:', error);
+      return {
+        responseCode: responseUtils.RESPONSE_CODES.ERROR,
+        responseMessage: 'Failed to verify OTP',
+        error: process.env.NODE_ENV === 'development' ? error.message : undefined
+      };
+    }
+  }
+
+  // 4. Get students by guardian phone
+  static async getStudentsByGuardianPhone(tenantId, guardianPhone) {
+    try {
+      const students = await StudentDayBoardingModel.getStudentsByPrimaryGuardianPhone(tenantId, guardianPhone);
+      
+      const mapped = students.map(s => ({
+        StudentDayBoardingID: s.studentdayboardingid,
+        StudentID: s.studentid,
+        StudentName: s.studentname,
+        Course: s.course,
+        Section: s.section,
+        Year: s.year,
+        PrimaryGuardianName: s.primaryguardianname,
+        PrimaryGuardianPhone: s.primaryguardianphone,
+        GuardianRelation: s.guardianrelation
+      }));
+
+      return {
+        responseCode: responseUtils.RESPONSE_CODES.SUCCESS,
+        responseMessage: 'Students retrieved successfully',
+        data: mapped,
+        count: mapped.length
+      };
+
+    } catch (error) {
+      console.error('Error fetching students by guardian phone:', error);
+      return {
+        responseCode: responseUtils.RESPONSE_CODES.ERROR,
+        responseMessage: 'Failed to fetch students',
+        error: process.env.NODE_ENV === 'development' ? error.message : undefined
+      };
+    }
+  }
+
+  // 5. Get authorized list by guardian phone
+  static async getAuthorizedList(tenantId, guardianPhone) {
+    try {
+      const authorizedList = await StudentDayBoardingModel.getAuthorizedListByGuardianPhone(tenantId, guardianPhone);
+      
+      const mapped = authorizedList.map(a => ({
+        LinkID: a.linkid,
+        StudentDayBoardingID: a.studentdayboardingid,
+        StudentID: a.studentid,
+        StudentName: a.studentname,
+        Course: a.course,
+        Section: a.section,
+        Year: a.year,
+        Relation: a.relation,
+        PhotoFlag: a.photoflag === 'Y',
+        PhotoPath: a.photopath,
+        PhotoName: a.photoname,
+        IsActive: a.isactive === 'Y'
+      }));
+
+      return {
+        responseCode: responseUtils.RESPONSE_CODES.SUCCESS,
+        responseMessage: 'Authorized list retrieved successfully',
+        data: mapped,
+        count: mapped.length
+      };
+
+    } catch (error) {
+      console.error('Error fetching authorized list:', error);
+      return {
+        responseCode: responseUtils.RESPONSE_CODES.ERROR,
+        responseMessage: 'Failed to fetch authorized list',
+        error: process.env.NODE_ENV === 'development' ? error.message : undefined
+      };
+    }
+  }
+
+  // 6. Get active approvers by student ID
+  static async getActiveApprovers(tenantId, studentId) {
+    try {
+      const approvers = await StudentDayBoardingModel.getAllApproversByStudentId(tenantId, studentId);
+      
+      const mapped = approvers.map(a => ({
+        LinkID: a.linkid,
+        AuthMasterID: a.authmasterid,
+        StudentDayBoardingID: a.studentdayboardingid,
+        Name: a.name,
+        PhoneNumber: a.phonenumber,
+        Relation: a.relation,
+        PhotoFlag: a.photoflag === 'Y',
+        PhotoPath: a.photopath,
+        PhotoName: a.photoname,
+        IsActive: a.isactive === 'Y',
+        CanActivate: a.isactive === 'N', // UI flag for activate button
+        CanDeactivate: a.isactive === 'Y' // UI flag for deactivate button
+      }));
+
+      return {
+        responseCode: responseUtils.RESPONSE_CODES.SUCCESS,
+        responseMessage: 'Approvers retrieved successfully',
+        data: mapped,
+        count: mapped.length
+      };
+
+    } catch (error) {
+      console.error('Error fetching approvers:', error);
+      return {
+        responseCode: responseUtils.RESPONSE_CODES.ERROR,
+        responseMessage: 'Failed to fetch approvers',
+        error: process.env.NODE_ENV === 'development' ? error.message : undefined
+      };
+    }
+  }
+
+  // 7. Link multiple students to guardian
+  static async linkStudentsToGuardian(linkData, createdBy) {
+    try {
+      const { tenantId, primaryGuardianPhone, studentIds, name, phoneNumber, relation, photo, photoName } = linkData;
+
+      // Validate required fields
+      if (!tenantId || !primaryGuardianPhone || !studentIds || studentIds.length === 0) {
+        return {
+          responseCode: responseUtils.RESPONSE_CODES.ERROR,
+          responseMessage: 'Missing required fields: tenantId, primaryGuardianPhone, or studentIds'
+        };
+      }
+
+      const results = await StudentDayBoardingModel.bulkLinkStudentsToGuardian({
+        tenantId,
+        primaryGuardianPhone,
+        studentIds,
+        name: name || 'Guardian',
+        phoneNumber: phoneNumber || primaryGuardianPhone,
+        relation: relation || 'Guardian',
+        photoFlag: photo ? 'Y' : 'N',
+        photoPath: photo || null,
+        photoName: photoName || null
+      }, createdBy);
+
+      const summary = {
+        total: studentIds.length,
+        successful: results.filter(r => r.status === 'SUCCESS').length,
+        errors: results.filter(r => r.status === 'ERROR').length,
+        duplicates: results.filter(r => r.status === 'DUPLICATE').length
+      };
+
+      return {
+        responseCode: responseUtils.RESPONSE_CODES.SUCCESS,
+        responseMessage: 'Students linked successfully',
+        data: {
+          success: true,
+          authMasterId: results.length > 0 ? results.find(r => r.status === 'SUCCESS')?.authMasterId : null,
+          insertedCount: summary.successful,
+          summary,
+          details: results
+        }
+      };
+
+    } catch (error) {
+      console.error('Error linking students to guardian:', error);
+      return {
+        responseCode: responseUtils.RESPONSE_CODES.ERROR,
+        responseMessage: 'Failed to link students to guardian',
+        error: process.env.NODE_ENV === 'development' ? error.message : undefined
+      };
+    }
+  }
+
+  // 8. Deactivate approver
+  static async deactivateApprover(tenantId, guardianPhone, studentId, approverId, updatedBy) {
+    try {
+      const result = await StudentDayBoardingModel.deactivateApprover(tenantId, guardianPhone, studentId, approverId, updatedBy);
+      
+      if (!result) {
+        return {
+          responseCode: responseUtils.RESPONSE_CODES.ERROR,
+          responseMessage: 'Approver not found or already inactive'
+        };
+      }
+
+      return {
+        responseCode: responseUtils.RESPONSE_CODES.SUCCESS,
+        responseMessage: 'Approver deactivated successfully',
+        data: {
+          success: true
+        }
+      };
+
+    } catch (error) {
+      console.error('Error deactivating approver:', error);
+      return {
+        responseCode: responseUtils.RESPONSE_CODES.ERROR,
+        responseMessage: 'Failed to deactivate approver',
+        error: process.env.NODE_ENV === 'development' ? error.message : undefined
+      };
+    }
+  }
+
+  // 9. Activate approver
+  static async activateApprover(tenantId, guardianPhone, studentId, approverId, updatedBy) {
+    try {
+      const result = await StudentDayBoardingModel.activateApprover(tenantId, guardianPhone, studentId, approverId, updatedBy);
+      
+      if (!result) {
+        return {
+          responseCode: responseUtils.RESPONSE_CODES.ERROR,
+          responseMessage: 'Approver not found or already active'
+        };
+      }
+
+      return {
+        responseCode: responseUtils.RESPONSE_CODES.SUCCESS,
+        responseMessage: 'Approver activated successfully',
+        data: {
+          success: true
+        }
+      };
+
+    } catch (error) {
+      console.error('Error activating approver:', error);
+      return {
+        responseCode: responseUtils.RESPONSE_CODES.ERROR,
+        responseMessage: 'Failed to activate approver',
+        error: process.env.NODE_ENV === 'development' ? error.message : undefined
+      };
+    }
+  }
+
+  // 10. Update approver details
+  static async updateApprover(tenantId, approverId, approverData, updatedBy) {
+    try {
+      const result = await StudentDayBoardingModel.updateApprover(tenantId, approverId, approverData, updatedBy);
+      
+      if (!result) {
+        return {
+          responseCode: responseUtils.RESPONSE_CODES.ERROR,
+          responseMessage: 'Approver not found'
+        };
+      }
+
+      return {
+        responseCode: responseUtils.RESPONSE_CODES.SUCCESS,
+        responseMessage: 'Approver updated successfully',
+        data: {
+          success: true,
+          approver: {
+            AuthMasterID: result.authmasterid,
+            Name: result.name,
+            PhoneNumber: result.phonenumber,
+            Relation: result.relation,
+            PhotoFlag: result.photoflag === 'Y',
+            PhotoPath: result.photopath,
+            PhotoName: result.photoname
+          }
+        }
+      };
+
+    } catch (error) {
+      console.error('Error updating approver:', error);
+      return {
+        responseCode: responseUtils.RESPONSE_CODES.ERROR,
+        responseMessage: 'Failed to update approver',
         error: process.env.NODE_ENV === 'development' ? error.message : undefined
       };
     }

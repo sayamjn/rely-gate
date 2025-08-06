@@ -654,7 +654,7 @@ class BusModel {
       paramIndex++;
     }
 
-    // Purpose ID filter
+    // Purpose ID filter - filter by latest visit purpose only
     if (purposeId && purposeId > 0) {
       whereConditions.push(`EXISTS (
         SELECT 1 FROM VisitorRegVisitHistory vh 
@@ -662,6 +662,15 @@ class BusModel {
         AND vh.TenantID = vr.TenantID 
         AND vh.VisitPurposeID = $${paramIndex}
         AND vh.IsActive = 'Y'
+        AND vh.RegVisitorHistoryID = (
+          SELECT vh2.RegVisitorHistoryID 
+          FROM VisitorRegVisitHistory vh2 
+          WHERE vh2.VisitorRegID = vr.VisitorRegID 
+          AND vh2.TenantID = vr.TenantID 
+          AND vh2.IsActive = 'Y' 
+          ORDER BY vh2.CreatedDate DESC 
+          LIMIT 1
+        )
       )`);
       params.push(purposeId);
       paramIndex++;
@@ -804,7 +813,14 @@ class BusModel {
           WHEN latest_visit.RegVisitorHistoryID IS NULL THEN 'AVAILABLE'
           WHEN latest_visit.OutTime IS NULL OR latest_visit.OutTimeTxt IS NULL OR latest_visit.OutTimeTxt = '' THEN 'CHECKED_OUT'
           ELSE 'AVAILABLE'
-        END as CurrentStatus
+        END as CurrentStatus,
+
+        -- isCheckedIn flag: true when bus is currently checked out (not yet checked back in)
+        CASE 
+          WHEN latest_visit.RegVisitorHistoryID IS NULL THEN false
+          WHEN latest_visit.OutTime IS NULL OR latest_visit.OutTimeTxt IS NULL OR latest_visit.OutTimeTxt = '' THEN true
+          ELSE false
+        END as isCheckedIn
 
       FROM VisitorRegistration vr
       LEFT JOIN BulkVisitorUpload bvu ON vr.Mobile = bvu.Mobile AND bvu.Type = 'bus'

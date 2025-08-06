@@ -35,6 +35,7 @@ const emailReportRoutes = require('./routes/emailReport.routes');
 const tenantSettingRoutes = require('./routes/tenantSetting.routes');
 const studentDayBoardingRoutes = require('./routes/studentDayBoarding.routes');
 const linkedTenantsRoutes = require('./routes/linkedTenants.routes');
+const mealSettingsRoutes = require('./routes/mealSettings.routes');
 
 const app = express();
 const PORT = config.port || 3000;
@@ -63,7 +64,8 @@ const uploadDirs = [
   'uploads/registered_visitors', 
   'uploads/vehicles',
   'uploads/visitor_ids',
-  'uploads/qr_codes'
+  'uploads/qr_codes',
+  'uploads/logos'
 ];
 
 uploadDirs.forEach(dir => {
@@ -116,6 +118,7 @@ app.use('/api/email-reports', emailReportRoutes);
 app.use('/api/tenant-settings', tenantSettingRoutes);
 app.use('/api/student-day-boarding', studentDayBoardingRoutes);
 app.use('/api/linked-tenants', linkedTenantsRoutes);
+app.use('/api/meal-settings', mealSettingsRoutes);
 
 // Error handling middleware (must be last)
 app.use(handleError);

@@ -125,9 +125,9 @@ const result = await OTPModel.generateOTP(tenantId, mobileNo, createdBy);
         await this.sendOTPSMS(tenantId, otpNumber, mobileNo);
       }
 
-      // In development, log the OTP
+      // In development, log the OTP (now handled by SMS service)
       if (process.env.NODE_ENV === "development") {
-        console.log(`OTP for ${mobileNo}: ${otpNumber}`);
+        console.log(`OTP for ${mobileNo}: ${otpNumber} (now sent via SMS)`);
       }
 
       return {
@@ -252,9 +252,9 @@ const result = await OTPModel.generateOTP(tenantId, mobileNo, createdBy);
         await this.sendOTPSMS(tenantId, otpNumber, mobile);
       }
 
-      // In development, log the OTP
+      // In development, log the OTP (now handled by SMS service)
       if (process.env.NODE_ENV === "development") {
-        console.log(`OTP for ${mobile}: ${otpNumber}`);
+        console.log(`OTP for ${mobile}: ${otpNumber} (now sent via SMS)`);
       }
 
       return {
@@ -285,9 +285,9 @@ const result = await OTPModel.generateOTP(tenantId, mobileNo, createdBy);
         await this.sendOTPSMS(tenantId, otpNumber, mobile);
       }
 
-      // Log OTP in development
+      // Log OTP in development (now handled by SMS service) 
       if (process.env.NODE_ENV === "development") {
-        console.log(`Generated OTP for ${mobile}: ${otpNumber}`);
+        console.log(`Generated OTP for ${mobile}: ${otpNumber} (now sent via SMS)`);
       }
 
       return {

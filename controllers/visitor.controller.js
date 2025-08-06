@@ -803,6 +803,8 @@ class VisitorController {
         flatid = 0,
         page = 1,
         pageSize = 50,
+        search = "",
+        purposeId = 0,
       } = req.query;
 
       const userTenantId = req.user.tenantId;
@@ -815,6 +817,8 @@ class VisitorController {
         flatid: parseInt(flatid),
         page: parseInt(page),
         pageSize: parseInt(pageSize),
+        search,
+        purposeId: parseInt(purposeId),
         status: "checked_in",
       };
 
@@ -844,6 +848,8 @@ class VisitorController {
         flatid = 0,
         page = 1,
         pageSize = 50,
+        search = "",
+        purposeId = 0,
       } = req.query;
 
       const userTenantId = req.user.tenantId;
@@ -856,6 +862,8 @@ class VisitorController {
         flatid: parseInt(flatid),
         page: parseInt(page),
         pageSize: parseInt(pageSize),
+        search,
+        purposeId: parseInt(purposeId),
         status: "checked_out",
       };
 
@@ -863,7 +871,7 @@ class VisitorController {
         userTenantId,
         filters
       );
-console.log("result checkouts: ", result)
+      console.log("result checkouts: ", result);
       res.json(result);
     } catch (error) {
       console.error("Error in getUnregisteredCheckouts:", error);

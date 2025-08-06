@@ -3,6 +3,7 @@ const StaffModel = require("../models/staff.model");
 const responseUtils = require("../utils/constants");
 const DateFormatter = require("../utils/dateFormatter");
 const MessagingService = require("./messaging.service");
+const SMSUtil = require("../utils/sms");
 
 class StaffService {
   // Get all staff visit history with filters
@@ -638,10 +639,8 @@ class StaffService {
         "System"
       );
 
-      // In production, send actual SMS here
-      console.log(
-        `OTP for staff registration: ${otpResult.otpNumber} to ${mobile}`
-      );
+      // Send actual SMS with OTP
+      const smsResult = await SMSUtil.sendOTPSMS(mobile, otpResult.otpNumber);
 
       return {
         responseCode: responseUtils.RESPONSE_CODES.SUCCESS,
@@ -654,6 +653,8 @@ class StaffService {
           mobile: mobile,
           designation: designation,
           otpSent: true,
+          smsSent: smsResult.success,
+          smsMessage: smsResult.message,
         },
       };
     } catch (error) {
