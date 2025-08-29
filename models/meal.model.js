@@ -474,7 +474,7 @@ class MealModel {
         AND MealType = $2 
         AND MealDate = $3
         AND IsActive = 'Y'
-        AND Status = 'registered'
+        AND Status = 'confirmed'
         AND IsConsumed = 'N'
       ORDER BY TokenNumber ASC
     `;
@@ -551,6 +551,8 @@ class MealModel {
   static async updateMealRegistration(tenantId, mealId, updateData, updatedBy) {
     const { isSpecial, specialRemarks } = updateData;
     
+    console.log('MealModel.updateMealRegistration called with:', { tenantId, mealId, updateData, updatedBy });
+    
     const sql = `
       UPDATE MealMaster 
       SET IsSpecial = $3,
@@ -560,12 +562,14 @@ class MealModel {
       WHERE TenantID = $1 
         AND MealID = $2 
         AND IsActive = 'Y'
-        AND Status = 'registered'
+        AND Status = 'confirmed'
         AND IsConsumed = 'N'
       RETURNING MealID, TokenNumber, StudentName, MealType, IsSpecial, SpecialRemarks
     `;
 
+    console.log('Executing update query:', sql, 'with params:', [tenantId, mealId, isSpecial, specialRemarks, updatedBy]);
     const result = await query(sql, [tenantId, mealId, isSpecial, specialRemarks, updatedBy]);
+    console.log('Update query result:', result.rows);
     return result.rows[0];
   }
 
@@ -574,6 +578,7 @@ class MealModel {
     const sql = `
       UPDATE MealMaster 
       SET Status = 'cancelled',
+          IsActive = 'N',
           UpdatedDate = NOW(),
           UpdatedBy = $3
       WHERE TenantID = $1 

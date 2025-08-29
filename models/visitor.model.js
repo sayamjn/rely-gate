@@ -180,7 +180,7 @@ class VisitorModel {
       createdBy || "System",
     ]);
 
-    console.log("result: ", result);
+    // console.log("result: ", result);
 
     return result.rows[0];
   }
@@ -1417,6 +1417,25 @@ class VisitorModel {
     `;
 
     const result = await query(sql, [historyId, tenantId]);
+    return result.rows[0];
+  }
+
+    // Get purpose by ID for validation
+  static async getPurposeById(purposeId, tenantId) {
+    const sql = `
+      SELECT 
+        VisitPurposeID as "purposeId",
+        VisitPurpose as "purposeName",
+        PurposeCatID as "purposeCatId",
+        PurposeCatName as "purposeCatName",
+        IsActive as "isActive"
+      FROM VisitorPuposeMaster
+      WHERE VisitPurposeID = $1 
+        AND TenantID = $2 
+        AND PurposeCatID = 1
+    `;
+
+    const result = await query(sql, [purposeId, tenantId]);
     return result.rows[0];
   }
 }

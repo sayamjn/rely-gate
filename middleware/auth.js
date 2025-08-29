@@ -12,10 +12,12 @@ const authenticateToken = (req, res, next) => {
   }
 
   try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key');
     req.user = decoded; // { loginId, username, tenantId, roleAccessId, roleName }
+    // console.log('User authenticated:', { loginId: decoded.loginId, username: decoded.username, tenantId: decoded.tenantId });
     next();
   } catch (error) {
+    console.error('JWT verification failed:', error.message);
     return res.status(403).json({
       responseCode: 'E',
       responseMessage: 'Invalid or expired token'
@@ -44,7 +46,18 @@ const authorizeRole = (...allowedRoles) => {
 };
 
 const validateTenantAccess = (req, res, next) => {
+  // Check if user is authenticated first
+  console.log('validateTenantAccess - req.user:', req.user);
+  if (!req.user) {
+    console.log('validateTenantAccess - No user found in request');
+    return res.status(401).json({
+      responseCode: 'E',
+      responseMessage: 'Authentication required'
+    });
+  }
+
   const requestedTenantId = req.body.tenantId || req.query.tenantId || req.params.tenantId;
+  console.log('validateTenantAccess - requestedTenantId:', requestedTenantId, 'userTenantId:', req.user.tenantId);
 
   if (requestedTenantId && parseInt(requestedTenantId) !== req.user.tenantId) {
     return res.status(403).json({
@@ -56,35 +69,7 @@ const validateTenantAccess = (req, res, next) => {
   next();
 };
 
-  const  rateLimit = (maxRequests = 100, windowMs = 15 * 60 * 1000) => {
-    const requests = new Map();
-    
-    return (req, res, next) => {
-      const key = `${req.ip}-${req.user?.tenantId || 'anonymous'}`;
-      const now = Date.now();
-      const windowStart = now - windowMs;
-      
-      if (requests.has(key)) {
-        const userRequests = requests.get(key).filter(time => time > windowStart);
-        requests.set(key, userRequests);
-      }
-      
-      const userRequests = requests.get(key) || [];
-      
-      if (userRequests.length >= maxRequests) {
-        return res.status(429).json({
-          responseCode: responseUtils.RESPONSE_CODES.ERROR,
-          responseMessage: 'Too many requests. Please try again later.',
-          retryAfter: Math.ceil(windowMs / 1000)
-        });
-      }
-      
-      userRequests.push(now);
-      requests.set(key, userRequests);
-      
-      next();
-    };
-  }
+
 
 module.exports = {
   authenticateToken,

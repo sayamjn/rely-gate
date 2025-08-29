@@ -28,7 +28,7 @@ class GatepassService {
       const securityCode = this.generateSecurityCode();
       const statusName = statusId === 2 ? "Approved" : "Pending";
       const visitDateTxt = DateFormatter.formatDate(visitDate);
-
+       
       const result = await GatePassModel.createGatePass({
         tenantId,
         statusId,
@@ -446,7 +446,7 @@ class GatepassService {
       // Handle image upload if provided
       let imageData = null;
       if (imageFile) {
-        const baseUrl = process.env.BASE_URL || `http://localhost:${process.env.PORT || 3000}`;
+        const baseUrl = process.env.BASE_URL || `http://localhost:${process.env.PORT || 9002}`;
         imageData = {
           flag: 'Y',
           path: `purposes/${imageFile.filename}`,
@@ -554,6 +554,104 @@ class GatepassService {
     } catch (error) {
       console.error("Error in deleteGatePassPurpose service:", error);
       return ResponseFormatter.error("Internal server error");
+    }
+  }
+
+  // OTP sending for gatepass
+  static async sendOTP(mobile, tenantId) {
+    try {
+      if (!mobile || mobile.length !== 10 || !/^\d+$/.test(mobile)) {
+        return {
+          responseCode: responseUtils.RESPONSE_CODES.ERROR,
+          responseMessage: "Invalid mobile number",
+        };
+      }
+
+      const otpResult = await MessagingService.generateAndSendOTP(
+        tenantId,
+        mobile,
+      );
+
+      // Send actual SMS with OTP
+      const smsResult = await SMSUtil.sendOTPSMS(mobile, otpResult.otpNumber);
+
+      return {
+        responseCode: responseUtils.RESPONSE_CODES.SUCCESS,
+        responseMessage: responseUtils.RESPONSE_MESSAGES.OTP_SENT,
+        refId: otpResult.refId,
+        smsSent: smsResult.success,
+        smsMessage: smsResult.message,
+        otp:
+          process.env.NODE_ENV === "development"
+            ? otpResult.otpNumber
+            : undefined,
+      };
+    } catch (error) {
+      console.error("Error sending OTP for gatepass:", error);
+      return {
+        responseCode: responseUtils.RESPONSE_CODES.ERROR,
+        responseMessage: responseUtils.RESPONSE_MESSAGES.ERROR,
+        error:
+          process.env.NODE_ENV === "development" ? error.message : undefined,
+      };
+    }
+  }
+
+  // OTP verification for gatepass
+  static async verifyOTP(refId, otpNumber, mobile, tenantId) {
+    try {
+      const result = await MessagingService.verifyOTP(
+        refId,
+        otpNumber,
+        mobile
+      );
+
+      if (result.verified) {
+        return {
+          responseCode: responseUtils.RESPONSE_CODES.SUCCESS,
+          responseMessage: "OTP verified successfully",
+          data: {
+            verified: true,
+            tenantId: result.tenantId,
+            mobile: result.mobile,
+          },
+        };
+      } else {
+        return {
+          responseCode: responseUtils.RESPONSE_CODES.ERROR,
+          responseMessage: "Invalid OTP or OTP expired",
+        };
+      }
+    } catch (error) {
+      console.error("Error verifying OTP for gatepass:", error);
+      return {
+        responseCode: responseUtils.RESPONSE_CODES.ERROR,
+        responseMessage: responseUtils.RESPONSE_MESSAGES.ERROR,
+        error:
+          process.env.NODE_ENV === "development" ? error.message : undefined,
+      };
+    }
+  }
+
+  // Get all tenants
+  static async getTenants() {
+    try {
+      const tenants = await GatePassModel.getTenants();
+      
+      return {
+        responseCode: responseUtils.RESPONSE_CODES.SUCCESS,
+        responseMessage: "Tenants retrieved successfully",
+        data: tenants,
+        count: tenants.length,
+      };
+    } catch (error) {
+      console.error("Error getting tenants for gatepass:", error);
+      return {
+        responseCode: responseUtils.RESPONSE_CODES.ERROR,
+        responseMessage: responseUtils.RESPONSE_MESSAGES.ERROR,
+        error:
+          process.env.NODE_ENV === "development" ? error.message : undefined,
+      };
     }
   }
 }

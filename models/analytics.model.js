@@ -45,10 +45,10 @@ const AnalyticsModel = {
     return result.rows;
   },
 
-  async getGatePassAnalytics(tenantId, days = 7) {
+  async getGatePassAnalytics(tenantId) {
     const sql = `
       SELECT 
-        COUNT(CASE WHEN StatusID = 1 THEN 1 END) as pending_approval,
+        COUNT(CASE WHEN StatusID = 1 AND DATE(VisitDate) >= CURRENT_DATE THEN 1 END) as pending_approval,
         COUNT(CASE WHEN InTime IS NOT NULL AND OutTime IS NOT NULL THEN 1 END) as checked_out_count,
         COUNT(CASE WHEN InTime IS NOT NULL AND OutTime IS NULL THEN 1 END) as checked_in_count,
         COUNT(CASE WHEN StatusID = 2 AND InTime IS NOT NULL AND OutTime IS NOT NULL THEN 1 END) as completed,
@@ -58,7 +58,6 @@ const AnalyticsModel = {
       WHERE TenantID = $1 
         AND VisitorCatID = 6 
         AND IsActive = 'Y'
-        AND CreatedDate >= CURRENT_DATE - INTERVAL '${days} days'
     `;
 
     const result = await query(sql, [tenantId]);

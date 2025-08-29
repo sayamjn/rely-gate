@@ -1,8 +1,9 @@
 const express = require("express");
-const { body, validationResult } = require("express-validator");
+const { body, validationResult, query } = require("express-validator");
 const AuthController = require("../controllers/auth.controller");
 const { authenticateToken } = require("../middleware/auth");
 const { handleValidationErrors } = require("../middleware/validation");
+const { authLimit } = require("../middleware/rateLimit");
 
 const router = express.Router();
 
@@ -10,6 +11,7 @@ const router = express.Router();
 // POST /auth/register
 router.post(
   "/register",
+  authLimit, // Apply strict rate limiting to registration
   [
     body("userName").notEmpty().withMessage("Username is required"),
     body("password").notEmpty().withMessage("Password is required"),
@@ -25,6 +27,7 @@ router.post(
 // POST /auth/login
 router.post(
   "/login",
+  authLimit, // Apply strict rate limiting to login attempts
   [
     body("username").notEmpty().trim().withMessage("Username is required"),
     body("password").notEmpty().withMessage("Password is required"),
@@ -36,6 +39,24 @@ router.post(
   handleValidationErrors,
   AuthController.login
 );
+
+router.post(
+  "/token",
+  authLimit, // Apply strict rate limiting
+  [
+    body("username")
+      .notEmpty()
+      .trim()
+      .withMessage("Username is required"),
+    body("tenantId")
+      .notEmpty()
+      .isInt()
+      .withMessage("Valid tenant ID is required"),
+  ],
+  handleValidationErrors,
+  AuthController.token
+);
+
 
 // GET /auth/userinfo
 router.get(

@@ -371,11 +371,22 @@ class QRService {
         };
       }
 
+      // Get current day settings
+      const daySettings = MealSettingsModel.getCurrentDaySettings(settings);
+      
+      if (!daySettings) {
+        return {
+          canGenerate: false,
+          reason: 'Current day settings not found'
+        };
+      }
+
       const now = new Date();
       const currentTime = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:00`;
 
       // Helper function to convert time to minutes
       const timeToMinutes = (timeString) => {
+        if (!timeString) return 0;
         const [hours, minutes] = timeString.split(':').map(Number);
         return hours * 60 + minutes;
       };
@@ -383,12 +394,20 @@ class QRService {
       const currentMinutes = timeToMinutes(currentTime);
 
       if (mealType === 'lunch') {
-        const bookingStart = timeToMinutes(settings.lunchbookingstarttime || settings.lunchBookingStartTime);
-        const servingEnd = timeToMinutes(settings.lunchendtime || settings.lunchEndTime);
+        // Check if lunch is enabled for today
+        if (!daySettings.lunchEnabled) {
+          return {
+            canGenerate: false,
+            reason: 'Lunch is not enabled for today'
+          };
+        }
+
+        const bookingStart = timeToMinutes(daySettings.lunchBookingStart);
+        const servingEnd = timeToMinutes(daySettings.lunchEnd);
 
         if (currentMinutes >= bookingStart && currentMinutes <= servingEnd) {
-          const isBookingWindow = currentMinutes <= timeToMinutes(settings.lunchbookingendtime || settings.lunchBookingEndTime);
-          const isServingWindow = currentMinutes >= timeToMinutes(settings.lunchstarttime || settings.lunchStartTime);
+          const isBookingWindow = currentMinutes <= timeToMinutes(daySettings.lunchBookingEnd);
+          const isServingWindow = currentMinutes >= timeToMinutes(daySettings.lunchStart);
 
           return {
             canGenerate: true,
@@ -397,12 +416,20 @@ class QRService {
           };
         }
       } else if (mealType === 'dinner') {
-        const bookingStart = timeToMinutes(settings.dinnerbookingstarttime || settings.dinnerBookingStartTime);
-        const servingEnd = timeToMinutes(settings.dinnerendtime || settings.dinnerEndTime);
+        // Check if dinner is enabled for today
+        if (!daySettings.dinnerEnabled) {
+          return {
+            canGenerate: false,
+            reason: 'Dinner is not enabled for today'
+          };
+        }
+
+        const bookingStart = timeToMinutes(daySettings.dinnerBookingStart);
+        const servingEnd = timeToMinutes(daySettings.dinnerEnd);
 
         if (currentMinutes >= bookingStart && currentMinutes <= servingEnd) {
-          const isBookingWindow = currentMinutes <= timeToMinutes(settings.dinnerbookingendtime || settings.dinnerBookingEndTime);
-          const isServingWindow = currentMinutes >= timeToMinutes(settings.dinnerstarttime || settings.dinnerStartTime);
+          const isBookingWindow = currentMinutes <= timeToMinutes(daySettings.dinnerBookingEnd);
+          const isServingWindow = currentMinutes >= timeToMinutes(daySettings.dinnerStart);
 
           return {
             canGenerate: true,
@@ -418,6 +445,7 @@ class QRService {
       };
 
     } catch (error) {
+      console.error('Error in getMealWindowStatus:', error);
       return {
         canGenerate: false,
         reason: 'Failed to check meal window status'

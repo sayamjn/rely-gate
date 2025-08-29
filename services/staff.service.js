@@ -258,6 +258,9 @@ class StaffService {
         search,
         designation
       );
+
+
+      console.log("staff: ", staff)
       const totalCount = await StaffModel.getStaffCount(
         tenantId,
         search,
@@ -805,7 +808,7 @@ class StaffService {
       if (imageFile) {
         const baseUrl =
           process.env.BASE_URL ||
-          `http://localhost:${process.env.PORT || 3000}`;
+          `http://localhost:${process.env.PORT || 9002}`;
         imageData = {
           flag: "Y",
           path: `purposes/${imageFile.filename}`,

@@ -342,7 +342,6 @@ class StudentController {
       const { student_id, confirmed = false } = req.body;
       const userTenantId = req.user.tenantId;
       const tenant_id = userTenantId
-      // Validate required fields
       if (!student_id) {
         return res.status(400).json({
           responseCode: responseUtils.RESPONSE_CODES.ERROR,
@@ -350,7 +349,6 @@ class StudentController {
         });
       }
 
-      // Validate QR data structure
       const qrValidation = MealService.validateQRData({
         student_id,
         tenant_id,
@@ -362,14 +360,12 @@ class StudentController {
         });
       }
 
-      // Process meal check-in
       const result = await MealService.processMealCheckIn(
         parseInt(student_id),
         tenant_id,
         confirmed
       );
 
-      // Set appropriate HTTP status code
       const statusCode =
         result.responseCode === responseUtils.RESPONSE_CODES.SUCCESS
           ? 200
@@ -447,14 +443,12 @@ class StudentController {
       const { tenantId, fromDate, toDate } = req.query;
       const userTenantId = req.user.tenantId;
 
-      // Helper function to convert DD/MM/YYYY to YYYY-MM-DD
       const convertDateFormat = (dateStr) => {
         if (!dateStr) return null;
         const [day, month, year] = dateStr.split("/");
         return `${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`;
       };
 
-      // Default to last 7 days if no dates provided
       let startDate, endDate;
 
       if (fromDate) {
@@ -471,7 +465,6 @@ class StudentController {
         endDate = new Date().toISOString().split("T")[0];
       }
 
-      // Validate converted dates
       if ((fromDate && !startDate) || (toDate && !endDate)) {
         return res.status(400).json({
           responseCode: responseUtils.RESPONSE_CODES.ERROR,
@@ -630,7 +623,6 @@ class StudentController {
     }
   }
 
-  // ===== QR CODE METHODS FOR CHECK-IN/CHECK-OUT =====
 
   // POST /api/students/:studentId/generate-qr - Generate QR code for student
   static async generateStudentQR(req, res) {
@@ -646,7 +638,6 @@ class StudentController {
         });
       }
 
-      // Get student details to generate QR
       const student = await StudentService.getStudentStatus(
         parseInt(studentId),
         userTenantId
@@ -659,7 +650,6 @@ class StudentController {
         });
       }
 
-      // Generate QR data with student information
       const qrData = QRService.generateQRData(
         {
           tenantId: userTenantId,
@@ -670,7 +660,6 @@ class StudentController {
         "checkin-checkout"
       );
 
-      // Generate QR code image
       const qrResult = await QRService.generateQRCode(qrData);
 
       if (!qrResult.success) {
@@ -680,7 +669,6 @@ class StudentController {
         });
       }
 
-      // Save QR code to uploads folder
       const fileName = `student_qr_${studentId}_${Date.now()}.png`;
       const filePath = await FileService.saveBase64Image(
         qrResult.qrBase64,
@@ -718,7 +706,6 @@ class StudentController {
       const { qrData } = req.body;
       const userTenantId = req.user.tenantId;
 
-      // Handle both JSON string and JSON object formats
       let qrString;
       if (typeof qrData === "string") {
         qrString = qrData;
@@ -731,7 +718,6 @@ class StudentController {
         });
       }
 
-      // Parse QR data
       const qrParseResult = QRService.parseQRData(qrString);
 
       if (!qrParseResult.success) {
@@ -743,7 +729,6 @@ class StudentController {
 
       const { tenantid, mainid, type } = qrParseResult.data;
 
-      // Validate tenant access
       if (parseInt(tenantid) !== userTenantId) {
         return res.status(403).json({
           responseCode: responseUtils.RESPONSE_CODES.ERROR,
@@ -751,7 +736,6 @@ class StudentController {
         });
       }
 
-      // Validate student type
       if (type !== "stu") {
         return res.status(400).json({
           responseCode: responseUtils.RESPONSE_CODES.ERROR,
@@ -759,7 +743,6 @@ class StudentController {
         });
       }
 
-      // Get student ID from VisitorRegNo, then get status
       const student = await StudentModel.getStudentByRegNo(
         mainid,
         userTenantId
@@ -784,11 +767,9 @@ class StudentController {
         });
       }
 
-      // Use the action from getStudentStatus which is already correct
       const nextAction =
         statusResult.data.action === "CHECKIN" ? "checkin" : "checkout";
 
-      // Determine current status for display
       let currentStatus;
       if (statusResult.data.action === "CHECKIN") {
         currentStatus = "CHECKED_OUT"; // Student is checked out, can check in
@@ -837,7 +818,6 @@ class StudentController {
       const userTenantId = req.user.tenantId;
       const updatedBy = req.user.username || "System";
 
-      // Validate tenant access
       if (parseInt(tenantId) !== userTenantId) {
         return res.status(403).json({
           responseCode: responseUtils.RESPONSE_CODES.ERROR,
@@ -868,7 +848,6 @@ class StudentController {
       const userTenantId = req.user.tenantId;
       const createdBy = req.user.username || "System";
 
-      // Validate tenant access
       if (parseInt(tenantId) !== userTenantId) {
         return res.status(403).json({
           responseCode: responseUtils.RESPONSE_CODES.ERROR,
@@ -1439,8 +1418,8 @@ class StudentController {
         mealType
       );
 
-      const statusCode = result.responseCode === responseUtils.RESPONSE_CODES.SUCCESS ? 200 : 400;
-      res.status(statusCode).json(result);
+      // Always return 200 for meal validation - this is informational feedback, not an HTTP error
+      res.status(200).json(result);
     } catch (error) {
       console.error("Error in validateMealConsumption:", error);
       res.status(500).json({
@@ -2021,6 +2000,161 @@ class StudentController {
 
     } catch (error) {
       console.error("Error in getMealWindowStatus:", error);
+      res.status(500).json({
+        responseCode: responseUtils.RESPONSE_CODES.ERROR,
+        responseMessage: "Internal server error",
+        error: process.env.NODE_ENV === "development" ? error.message : undefined,
+      });
+    }
+  }
+
+  // ===== AUTOMATIC MEAL SYSTEM WITH OPT-OUT FUNCTIONALITY =====
+
+  // PUT /api/student/meal-opt-out - Student opts out of automatically registered meal
+  static async mealOptOut(req, res) {
+    try {
+      const { studentId, mealType, mealDate } = req.body;
+      const userTenantId = req.user.tenantId;
+      const targetStudentId = studentId || req.user.loginId; // Use provided studentId or fall back to logged-in user
+      const optedOutBy = req.user.username || req.user.userName || 'UNKNOWN';
+
+      console.log(`Student opt-out request: studentId=${targetStudentId}, mealType=${mealType}, optedOutBy=${optedOutBy}`);
+
+      const MealOptOutService = require('../services/mealOptOut.service');
+      const result = await MealOptOutService.optOutOfMeal(
+        userTenantId, 
+        targetStudentId, 
+        mealType, 
+        optedOutBy,
+        mealDate
+      );
+
+      if (result.responseCode === 'S') {
+        res.json(result);
+      } else {
+        res.status(400).json(result);
+      }
+
+    } catch (error) {
+      console.error("Error in mealOptOut:", error);
+      res.status(500).json({
+        responseCode: responseUtils.RESPONSE_CODES.ERROR,
+        responseMessage: "Internal server error",
+        error: process.env.NODE_ENV === "development" ? error.message : undefined,
+      });
+    }
+  }
+
+  // PUT /api/student/meal-opt-back-in - Student opts back in to previously opted-out meal
+  static async mealOptBackIn(req, res) {
+    try {
+      const { studentId, mealType, mealDate } = req.body;
+      const userTenantId = req.user.tenantId;
+      const targetStudentId = studentId || req.user.loginId; // Use provided studentId or fall back to logged-in user
+      const registeredBy = req.user.username || req.user.userName || 'UNKNOWN';
+
+      console.log(`Student opt-back-in request: studentId=${targetStudentId}, mealType=${mealType}, registeredBy=${registeredBy}`);
+
+      const MealOptOutService = require('../services/mealOptOut.service');
+      const result = await MealOptOutService.optBackIn(
+        userTenantId, 
+        targetStudentId, 
+        mealType, 
+        registeredBy,
+        mealDate
+      );
+
+      if (result.responseCode === 'S') {
+        res.json(result);
+      } else {
+        res.status(400).json(result);
+      }
+
+    } catch (error) {
+      console.error("Error in mealOptBackIn:", error);
+      res.status(500).json({
+        responseCode: responseUtils.RESPONSE_CODES.ERROR,
+        responseMessage: "Internal server error",
+        error: process.env.NODE_ENV === "development" ? error.message : undefined,
+      });
+    }
+  }
+
+  // PUT /api/student/meal-preference - Student updates meal preference (veg/non-veg)
+  static async updateMealPreference(req, res) {
+    try {
+      const { studentId, mealType, mealPreference, mealDate } = req.body;
+      const userTenantId = req.user.tenantId;
+      const targetStudentId = studentId || req.user.loginId; // Use provided studentId or fall back to logged-in user
+      const updatedBy = req.user.username || req.user.userName || 'UNKNOWN';
+
+      console.log(`Student meal preference update: studentId=${targetStudentId}, mealType=${mealType}, preference=${mealPreference}, updatedBy=${updatedBy}`);
+
+      const MealOptOutService = require('../services/mealOptOut.service');
+      const result = await MealOptOutService.updateMealPreference(
+        userTenantId, 
+        targetStudentId, 
+        mealType, 
+        mealPreference, 
+        updatedBy,
+        mealDate
+      );
+
+      if (result.responseCode === 'S') {
+        res.json(result);
+      } else {
+        res.status(400).json(result);
+      }
+
+    } catch (error) {
+      console.error("Error in updateMealPreference:", error);
+      res.status(500).json({
+        responseCode: responseUtils.RESPONSE_CODES.ERROR,
+        responseMessage: "Internal server error",
+        error: process.env.NODE_ENV === "development" ? error.message : undefined,
+      });
+    }
+  }
+
+  // GET /api/student/meal-status - Get student's current meal registration status
+  static async getStudentMealStatus(req, res) {
+    try {
+      const { mealDate } = req.query;
+      const userTenantId = req.user.tenantId;
+      const studentId = req.user.loginId; // Assuming student is logged in
+
+      console.log(`Student meal status request: studentId=${studentId}, mealDate=${mealDate}`);
+
+      const targetDate = mealDate || new Date().toISOString().split('T')[0];
+      const MealModel = require('../models/meal.model');
+
+      // Get both lunch and dinner status for the student
+      const lunchStatus = await MealModel.checkExistingMealRegistration(
+        userTenantId, 
+        studentId, 
+        'lunch', 
+        targetDate
+      );
+      
+      const dinnerStatus = await MealModel.checkExistingMealRegistration(
+        userTenantId, 
+        studentId, 
+        'dinner', 
+        targetDate
+      );
+
+      res.json({
+        responseCode: responseUtils.RESPONSE_CODES.SUCCESS,
+        responseMessage: "Student meal status retrieved successfully",
+        data: {
+          date: targetDate,
+          lunch: lunchStatus || null,
+          dinner: dinnerStatus || null
+        }
+      });
+
+    } catch (error) {
+      console.error("Error in getStudentMealStatus:", error);
       res.status(500).json({
         responseCode: responseUtils.RESPONSE_CODES.ERROR,
         responseMessage: "Internal server error",

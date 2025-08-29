@@ -683,7 +683,7 @@ class StudentService {
       // Handle image upload if provided
       let imageData = null;
       if (imageFile) {
-        const baseUrl = process.env.BASE_URL || `http://localhost:${process.env.PORT || 3000}`;
+        const baseUrl = process.env.BASE_URL || `http://localhost:${process.env.PORT || 9002}`;
         imageData = {
           flag: 'Y',
           path: `purposes/${imageFile.filename}`,

@@ -21,11 +21,11 @@ services:
     build: .
     environment:
       NODE_ENV: development
-      DB_HOST: postgres
-      DB_PORT: 5432
-      DB_NAME: relygate
-      DB_USER: postgres
-      DB_PASSWORD: MySecurePassword123
+      PG_DB_HOST: postgres
+      PG_DB_PORT: 5432
+      PG_DB_NAME: relygate
+      PG_DB_USER: postgres
+      PG_DB_PASSWORD: MySecurePassword123
       JWT_SECRET: supersecretjwtkey-change-in-production
       PORT: 3333
     ports:

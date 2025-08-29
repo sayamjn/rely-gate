@@ -187,9 +187,9 @@ class AnalyticsService {
   }
 
   // Get gate pass analytics (counts for dashboard)
-  static async getGatePassAnalytics(tenantId, days = 7) {
+  static async getGatePassAnalytics(tenantId) {
     try {
-      const analytics = await AnalyticsModel.getGatePassAnalytics(tenantId, days);
+      const analytics = await AnalyticsModel.getGatePassAnalytics(tenantId);
       
       return {
         responseCode: responseUtils.RESPONSE_CODES.SUCCESS,

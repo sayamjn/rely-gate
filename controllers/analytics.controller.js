@@ -102,13 +102,9 @@ class AnalyticsController {
   // GET /api/analytics/gatepass - Get gate pass analytics
   static async getGatePassAnalytics(req, res) {
     try {
-      const { days = 7 } = req.query;
       const userTenantId = req.user.tenantId;
 
-      const result = await AnalyticsService.getGatePassAnalytics(
-        userTenantId, 
-        parseInt(days)
-      );
+      const result = await AnalyticsService.getGatePassAnalytics(userTenantId);
       res.json(result);
     } catch (error) {
       console.error('Error in getGatePassAnalytics:', error);

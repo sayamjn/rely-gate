@@ -342,4 +342,33 @@ router.get('/meal-window-status/:mealType', [
   param('mealType').isIn(['lunch', 'dinner']).withMessage('Meal type must be lunch or dinner')
 ], handleValidationErrors, StudentController.getMealWindowStatus);
 
+// ===== AUTOMATIC MEAL SYSTEM WITH OPT-OUT FUNCTIONALITY =====
+
+// PUT /api/student/meal-opt-out - Student opts out of automatically registered meal
+router.put('/meal-opt-out', [
+  body('studentId').optional().isInt({ min: 1 }).withMessage('Student ID must be a positive integer'),
+  body('mealType').isIn(['lunch', 'dinner']).withMessage('Meal type must be lunch or dinner'),
+  body('mealDate').optional().matches(/^\d{4}-\d{2}-\d{2}$/).withMessage('Date must be in YYYY-MM-DD format')
+], handleValidationErrors, StudentController.mealOptOut);
+
+// PUT /api/student/meal-opt-back-in - Student opts back in to previously opted-out meal
+router.put('/meal-opt-back-in', [
+  body('studentId').optional().isInt({ min: 1 }).withMessage('Student ID must be a positive integer'),
+  body('mealType').isIn(['lunch', 'dinner']).withMessage('Meal type must be lunch or dinner'),
+  body('mealDate').optional().matches(/^\d{4}-\d{2}-\d{2}$/).withMessage('Date must be in YYYY-MM-DD format')
+], handleValidationErrors, StudentController.mealOptBackIn);
+
+// PUT /api/student/meal-preference - Student updates meal preference (veg/non-veg)
+router.put('/meal-preference', [
+  body('studentId').optional().isInt({ min: 1 }).withMessage('Student ID must be a positive integer'),
+  body('mealType').isIn(['lunch', 'dinner']).withMessage('Meal type must be lunch or dinner'),
+  body('mealPreference').isIn(['veg', 'non-veg']).withMessage('Meal preference must be veg or non-veg'),
+  body('mealDate').optional().matches(/^\d{4}-\d{2}-\d{2}$/).withMessage('Date must be in YYYY-MM-DD format')
+], handleValidationErrors, StudentController.updateMealPreference);
+
+// GET /api/student/meal-status - Get student's current meal registration status
+router.get('/meal-status', [
+  query('mealDate').optional().matches(/^\d{4}-\d{2}-\d{2}$/).withMessage('Date must be in YYYY-MM-DD format')
+], handleValidationErrors, StudentController.getStudentMealStatus);
+
 module.exports = router;

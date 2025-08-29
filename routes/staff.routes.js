@@ -4,6 +4,7 @@ const StaffController = require('../controllers/staff.controller');
 const { authenticateToken } = require('../middleware/auth');
 const { handleValidationErrors } = require('../middleware/validation');
 const { uploadPurposeImage, handleUploadError } = require('../middleware/upload');
+const { otpLimit } = require('../middleware/rateLimit');
 
 const router = express.Router();
 
@@ -83,7 +84,7 @@ router.get('/purposes', [
 ], handleValidationErrors, StaffController.getStaffPurposes);
 
 // POST /api/staff/register - Staff registration (OTP-based)
-router.post('/register', [
+router.post('/register', otpLimit, [ // Apply OTP rate limiting
   body('mobile').notEmpty().matches(/^\d{10}$/).withMessage('Mobile must be 10 digits'),
   body('designation').notEmpty().withMessage('Designation is required'),
 ], handleValidationErrors, StaffController.registerStaff);

@@ -28,11 +28,11 @@ class StudentDayBoardingController {
         });
       }
 
-      const userTenantId = req.user.tenantId;
+      const tenantId = req.user.tenantId;
       const result = await StudentDayBoardingService.processBulkUpload(
-        userTenantId,
-        req.file.path,
-        req.user.username
+        tenantId,
+        req.file.path
+        // req.user.username
       );
 
       // Clean up uploaded file
@@ -74,11 +74,50 @@ stu002,Alice Smith,Mathematics,B,2024,Bob Smith,9876543211,Father`;
     }
   }
 
+  // POST /api/student-day-boarding/student/add - Add single student
+  static async addSingleStudent(req, res) {
+    try {
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        return res.status(400).json({
+          responseCode: responseUtils.RESPONSE_CODES.ERROR,
+          responseMessage: "Validation errors",
+          errors: errors.array(),
+        });
+      }
+
+      const { tenantId, ...studentData } = req.body;
+
+      // Handle uploaded photo
+      if (req.file) {
+        studentData.studentPhotoFlag = "Y";
+        studentData.studentPhotoPath = `uploads/students/${req.file.filename}`;
+        studentData.studentPhotoName = req.file.filename;
+      }
+
+      const result = await StudentDayBoardingService.addSingleStudent(
+        tenantId,
+        studentData,
+        "system" // req.user.username
+      );
+
+      res.json(result);
+    } catch (error) {
+      console.error("Error adding student:", error);
+      res.status(500).json({
+        responseCode: responseUtils.RESPONSE_CODES.ERROR,
+        responseMessage: "Internal server error",
+        error:
+          process.env.NODE_ENV === "development" ? error.message : undefined,
+      });
+    }
+  }
+
   // ================================================================================
   // STUDENT LIST AND MANAGEMENT ENDPOINTS
   // ================================================================================
 
-  // GET /api/student-day-boarding/students - List students with filters
+  // GET /api/student-day-boarding/students/:tenantId - List students with filters
   static async getStudents(req, res) {
     try {
       const {
@@ -116,6 +155,47 @@ stu002,Alice Smith,Mathematics,B,2024,Bob Smith,9876543211,Father`;
     }
   }
 
+  // GET /api/student-day-boarding/students-detailed/:tenantId - List students with detailed approver information
+  static async getStudentsWithApproverDetails(req, res) {
+    try {
+      const {
+        page = 1,
+        pageSize = 20,
+        search = "",
+        course = null,
+        section = null,
+        year = null,
+        approverStatus = null,
+      } = req.query;
+
+      const userTenantId = req.params.tenantId;
+      const filters = {
+        page: parseInt(page),
+        pageSize: parseInt(pageSize),
+        search,
+        course,
+        section,
+        year,
+        approverStatus,
+      };
+
+      const result =
+        await StudentDayBoardingService.getStudentsWithApproverDetails(
+          userTenantId,
+          filters
+        );
+      res.json(result);
+    } catch (error) {
+      console.error("Error fetching students with approver details:", error);
+      res.status(500).json({
+        responseCode: responseUtils.RESPONSE_CODES.ERROR,
+        responseMessage: "Internal server error",
+        error:
+          process.env.NODE_ENV === "development" ? error.message : undefined,
+      });
+    }
+  }
+
   // POST /api/student-day-boarding/students/:id/generate-qr - Generate QR code for student
   static async generateQR(req, res) {
     try {
@@ -129,12 +209,11 @@ stu002,Alice Smith,Mathematics,B,2024,Bob Smith,9876543211,Father`;
       }
 
       const { id } = req.params;
-      const userTenantId = req.user.tenantId;
-
+      const  tenantId  = req.user.tenantId;
       const result = await StudentDayBoardingService.generateStudentQR(
-        userTenantId,
-        parseInt(id),
-        req.user.username
+        tenantId,
+        parseInt(id)
+        // req.user.username
       );
 
       res.json(result);
@@ -202,7 +281,8 @@ stu002,Alice Smith,Mathematics,B,2024,Bob Smith,9876543211,Father`;
       const result = await StudentDayBoardingService.verifyOTP(
         otpRef,
         otpNumber,
-        phoneNumber
+        phoneNumber,
+        tenantId
       );
       res.json(result);
     } catch (error) {
@@ -219,11 +299,10 @@ stu002,Alice Smith,Mathematics,B,2024,Bob Smith,9876543211,Father`;
   // GET /api/student-day-boarding/guardian/:authMasterId/students - Get students linked to guardian
   static async getGuardianStudents(req, res) {
     try {
-      const { authMasterId } = req.params;
-      const userTenantId = req.user.tenantId;
+      const { tenantId, authMasterId } = req.params;
 
       const result = await StudentDayBoardingService.getGuardianStudents(
-        userTenantId,
+        tenantId,
         parseInt(authMasterId)
       );
 
@@ -252,12 +331,12 @@ stu002,Alice Smith,Mathematics,B,2024,Bob Smith,9876543211,Father`;
       }
 
       const guardianData = req.body;
-      const userTenantId = req.user.tenantId;
+      const { tenantId } = req.body;
 
       const result = await StudentDayBoardingService.addGuardian(
-        userTenantId,
-        guardianData,
-        req.user.username
+        tenantId,
+        guardianData
+        // req.user.username
       );
 
       res.json(result);
@@ -289,12 +368,12 @@ stu002,Alice Smith,Mathematics,B,2024,Bob Smith,9876543211,Father`;
       }
 
       const linkData = req.body;
-      const userTenantId = req.user.tenantId;
+      const { tenantId } = req.body;
 
       const result = await StudentDayBoardingService.linkStudentToGuardian(
-        userTenantId,
-        linkData,
-        req.user.username
+        tenantId,
+        linkData
+        // req.user.username
       );
 
       res.json(result);
@@ -313,12 +392,12 @@ stu002,Alice Smith,Mathematics,B,2024,Bob Smith,9876543211,Father`;
   static async inactivateLink(req, res) {
     try {
       const { linkId } = req.params;
-      const userTenantId = req.user.tenantId;
+      const { tenantId } = req.body;
 
       const result = await StudentDayBoardingService.inactivateLink(
-        userTenantId,
-        parseInt(linkId),
-        req.user.username
+        tenantId,
+        parseInt(linkId)
+        // req.user.username
       );
 
       res.json(result);
@@ -349,14 +428,14 @@ stu002,Alice Smith,Mathematics,B,2024,Bob Smith,9876543211,Father`;
         });
       }
 
-      const { qrData, guardianData } = req.body;
-      const userTenantId = req.user.tenantId;
+      const { dayboardingId, approverId, remarks, tenantId } = req.body;
 
       const result = await StudentDayBoardingService.processCheckout(
-        userTenantId,
-        qrData,
-        guardianData,
-        req.user.username
+        tenantId,
+        dayboardingId,
+        approverId,
+        remarks
+        // req.user.username
       );
 
       res.json(result);
@@ -383,16 +462,16 @@ stu002,Alice Smith,Mathematics,B,2024,Bob Smith,9876543211,Father`;
         });
       }
 
-      const { historyId, otpRef, otpNumber, primaryGuardianPhone } = req.body;
-      const userTenantId = req.user.tenantId;
+      const { historyId, otpRef, otpNumber, primaryGuardianPhone, tenantId } =
+        req.body;
 
       const result = await StudentDayBoardingService.completeCheckout(
-        userTenantId,
+        tenantId,
         parseInt(historyId),
         otpRef,
         otpNumber,
-        primaryGuardianPhone,
-        req.user.username
+        primaryGuardianPhone
+        // req.user.username
       );
 
       res.json(result);
@@ -414,23 +493,27 @@ stu002,Alice Smith,Mathematics,B,2024,Bob Smith,9876543211,Father`;
         page = 1,
         pageSize = 20,
         search = "",
+        studentId = "",
+        course = "",
         fromDate = null,
         toDate = null,
         status = null,
       } = req.query;
 
-      const userTenantId = req.user.tenantId;
+      const  tenantId  = req.user.tenantId;
       const filters = {
         page: parseInt(page),
         pageSize: parseInt(pageSize),
         search,
+        studentId,
+        course,
         fromDate,
         toDate,
         status,
       };
 
       const result = await StudentDayBoardingService.getCheckoutHistory(
-        userTenantId,
+        tenantId,
         filters
       );
       res.json(result);
@@ -452,13 +535,63 @@ stu002,Alice Smith,Mathematics,B,2024,Bob Smith,9876543211,Father`;
   // GET /api/student-day-boarding/filter-data - Get filter dropdown data
   static async getFilterData(req, res) {
     try {
-      const userTenantId = req.user.tenantId;
-      const result = await StudentDayBoardingService.getFilterData(
-        userTenantId
-      );
+      const { tenantId } = req.params;
+      const result = await StudentDayBoardingService.getFilterData(tenantId);
       res.json(result);
     } catch (error) {
       console.error("Error fetching filter data:", error);
+      res.status(500).json({
+        responseCode: responseUtils.RESPONSE_CODES.ERROR,
+        responseMessage: "Internal server error",
+        error:
+          process.env.NODE_ENV === "development" ? error.message : undefined,
+      });
+    }
+  }
+
+  // GET /api/student-day-boarding/courses/:tenantId - Get student courses
+  static async getStudentCourses(req, res) {
+    try {
+       const tenantId = req.user.tenantId;
+      const result = await StudentDayBoardingService.getStudentCourses(tenantId);
+      res.json(result);
+    } catch (error) {
+      console.error("Error fetching student courses:", error);
+      res.status(500).json({
+        responseCode: responseUtils.RESPONSE_CODES.ERROR,
+        responseMessage: "Internal server error",
+        error:
+          process.env.NODE_ENV === "development" ? error.message : undefined,
+      });
+    }
+  }
+
+  // POST /api/student-day-boarding/checkout - Direct student checkout
+  static async directStudentCheckout(req, res) {
+    try {
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        return res.status(400).json({
+          responseCode: responseUtils.RESPONSE_CODES.ERROR,
+          responseMessage: "Validation errors",
+          errors: errors.array(),
+        });
+      }
+
+      const { dayboardingId, approverId, remarks } = req.body;
+      const tenantId = req.user.tenantId;
+
+      const result = await StudentDayBoardingService.directStudentCheckout(
+        tenantId,
+        dayboardingId,
+        approverId,
+        remarks,
+        req.user.username || "system"
+      );
+
+      res.json(result);
+    } catch (error) {
+      console.error("Error in direct student checkout:", error);
       res.status(500).json({
         responseCode: responseUtils.RESPONSE_CODES.ERROR,
         responseMessage: "Internal server error",
@@ -644,6 +777,37 @@ stu002,Alice Smith,Mathematics,B,2024,Bob Smith,9876543211,Father`;
     }
   }
 
+  // GET /api/student-day-boarding/approver-list/:tenantId/:studentDayBoardingId - Get approver list by dayboarding ID
+  static async getApproverList(req, res) {
+    try {
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        return res.status(400).json({
+          responseCode: responseUtils.RESPONSE_CODES.ERROR,
+          responseMessage: "Validation errors",
+          errors: errors.array(),
+        });
+      }
+
+      const { tenantId, studentDayBoardingId } = req.params;
+
+      const result = await StudentDayBoardingService.getApproverListByDayboardingId(
+        parseInt(tenantId),
+        parseInt(studentDayBoardingId)
+      );
+
+      res.json(result);
+    } catch (error) {
+      console.error("Error fetching approver list:", error);
+      res.status(500).json({
+        responseCode: responseUtils.RESPONSE_CODES.ERROR,
+        responseMessage: "Internal server error",
+        error:
+          process.env.NODE_ENV === "development" ? error.message : undefined,
+      });
+    }
+  }
+
   // 7. POST /api/student-day-boarding/link-students - Bulk link students to guardian
   static async linkStudentsToGuardian(req, res) {
     try {
@@ -665,8 +829,7 @@ stu002,Alice Smith,Mathematics,B,2024,Bob Smith,9876543211,Father`;
       }
 
       const result = await StudentDayBoardingService.linkStudentsToGuardian(
-        linkData,
-        req.user.username
+        linkData
       );
 
       res.json(result);
@@ -693,14 +856,13 @@ stu002,Alice Smith,Mathematics,B,2024,Bob Smith,9876543211,Father`;
         });
       }
 
-      const { tenantId, guardianPhone, studentId, approverId } = req.body;
+      const { tenantId, guardianPhone, approverId } = req.body;
 
       const result = await StudentDayBoardingService.deactivateApprover(
         tenantId,
         guardianPhone,
-        studentId,
         approverId,
-        req.user.username
+        "system" // req.user.username
       );
 
       res.json(result);
@@ -727,14 +889,13 @@ stu002,Alice Smith,Mathematics,B,2024,Bob Smith,9876543211,Father`;
         });
       }
 
-      const { tenantId, guardianPhone, studentId, approverId } = req.body;
+      const { tenantId, guardianPhone, approverId } = req.body;
 
       const result = await StudentDayBoardingService.activateApprover(
         tenantId,
         guardianPhone,
-        studentId,
         approverId,
-        req.user.username
+        "system" // req.user.username
       );
 
       res.json(result);
@@ -794,6 +955,112 @@ stu002,Alice Smith,Mathematics,B,2024,Bob Smith,9876543211,Father`;
       res.json(result);
     } catch (error) {
       console.error("Error updating approver:", error);
+      res.status(500).json({
+        responseCode: responseUtils.RESPONSE_CODES.ERROR,
+        responseMessage: "Internal server error",
+        error:
+          process.env.NODE_ENV === "development" ? error.message : undefined,
+      });
+    }
+  }
+
+  // ================================================================================
+  // GUARDIAN MANAGEMENT ENDPOINTS
+  // ================================================================================
+
+  // GET /api/student-day-boarding/guardians/:tenantId - Get all guardians with filters
+  static async getAllGuardians(req, res) {
+    try {
+      const { page = 1, pageSize = 20, search = "" } = req.query;
+
+      const { tenantId } = req.params;
+      const filters = {
+        page: parseInt(page),
+        pageSize: parseInt(pageSize),
+        search,
+      };
+
+      const result = await StudentDayBoardingService.getAllGuardians(
+        parseInt(tenantId),
+        filters
+      );
+      res.json(result);
+    } catch (error) {
+      console.error("Error fetching guardians:", error);
+      res.status(500).json({
+        responseCode: responseUtils.RESPONSE_CODES.ERROR,
+        responseMessage: "Internal server error",
+        error:
+          process.env.NODE_ENV === "development" ? error.message : undefined,
+      });
+    }
+  }
+
+  // GET /api/student-day-boarding/guardian/:tenantId/:authMasterId - Get guardian details by ID
+  static async getGuardianById(req, res) {
+    try {
+      const { tenantId, authMasterId } = req.params;
+
+      const result = await StudentDayBoardingService.getGuardianById(
+        parseInt(tenantId),
+        parseInt(authMasterId)
+      );
+
+      res.json(result);
+    } catch (error) {
+      console.error("Error fetching guardian details:", error);
+      res.status(500).json({
+        responseCode: responseUtils.RESPONSE_CODES.ERROR,
+        responseMessage: "Internal server error",
+        error:
+          process.env.NODE_ENV === "development" ? error.message : undefined,
+      });
+    }
+  }
+
+  // GET /api/student-day-boarding/authorized-guardians/:tenantId/:primaryGuardianPhone - Get authorized guardians by primary guardian phone
+  static async getAuthorizedGuardiansByPrimaryPhone(req, res) {
+    try {
+      const { page = 1, pageSize = 20, search = "" } = req.query;
+
+      const { tenantId, primaryGuardianPhone } = req.params;
+      const filters = {
+        page: parseInt(page),
+        pageSize: parseInt(pageSize),
+        search,
+      };
+
+      const result =
+        await StudentDayBoardingService.getAuthorizedGuardiansByPrimaryPhone(
+          parseInt(tenantId),
+          primaryGuardianPhone,
+          filters
+        );
+      res.json(result);
+    } catch (error) {
+      console.error("Error fetching authorized guardians:", error);
+      res.status(500).json({
+        responseCode: responseUtils.RESPONSE_CODES.ERROR,
+        responseMessage: "Internal server error",
+        error:
+          process.env.NODE_ENV === "development" ? error.message : undefined,
+      });
+    }
+  }
+
+  // GET /api/student-day-boarding/guardian-dashboard/:tenantId/:guardianPhone - Guardian Authentication Dashboard
+  static async getGuardianDashboard(req, res) {
+    try {
+      const { tenantId, guardianPhone } = req.params;
+
+      const result = await StudentDayBoardingService.getGuardianDashboard(
+        parseInt(tenantId),
+        guardianPhone
+      );
+
+      res.json(result);
+    } catch (error) {
+      console.error("Error fetching guardian dashboard:", error);
       res.status(500).json({
         responseCode: responseUtils.RESPONSE_CODES.ERROR,
         responseMessage: "Internal server error",
@@ -864,6 +1131,11 @@ stu002,Alice Smith,Mathematics,B,2024,Bob Smith,9876543211,Father`;
   static getAddGuardianValidation() {
     const { body } = require("express-validator");
     return [
+      body("tenantId")
+        .notEmpty()
+        .withMessage("Tenant ID is required")
+        .isNumeric()
+        .withMessage("Tenant ID must be numeric"),
       body("studentDayBoardingId")
         .notEmpty()
         .withMessage("Student Day Boarding ID is required")
@@ -892,6 +1164,11 @@ stu002,Alice Smith,Mathematics,B,2024,Bob Smith,9876543211,Father`;
   static getLinkStudentValidation() {
     const { body } = require("express-validator");
     return [
+      body("tenantId")
+        .notEmpty()
+        .withMessage("Tenant ID is required")
+        .isNumeric()
+        .withMessage("Tenant ID must be numeric"),
       body("studentDayBoardingId")
         .notEmpty()
         .withMessage("Student Day Boarding ID is required")
@@ -920,15 +1197,22 @@ stu002,Alice Smith,Mathematics,B,2024,Bob Smith,9876543211,Father`;
   static getQRCheckoutValidation() {
     const { body } = require("express-validator");
     return [
-      body("qrData.studentId")
+      body("tenantId")
         .notEmpty()
-        .withMessage("Student ID from QR is required"),
-      body("guardianData.guardianPhone")
+        .withMessage("Tenant ID is required")
+        .isNumeric()
+        .withMessage("Tenant ID must be numeric"),
+      body("dayboardingId")
         .notEmpty()
-        .withMessage("Guardian phone is required")
-        .isMobilePhone("en-IN")
-        .withMessage("Invalid guardian phone format"),
-      body("guardianData.remarks")
+        .withMessage("Dayboarding ID is required")
+        .isNumeric()
+        .withMessage("Dayboarding ID must be numeric"),
+      body("approverId")
+        .notEmpty()
+        .withMessage("Approver ID is required")
+        .isNumeric()
+        .withMessage("Approver ID must be numeric"),
+      body("remarks")
         .optional()
         .trim()
         .isLength({ max: 500 })
@@ -940,6 +1224,11 @@ stu002,Alice Smith,Mathematics,B,2024,Bob Smith,9876543211,Father`;
   static getCompleteCheckoutValidation() {
     const { body } = require("express-validator");
     return [
+      body("tenantId")
+        .notEmpty()
+        .withMessage("Tenant ID is required")
+        .isNumeric()
+        .withMessage("Tenant ID must be numeric"),
       body("historyId")
         .notEmpty()
         .withMessage("History ID is required")
@@ -1060,7 +1349,6 @@ stu002,Alice Smith,Mathematics,B,2024,Bob Smith,9876543211,Father`;
         .withMessage("Guardian phone is required")
         .isMobilePhone("en-IN")
         .withMessage("Invalid guardian phone format"),
-      body("studentId").notEmpty().withMessage("Student ID is required").trim(),
       body("approverId")
         .notEmpty()
         .withMessage("Approver ID is required")
@@ -1083,7 +1371,6 @@ stu002,Alice Smith,Mathematics,B,2024,Bob Smith,9876543211,Father`;
         .withMessage("Guardian phone is required")
         .isMobilePhone("en-IN")
         .withMessage("Invalid guardian phone format"),
-      body("studentId").notEmpty().withMessage("Student ID is required").trim(),
       body("approverId")
         .notEmpty()
         .withMessage("Approver ID is required")
@@ -1117,6 +1404,28 @@ stu002,Alice Smith,Mathematics,B,2024,Bob Smith,9876543211,Father`;
         .isMobilePhone("en-IN")
         .withMessage("Invalid phone number format"),
       // Note: photo is now handled as file upload via multer middleware
+    ];
+  }
+
+  // Get validation rules for direct student checkout
+  static getDirectCheckoutValidation() {
+    const { body } = require("express-validator");
+    return [
+      body("dayboardingId")
+        .notEmpty()
+        .withMessage("Dayboarding ID is required")
+        .isNumeric()
+        .withMessage("Dayboarding ID must be numeric"),
+      body("approverId")
+        .notEmpty()
+        .withMessage("Approver ID is required")
+        .isNumeric()
+        .withMessage("Approver ID must be numeric"),
+      body("remarks")
+        .optional()
+        .trim()
+        .isLength({ max: 500 })
+        .withMessage("Remarks must not exceed 500 characters"),
     ];
   }
 }

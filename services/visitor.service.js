@@ -1223,7 +1223,7 @@ class VisitorService {
       if (imageFile) {
         const baseUrl =
           process.env.BASE_URL ||
-          `http://localhost:${process.env.PORT || 3000}`;
+          `http://localhost:${process.env.PORT || 9002}`;
         imageData = {
           flag: "Y",
           path: `purposes/${imageFile.filename}`,
@@ -1478,6 +1478,15 @@ class VisitorService {
         error:
           process.env.NODE_ENV === "development" ? error.message : undefined,
       };
+    }
+  }
+
+    static async getPurposeById(purposeId, tenantId) {
+    try {
+      return await VisitorModel.getPurposeById(purposeId, tenantId);
+    } catch (error) {
+      console.error("Error in getPurposeById:", error);
+      throw error;
     }
   }
 }

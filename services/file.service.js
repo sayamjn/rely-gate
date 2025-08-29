@@ -11,7 +11,8 @@ class FileService {
     VEHICLES: 'vehicles',
     VISITOR_IDS: 'visitor_ids',
     QR_CODES: 'qr_codes',
-    LOGOS: 'logos'
+    LOGOS: 'logos',
+    USERS: 'users'
   };
 
   static generateFilename(originalName, category) {
@@ -83,7 +84,7 @@ class FileService {
   // Generate file URL
   static getFileUrl(category, filename, baseUrl = null) {
     if (!baseUrl) {
-      baseUrl = process.env.BASE_URL || `http://localhost:${process.env.PORT || 3000}`;
+      baseUrl = process.env.BASE_URL || `http://localhost:${process.env.PORT || 9002}`;
     }
     return `/uploads/${category}/${filename}`;
   }

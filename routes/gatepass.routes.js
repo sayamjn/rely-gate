@@ -4,9 +4,61 @@ const GatepassController = require("../controllers/gatepass.controller");
 const { authenticateToken } = require("../middleware/auth");
 const { handleValidationErrors } = require("../middleware/validation");
 const { uploadPurposeImage, handleUploadError } = require("../middleware/upload");
+const { otpLimit } = require("../middleware/rateLimit");
 
 const router = express.Router();
 
+
+// POST /api/gatepass/send-otp - Send OTP for gatepass mobile verification
+router.post(
+  "/send-otp",
+  otpLimit, // Apply OTP rate limiting
+  [
+    body("mobile")
+      .notEmpty()
+      .withMessage("Mobile is required")
+      .matches(/^\d{10}$/)
+      .withMessage("Mobile must be 10 digits"),
+    body("tenantId")
+      .notEmpty()
+      .withMessage("Tenant ID is required")
+      .isNumeric()
+      .withMessage("Tenant ID must be numeric"),
+  ],
+  handleValidationErrors,
+  GatepassController.sendOTP
+);
+
+// POST /api/gatepass/verify-otp - Verify OTP for gatepass mobile verification
+router.post(
+  "/verify-otp",
+  [
+    body("refId")
+      .notEmpty()
+      .withMessage("RefId is required")
+      .isNumeric()
+      .withMessage("RefId must be numeric"),
+    body("otpNumber")
+      .notEmpty()
+      .withMessage("OTP number is required")
+      .matches(/^\d{6}$/)
+      .withMessage("OTP must be 6 digits"),
+    body("mobile")
+      .notEmpty()
+      .withMessage("Mobile is required")
+      .matches(/^\d{10}$/)
+      .withMessage("Mobile must be 10 digits"),
+    body("tenantId")
+      .notEmpty()
+      .withMessage("Tenant ID is required")
+      .isNumeric()
+      .withMessage("Tenant ID must be numeric"),
+  ],
+  handleValidationErrors,
+  GatepassController.verifyOTP
+);
+
+// GATEPASS CRUD ROUTES
 
 // POST /api/gatepass - Create new gatepass
 router.post(
@@ -226,6 +278,14 @@ router.get(
   "/purposes/:tenantId",
   [],
   GatepassController.getGatepassPurposes
+);
+
+// GET /api/gatepass/tenants - Get all tenants with statusId
+router.get(
+  "/tenants",
+  [],
+  handleValidationErrors,
+  GatepassController.getTenants
 );
 
 // ===== PURPOSE MANAGEMENT ROUTES (WITH AUTHENTICATION) =====

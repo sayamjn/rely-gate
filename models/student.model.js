@@ -618,7 +618,7 @@ class StudentModel {
 
     const result = await query(sql, [
       tenantId,
-      3, // Student category ID
+      2, // Student category ID
       "Student",
       purposeName,
       "Y",

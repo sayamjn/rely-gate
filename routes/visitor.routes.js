@@ -11,6 +11,7 @@ const {
   uploadVisitorImages,
   handleUploadError,
 } = require("../middleware/upload");
+const { otpLimit, visitorRegistrationLimit } = require("../middleware/rateLimit");
 
 const router = express.Router();
 
@@ -45,6 +46,7 @@ router.get(
 // POST /api/visitors/send-otp - Send OTP for visitor registration
 router.post(
   "/send-otp",
+  otpLimit, // Apply OTP rate limiting
   [
     body("mobile")
       .notEmpty()
@@ -63,6 +65,7 @@ router.post(
 // POST /api/visitors/send-unregistered-otp - Send OTP for unregistered visitor
 router.post(
   "/send-unregistered-otp",
+  otpLimit, // Apply OTP rate limiting
   [
     body("mobile")
       .notEmpty()
@@ -101,6 +104,7 @@ router.post(
 // POST /api/visitors/create-unregistered - Create unregistered visitor
 router.post(
   "/create-unregistered",
+  visitorRegistrationLimit, // Apply visitor registration rate limiting
   uploadVisitorImages,
   handleUploadError,
   [
@@ -137,6 +141,7 @@ router.post(
 // POST /api/visitors/create-registered - Create registered visitor
 router.post(
   "/create-registered",
+  visitorRegistrationLimit, // Apply visitor registration rate limiting
   [
     body("vistorName").notEmpty().withMessage("Visitor name is required"),
     body("mobile")

@@ -91,7 +91,7 @@ class FCMService {
           AND lu."IsActive" = 'Y'
       `;
 
-      const apiUrl = process.env.API_URL || 'http://localhost:3000';
+      const apiUrl = process.env.API_URL || 'http://localhost:9002';
       const result = await query(sql, [tenantId, flatName, visitorId, apiUrl]);
       return result.rows;
     } catch (error) {
@@ -284,7 +284,7 @@ class FCMService {
           AND lu."IsActive" = 'Y'
       `;
 
-      const apiUrl = process.env.API_URL || 'http://localhost:3000';
+      const apiUrl = process.env.API_URL || 'http://localhost:9002';
       const result = await query(sql, [tenantId, flatName, visitorId, apiUrl]);
       return result.rows;
     } catch (error) {

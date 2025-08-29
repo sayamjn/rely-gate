@@ -124,7 +124,7 @@ class GatePassModel {
         Fname as "fname",
         Mobile as "mobile",
         VisitDate AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata' as "visitDate",
-        TO_CHAR(VisitDate AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata', '${DateFormatter.PG_DATETIME_FORMAT}') as "visitDateTxt",
+        TO_CHAR(VisitDate AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata', '${DateFormatter.PG_DATE_FORMAT}') as "visitDateTxt",
         VisitPurposeID as "purposeId",
         VisitPurpose as "purposeName",
         StatusID as "statusId",
@@ -659,6 +659,24 @@ class GatePassModel {
 
     const result = await query(sql, [tenantId]);
     return result.rows[0];
+  }
+
+  // Get all tenants with their status and country code
+  static async getTenants() {
+    const sql = `
+      SELECT 
+        t.TenantID as "tenantId",
+        t.TenantName as "tenantName",
+        t.StatusID as "statusId",
+        COALESCE(ts.CountryCode, '+91') as "countryCode"
+      FROM Tenant t
+      LEFT JOIN TenantSetting ts ON t.TenantID = ts.TenantID AND ts.IsActive = 'Y'
+      WHERE t.IsActive = 'Y'
+      ORDER BY t.TenantName
+    `;
+
+    const result = await query(sql);
+    return result.rows;
   }
 }
 

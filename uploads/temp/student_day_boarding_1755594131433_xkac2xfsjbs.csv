@@ -1,0 +1,3 @@
+StudentID,StudentName,Course,Section,Year,PrimaryGuardianName,PrimaryGuardianPhone,GuardianRelation
+stu004,John Bora,IX,A,2025,Jane Bora,9876543243,Mother
+stu005,Alice Barman,X,B,2025,Bob Barman,9876543222,Father

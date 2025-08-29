@@ -2,11 +2,11 @@ require('dotenv').config();
 const { Pool } = require('pg');
 
 const pool = new Pool({
-  host: process.env.DB_HOST,
-  user: process.env.DB_USER,
-  password: process.env.DB_PASSWORD,
-  database: process.env.DB_NAME,
-  port: parseInt(process.env.DB_PORT) || 5432,
+  host: process.env.PG_DB_HOST,
+  user: process.env.PG_DB_USER,
+  password: process.env.PG_DB_PASSWORD,
+  database: process.env.PG_DB_NAME,
+  port: parseInt(process.env.PG_DB_PORT) || 5432,
   ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
 });
 
@@ -26,7 +26,7 @@ const query = async (text, params) => {
   try {
     const res = await pool.query(text, params);
     const duration = Date.now() - start;
-    console.log('Executed query', { text, duration, rows: res.rowCount });
+    // console.log('Executed query', { text, duration, rows: res.rowCount });
     return res;
   } catch (error) {
     console.error('Database query error:', error);

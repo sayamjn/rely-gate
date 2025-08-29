@@ -122,6 +122,7 @@ class AuthController {
         linkeFlatId: user.linkeflatid,
         linkeFlatName: user.linkeflatname,
         tenantName: tenantDetails ? tenantDetails.tenantname : null,
+        tenantCode: tenantDetails ? tenantDetails.tenantcode : null,
         lastLogin: user.lastlogin
       };
 
@@ -141,6 +142,44 @@ class AuthController {
     }
   }
 
+static async token(req, res) {
+  try {
+    const { username, tenantId } = req.body; // ✅ use body instead of query
+
+    if (!username || !tenantId) {
+      return res.status(400).json({
+        responseCode: responseUtils.RESPONSE_CODES.ERROR,
+        responseMessage: responseUtils.RESPONSE_MESSAGES.MISSING_FIELDS
+      });
+    }
+
+    const tokenPayload = {
+      loginId: 0,
+      username: username.trim(),
+      tenantId: parseInt(tenantId, 10), // ✅ ensure numeric type
+      roleAccessId: 0,
+      roleName: "test"
+    };
+
+    const token = generateToken(tokenPayload);
+
+    return res.status(200).json({
+      responseCode: responseUtils.RESPONSE_CODES.SUCCESS,
+      responseMessage: responseUtils.RESPONSE_MESSAGES.LOGIN_SUCCESS,
+      token
+    });
+  } catch (error) {
+    console.error('Token generation error:', error);
+    return res.status(500).json({
+      responseCode: responseUtils.RESPONSE_CODES.ERROR,
+      responseMessage: responseUtils.RESPONSE_MESSAGES.ERROR,
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+}
+
+
+  
 static async getUserInfo(req, res) {
   try {
     const user = req.user; 
@@ -152,7 +191,6 @@ static async getUserInfo(req, res) {
       });
     }
 
-    // Fetch user information
     const fullUser = await UserModel.findByLoginIdAndTenant(user.loginId, user.tenantId);
 
     if (!fullUser) {
@@ -162,7 +200,6 @@ static async getUserInfo(req, res) {
       });
     }
 
-    // Fetch comprehensive tenant information
     const tenantInfo = await UserModel.getComprehensiveTenantInfo(user.tenantId);
 
     const userInfo = {
@@ -189,7 +226,10 @@ static async getUserInfo(req, res) {
       tenantId: tenantInfo.tenantid,
       tenantCode: tenantInfo.tenantcode,
       tenantName: tenantInfo.tenantname,
-      createdDate: tenantInfo.createddate
+      createdDate: tenantInfo.createddate,
+      entityLogoFlag: tenantInfo.entitylogoflag,
+      entityLogo: tenantInfo.entitylogo,
+      entityLogoPath: tenantInfo.entitylogopath
     } : null;
 
     res.json({
@@ -219,7 +259,6 @@ static async getUserInfo(req, res) {
         });
       }
 
-      // Verify user has access to the target tenant
       const hasAccess = await LinkedTenantsModel.verifyAccess(
         currentUser.loginId,
         parseInt(targetTenantId)
@@ -232,7 +271,6 @@ static async getUserInfo(req, res) {
         });
       }
 
-      // Get tenant information for response
       const tenantInfo = await LinkedTenantsModel.getTenantInfo(parseInt(targetTenantId));
 
       if (!tenantInfo) {
@@ -242,7 +280,6 @@ static async getUserInfo(req, res) {
         });
       }
 
-      // Generate new JWT with switched tenant
       const newTokenPayload = {
         loginId: currentUser.loginId,
         username: currentUser.username,

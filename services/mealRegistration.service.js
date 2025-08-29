@@ -1,5 +1,5 @@
 const MealModel = require('../models/meal.model');
-const MealSettingsModel = require('../models/mealSettings.model');
+const MealSettingsModel = require('../models/mealSettings.model.simple');
 const StudentModel = require('../models/student.model');
 const ResponseFormatter = require('../utils/response');
 const responseUtils = require('../utils/constants');
@@ -28,10 +28,13 @@ class MealRegistrationService {
       );
 
       if (existingRegistration) {
-        if (existingRegistration.status === 'confirmed') {
+        if (existingRegistration.status === 'confirmed' || existingRegistration.status === 'registered') {
           return ResponseFormatter.error('Student already registered for this meal today');
         } else if (existingRegistration.status === 'consumed') {
           return ResponseFormatter.error('Student already consumed this meal today');
+        } else if (existingRegistration.status === 'cancelled') {
+          // Allow re-registration for cancelled meals
+          console.log(`Re-registering student ${studentId} for cancelled ${mealType} meal`);
         }
       }
 
@@ -108,16 +111,30 @@ class MealRegistrationService {
   // Validate if registration window is open
   static async validateRegistrationWindow(tenantId, mealType) {
     try {
+      console.log(`=== DEBUG: validateRegistrationWindow called ===`);
+      console.log(`tenantId: ${tenantId}, mealType: ${mealType}`);
+      
       const settings = await MealSettingsModel.getMealSettings(tenantId);
+      console.log(`MealSettings result:`, settings);
+      console.log(`Settings type:`, typeof settings);
+      console.log(`Settings falsy check:`, !settings);
+      
       if (!settings) {
+        console.log(`Settings is falsy, returning error`);
         return { valid: false, message: 'Meal settings not configured' };
       }
 
       const now = new Date();
       const currentTime = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:00`;
 
+      // Get current day of week (0 = Sunday, 1 = Monday, etc.)
+      const dayOfWeek = now.getDay();
+      const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+      const currentDay = dayNames[dayOfWeek];
+
       // Helper function to convert time to minutes
       const timeToMinutes = (timeString) => {
+        if (!timeString) return null;
         const [hours, minutes] = timeString.split(':').map(Number);
         return hours * 60 + minutes;
       };
@@ -125,26 +142,54 @@ class MealRegistrationService {
       const currentMinutes = timeToMinutes(currentTime);
 
       if (mealType === 'lunch') {
-        const bookingStart = timeToMinutes(settings.lunchbookingstarttime || settings.lunchBookingStartTime);
-        const bookingEnd = timeToMinutes(settings.lunchbookingendtime || settings.lunchBookingEndTime);
+        // Check if lunch is enabled for current day
+        const lunchEnabledKey = `lunchEnabled${currentDay}`;
+        if (!settings[lunchEnabledKey]) {
+          return { valid: false, message: `Lunch is not available on ${currentDay}` };
+        }
+
+        // Get booking times for current day
+        const bookingStartKey = `lunchBookingStart${currentDay}`;
+        const bookingEndKey = `lunchBookingEnd${currentDay}`;
+        
+        const bookingStart = timeToMinutes(settings[bookingStartKey]);
+        const bookingEnd = timeToMinutes(settings[bookingEndKey]);
+
+        if (!bookingStart || !bookingEnd) {
+          return { valid: false, message: `Lunch booking times not configured for ${currentDay}` };
+        }
 
         if (currentMinutes >= bookingStart && currentMinutes <= bookingEnd) {
           return { valid: true, message: 'Lunch booking window is open' };
         } else if (currentMinutes < bookingStart) {
-          return { valid: false, message: `Lunch booking opens at ${settings.lunchbookingstarttime || settings.lunchBookingStartTime}` };
+          return { valid: false, message: `Lunch booking opens at ${settings[bookingStartKey]}` };
         } else {
-          return { valid: false, message: `Lunch booking closed at ${settings.lunchbookingendtime || settings.lunchBookingEndTime}` };
+          return { valid: false, message: `Lunch booking closed at ${settings[bookingEndKey]}` };
         }
       } else if (mealType === 'dinner') {
-        const bookingStart = timeToMinutes(settings.dinnerbookingstarttime || settings.dinnerBookingStartTime);
-        const bookingEnd = timeToMinutes(settings.dinnerbookingendtime || settings.dinnerBookingEndTime);
+        // Check if dinner is enabled for current day
+        const dinnerEnabledKey = `dinnerEnabled${currentDay}`;
+        if (!settings[dinnerEnabledKey]) {
+          return { valid: false, message: `Dinner is not available on ${currentDay}` };
+        }
+
+        // Get booking times for current day
+        const bookingStartKey = `dinnerBookingStart${currentDay}`;
+        const bookingEndKey = `dinnerBookingEnd${currentDay}`;
+        
+        const bookingStart = timeToMinutes(settings[bookingStartKey]);
+        const bookingEnd = timeToMinutes(settings[bookingEndKey]);
+
+        if (!bookingStart || !bookingEnd) {
+          return { valid: false, message: `Dinner booking times not configured for ${currentDay}` };
+        }
 
         if (currentMinutes >= bookingStart && currentMinutes <= bookingEnd) {
           return { valid: true, message: 'Dinner booking window is open' };
         } else if (currentMinutes < bookingStart) {
-          return { valid: false, message: `Dinner booking opens at ${settings.dinnerbookingstarttime || settings.dinnerBookingStartTime}` };
+          return { valid: false, message: `Dinner booking opens at ${settings[bookingStartKey]}` };
         } else {
-          return { valid: false, message: `Dinner booking closed at ${settings.dinnerbookingendtime || settings.dinnerBookingEndTime}` };
+          return { valid: false, message: `Dinner booking closed at ${settings[bookingEndKey]}` };
         }
       }
 
@@ -191,29 +236,52 @@ class MealRegistrationService {
   // Update meal registration (special requests)
   static async updateRegistration(tenantId, mealId, updateData, updatedBy) {
     try {
+      console.log('updateRegistration called with:', { tenantId, mealId, updateData, updatedBy });
       const { isSpecial, specialRemarks } = updateData;
 
       // Validate that registration exists and is in correct state
-      const registration = await MealModel.checkExistingMealRegistration(tenantId, null, null, null);
-      if (!registration) {
+      const { query } = require('../config/database');
+      const sql = `
+        SELECT MealID, StudentID, MealType, MealDate, Status, IsSpecial, SpecialRemarks, IsConsumed
+        FROM MealMaster
+        WHERE TenantID = $1 
+          AND MealID = $2 
+          AND IsActive = 'Y'
+      `;
+      console.log('Executing query:', sql, 'with params:', [tenantId, mealId]);
+      const result = await query(sql, [tenantId, mealId]);
+      console.log('Query result:', result.rows);
+      
+      if (result.rows.length === 0) {
+        console.log('No meal registration found for tenantId:', tenantId, 'mealId:', mealId);
         return ResponseFormatter.error('Meal registration not found');
       }
 
+      const registration = result.rows[0];
+      console.log('Found registration:', registration);
+
       if (registration.status !== 'confirmed' || registration.isconsumed === 'Y') {
+        console.log('Cannot update meal - status:', registration.status, 'isConsumed:', registration.isconsumed);
         return ResponseFormatter.error('Cannot update consumed or cancelled meal');
       }
+
+      const updateParams = {
+        isSpecial: isSpecial ? 'Y' : 'N',
+        specialRemarks: specialRemarks || ''
+      };
+      console.log('Calling MealModel.updateMealRegistration with:', { tenantId, mealId, updateParams, updatedBy });
 
       const updatedRegistration = await MealModel.updateMealRegistration(
         tenantId,
         mealId,
-        {
-          isSpecial: isSpecial ? 'Y' : 'N',
-          specialRemarks: specialRemarks || ''
-        },
+        updateParams,
         updatedBy
       );
 
+      console.log('updateMealRegistration returned:', updatedRegistration);
+
       if (!updatedRegistration) {
+        console.log('updateMealRegistration returned null/undefined');
         return ResponseFormatter.error('Failed to update meal registration');
       }
 
@@ -236,10 +304,21 @@ class MealRegistrationService {
   static async cancelRegistration(tenantId, mealId, cancelledBy) {
     try {
       // Check if we're still in booking window
-      const registration = await MealModel.checkExistingMealRegistration(tenantId, null, null, null);
-      if (!registration) {
+      const { query } = require('../config/database');
+      const sql = `
+        SELECT MealID, StudentID, MealType, MealDate, Status, IsSpecial, SpecialRemarks, IsConsumed
+        FROM MealMaster
+        WHERE TenantID = $1 
+          AND MealID = $2 
+          AND IsActive = 'Y'
+      `;
+      const result = await query(sql, [tenantId, mealId]);
+      
+      if (result.rows.length === 0) {
         return ResponseFormatter.error('Meal registration not found');
       }
+
+      const registration = result.rows[0];
 
       const windowCheck = await this.validateRegistrationWindow(tenantId, registration.mealtype);
       if (!windowCheck.valid) {

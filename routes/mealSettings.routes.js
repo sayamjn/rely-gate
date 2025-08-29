@@ -21,109 +21,8 @@ router.use(authenticateToken);
 // GET /api/meal-settings - Get meal settings for the tenant
 router.get('/', MealSettingsController.getMealSettings);
 
-// PUT /api/meal-settings - Update meal settings for the tenant
-router.put('/', [
-  body('lunchBookingStartTime')
-    .notEmpty()
-    .withMessage('Lunch booking start time is required')
-    .matches(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/)
-    .withMessage('Lunch booking start time must be in HH:MM format'),
-  
-  body('lunchBookingEndTime')
-    .notEmpty()
-    .withMessage('Lunch booking end time is required')
-    .matches(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/)
-    .withMessage('Lunch booking end time must be in HH:MM format'),
-  
-  body('lunchStartTime')
-    .notEmpty()
-    .withMessage('Lunch start time is required')
-    .matches(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/)
-    .withMessage('Lunch start time must be in HH:MM format'),
-  
-  body('lunchEndTime')
-    .notEmpty()
-    .withMessage('Lunch end time is required')
-    .matches(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/)
-    .withMessage('Lunch end time must be in HH:MM format'),
-  
-  body('dinnerBookingStartTime')
-    .notEmpty()
-    .withMessage('Dinner booking start time is required')
-    .matches(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/)
-    .withMessage('Dinner booking start time must be in HH:MM format'),
-  
-  body('dinnerBookingEndTime')
-    .notEmpty()
-    .withMessage('Dinner booking end time is required')
-    .matches(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/)
-    .withMessage('Dinner booking end time must be in HH:MM format'),
-  
-  body('dinnerStartTime')
-    .notEmpty()
-    .withMessage('Dinner start time is required')
-    .matches(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/)
-    .withMessage('Dinner start time must be in HH:MM format'),
-  
-  body('dinnerEndTime')
-    .notEmpty()
-    .withMessage('Dinner end time is required')
-    .matches(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/)
-    .withMessage('Dinner end time must be in HH:MM format'),
-
-  // Custom validation for time logic
-  body().custom((value) => {
-    const {
-      lunchBookingStartTime,
-      lunchBookingEndTime,
-      lunchStartTime,
-      lunchEndTime,
-      dinnerBookingStartTime,
-      dinnerBookingEndTime,
-      dinnerStartTime,
-      dinnerEndTime
-    } = value;
-
-    // Helper function to convert time to minutes
-    const timeToMinutes = (timeString) => {
-      const [hours, minutes] = timeString.split(':').map(Number);
-      return hours * 60 + minutes;
-    };
-
-    // Validate lunch times
-    if (timeToMinutes(lunchBookingStartTime) >= timeToMinutes(lunchBookingEndTime)) {
-      throw new Error('Lunch booking start time must be before lunch booking end time');
-    }
-    
-    if (timeToMinutes(lunchStartTime) >= timeToMinutes(lunchEndTime)) {
-      throw new Error('Lunch start time must be before lunch end time');
-    }
-    
-    if (timeToMinutes(lunchBookingEndTime) > timeToMinutes(lunchStartTime)) {
-      throw new Error('Lunch booking must end before lunch serving starts');
-    }
-
-    // Validate dinner times
-    if (timeToMinutes(dinnerBookingStartTime) >= timeToMinutes(dinnerBookingEndTime)) {
-      throw new Error('Dinner booking start time must be before dinner booking end time');
-    }
-    
-    if (timeToMinutes(dinnerStartTime) >= timeToMinutes(dinnerEndTime)) {
-      throw new Error('Dinner start time must be before dinner end time');
-    }
-    
-    if (timeToMinutes(dinnerBookingEndTime) > timeToMinutes(dinnerStartTime)) {
-      throw new Error('Dinner booking must end before dinner serving starts');
-    }
-
-    // Check overlap between lunch and dinner
-    if (timeToMinutes(lunchEndTime) > timeToMinutes(dinnerBookingStartTime)) {
-      throw new Error('Lunch serving should end before dinner booking starts');
-    }
-
-    return true;
-  })
-], handleValidationErrors, MealSettingsController.updateMealSettings);
+// PUT /api/meal-settings - Update enhanced meal settings for the tenant
+router.put('/', MealSettingsController.updateMealSettings);
 
 // GET /api/meal-settings/status - Get current meal status
 router.get('/status', MealSettingsController.getCurrentMealStatus);
@@ -148,5 +47,64 @@ router.get('/default', MealSettingsController.getDefaultMealSettings);
 
 // POST /api/meal-settings/reset - Reset to default settings
 router.post('/reset', MealSettingsController.resetToDefaultSettings);
+
+// GET /api/meal-settings/weekly - Get weekly meal schedule
+router.get('/weekly', MealSettingsController.getWeeklyMealSchedule);
+
+// GET /api/meal-settings/day/:dayName - Get meal settings for a specific day
+router.get('/day/:dayName', MealSettingsController.getMealSettingsForDay);
+
+// PUT /api/meal-settings/day/:dayName - Update meal settings for a specific day
+router.put('/day/:dayName', [
+  body('lunch.bookingTime.start')
+    .optional()
+    .matches(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/)
+    .withMessage('Lunch booking start time must be in HH:MM format'),
+  
+  body('lunch.bookingTime.end')
+    .optional()
+    .matches(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/)
+    .withMessage('Lunch booking end time must be in HH:MM format'),
+  
+  body('lunch.mealTime.start')
+    .optional()
+    .matches(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/)
+    .withMessage('Lunch meal start time must be in HH:MM format'),
+  
+  body('lunch.mealTime.end')
+    .optional()
+    .matches(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/)
+    .withMessage('Lunch meal end time must be in HH:MM format'),
+  
+  body('dinner.bookingTime.start')
+    .optional()
+    .matches(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/)
+    .withMessage('Dinner booking start time must be in HH:MM format'),
+  
+  body('dinner.bookingTime.end')
+    .optional()
+    .matches(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/)
+    .withMessage('Dinner booking end time must be in HH:MM format'),
+  
+  body('dinner.mealTime.start')
+    .optional()
+    .matches(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/)
+    .withMessage('Dinner meal start time must be in HH:MM format'),
+  
+  body('dinner.mealTime.end')
+    .optional()
+    .matches(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/)
+    .withMessage('Dinner meal end time must be in HH:MM format'),
+  
+  body('lunch.enabled')
+    .optional()
+    .isBoolean()
+    .withMessage('Lunch enabled must be a boolean value'),
+  
+  body('dinner.enabled')
+    .optional()
+    .isBoolean()
+    .withMessage('Dinner enabled must be a boolean value')
+], handleValidationErrors, MealSettingsController.updateMealSettingsForDay);
 
 module.exports = router;

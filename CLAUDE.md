@@ -61,6 +61,12 @@ curl http://localhost:3333/api/health
 export JWT_TOKEN="your-jwt-token"
 curl -X GET "http://localhost:3333/api/visitors/purposes" -H "Authorization: Bearer $JWT_TOKEN"
 
+# Test meal system health
+curl -X GET "http://localhost:3333/api/meals/health" -H "Authorization: Bearer $JWT_TOKEN"
+
+# Test meal system info
+curl -X GET "http://localhost:3333/api/meals/system/info" -H "Authorization: Bearer $JWT_TOKEN"
+
 # No test framework configured - tests need to be added
 # Current test script: echo "Error: no test specified" && exit 1
 ```
@@ -79,6 +85,56 @@ docker stats rely-gate-app-1 rely-gate-postgres-1
 ```
 
 ## Architecture Overview
+
+### Enhanced Dependencies & Technologies
+**Core Dependencies (New/Updated)**:
+- **node-cron**: Background job scheduling for automated meal registration and reporting
+- **express-rate-limit**: Multi-tier rate limiting with tenant-aware restrictions
+- **pdfmake**: Dynamic PDF generation for reports and documents
+- **nodemailer**: Email delivery system for automated daily reports
+- **sharp**: Advanced image processing and optimization
+- **moment-timezone**: Timezone-aware date/time handling for global tenants
+- **helmet**: Enhanced security headers and protection
+- **uuid**: Unique identifier generation for various entities
+
+### Background Jobs System
+**Automated Task Management**:
+- **Meal Auto-Registration**: Scheduled cron jobs for automatic student meal registration
+- **Email Reports**: Daily automated report generation and delivery to stakeholders
+- **File Cleanup**: Automated cleanup of temporary files and expired uploads
+- **Database Maintenance**: Scheduled database optimization and cleanup tasks
+
+**Job Management Architecture**:
+```javascript
+// jobs/mealCronJobs.js - Tenant-aware cron scheduling
+class MealCronJobs {
+  static initializeCronJobs() // Initialize jobs for all active tenants
+  static initializeTenantCronJobs(tenantId) // Per-tenant job scheduling
+  static scheduleLunchRegistration() // Automated lunch registration
+  static scheduleDinnerRegistration() // Automated dinner registration
+}
+```
+
+**Job Execution Flow**:
+1. Server startup initializes all tenant-specific cron jobs
+2. Jobs run according to each tenant's meal settings schedule
+3. Automatic registration triggered at booking start times
+4. Error handling and retry mechanisms for failed jobs
+5. Real-time job status monitoring and management
+
+### Security & Performance Enhancements
+**Multi-Tier Rate Limiting**:
+- **General API**: 100 requests per 15 minutes per IP+tenant
+- **Authentication**: 5 attempts per 15 minutes (brute force protection)
+- **OTP Requests**: 5 requests per 5 minutes per IP+mobile
+- **File Uploads**: 20 uploads per hour per IP+tenant
+- **Bulk Operations**: 5 operations per hour per IP+tenant
+
+**Enhanced Security Middleware**:
+- **Helmet**: Security headers including CSP, HSTS, X-Frame-Options
+- **CSRF Protection**: Cross-site request forgery protection
+- **Input Sanitization**: Enhanced validation and sanitization
+- **File Upload Security**: Advanced file type validation and virus scanning
 
 ### Multi-Tenant Design
 This is a **multi-tenant visitor management system** with strict tenant isolation:
@@ -137,6 +193,49 @@ This is a **multi-tenant visitor management system** with strict tenant isolatio
 **Naming Convention**: `{timestamp}_{randomHash}.{extension}`
 
 ### Business Domain Model
+
+#### **Comprehensive Meal Management System**
+**Meal Registration Workflow**:
+1. **Auto-Registration**: Students automatically registered based on meal settings
+2. **Opt-out Window**: Students can opt-out during designated time periods
+3. **Manual Registration**: Staff can manually register students for meals
+4. **QR-based Registration**: Students can register via QR code during booking window
+5. **QR-based Consumption**: Meal consumption tracked via QR code scanning
+
+**Meal States & Transitions**:
+- `registered` → Default state after auto/manual registration
+- `opted_out` → Student opted out during allowed window
+- `consumed` → Student consumed the meal (QR scanned)
+- `cancelled` → Meal cancelled by staff or system
+
+**Meal Settings Architecture**:
+- **Day-wise Configuration**: Different settings for each day of the week
+- **Meal Type Support**: Lunch and dinner with separate timings
+- **Booking Windows**: Configurable registration start/end times
+- **Serving Windows**: Configurable meal service start/end times
+- **Tenant Isolation**: Each tenant has independent meal settings
+
+#### **Mess Management System**
+**Menu Management**:
+- **Daily Menus**: Create and manage daily meal menus
+- **Weekly Planning**: Comprehensive weekly menu planning
+- **Vegetarian Options**: Support for veg/non-veg preferences
+- **Special Requests**: Handle custom dietary requirements
+
+**Operational Tracking**:
+- **Registration Lists**: Real-time lists of students registered for meals
+- **Consumption Tracking**: Track actual meal consumption vs registration
+- **Queue Management**: Monitor meal queues and wait times
+- **Analytics Dashboard**: Comprehensive reporting on meal patterns
+
+#### **Enhanced Multi-Tenant Features**
+**Linked Tenants System**:
+- **Tenant Switching**: Users can access multiple tenants with single login
+- **JWT Re-issuing**: Secure token refresh for tenant context switching
+- **Primary Tenant**: Default tenant assignment for users
+- **Access Control**: Fine-grained permissions per tenant relationship
+
+#### **Traditional Visitor Management**
 **Visitor Management**:
 - **Registered Visitors**: Pre-registered with mobile OTP verification
 - **Unregistered Visitors**: On-demand registration with basic details
@@ -144,11 +243,11 @@ This is a **multi-tenant visitor management system** with strict tenant isolatio
 - **Purposes**: Categorized visit reasons (delivery, meeting, etc.)
 
 **Multi-Institution Support**:
-- Educational institutions: Student and staff management
+- Educational institutions: Student and staff management with meal systems
 - Residential complexes: Visitor and vehicle tracking
 - Bus management: Route and schedule tracking
 
-**Analytics**: Real-time dashboard with visit patterns and statistics
+**Analytics**: Real-time dashboard with visit patterns, meal analytics, and operational statistics
 
 ### API Response Format
 All endpoints return consistent structure via `utils/response.js`:
@@ -183,12 +282,26 @@ All endpoints return consistent structure via `utils/response.js`:
 **Development Environment**:
 ```bash
 NODE_ENV=development
-DB_HOST=localhost  # Use 'postgres' for Docker
+PG_DB_HOST=localhost  # Use 'postgres' for Docker
 PORT=3000
 JWT_SECRET=supersecretjwtkey
 SMS_ENABLED=false
 FILE_CLEANUP_ENABLED=true
 ALLOWED_ORIGINS=http://localhost:3000,http://localhost:3001,http://localhost:3065
+
+# Email Configuration (for automated reports)
+EMAIL_HOST=smtp.gmail.com
+EMAIL_PORT=587
+EMAIL_USER=your-email@gmail.com
+EMAIL_PASS=your-app-password
+EMAIL_FROM=noreply@yourcompany.com
+
+# Cron Jobs Configuration
+ENABLE_CRON_JOBS=true
+TIMEZONE=Asia/Kolkata
+
+# Rate Limiting
+ENABLE_RATE_LIMITING=true
 ```
 
 **Docker Ports**:
@@ -212,6 +325,46 @@ curl -X POST http://localhost:3333/api/visitors/send-otp \
 curl -X POST http://localhost:3333/api/bulk/students \
   -H "Authorization: Bearer $JWT_TOKEN" \
   -F "file=@students.csv"
+
+# Meal Registration (Manual)
+curl -X POST http://localhost:3333/api/meals/register \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $JWT_TOKEN" \
+  -d '{"studentId": 1, "mealType": "lunch", "mealPreference": "veg"}'
+
+# Meal Opt-out
+curl -X PUT http://localhost:3333/api/meals/opt-out \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $JWT_TOKEN" \
+  -d '{"studentId": 1, "mealType": "lunch", "mealDate": "2024-12-01"}'
+
+# Trigger Manual Auto-Registration
+curl -X POST http://localhost:3333/api/meals/auto-register \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $JWT_TOKEN" \
+  -d '{"mealType": "lunch", "mealDate": "2024-12-01"}'
+
+# Get Meal Settings
+curl -X GET http://localhost:3333/api/meal-settings \
+  -H "Authorization: Bearer $JWT_TOKEN"
+
+# Send Daily Email Report
+curl -X POST http://localhost:3333/api/email-reports/send-daily-report \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $JWT_TOKEN" \
+  -d '{"date": "2024-12-01"}'
+
+# Get Logging Statistics
+curl -X GET http://localhost:3333/api/logs/stats \
+  -H "Authorization: Bearer $JWT_TOKEN"
+
+# Read Today's Logs
+curl -X GET "http://localhost:3333/api/logs/read?date=29-08-2025" \
+  -H "Authorization: Bearer $JWT_TOKEN"
+
+# Test Logging System
+curl -X POST http://localhost:3333/api/logs/test \
+  -H "Authorization: Bearer $JWT_TOKEN"
 ```
 
 ### Key Conventions
@@ -223,6 +376,10 @@ curl -X POST http://localhost:3333/api/bulk/students \
 - **Authentication**: Validate JWT and extract tenant context
 - **Validation**: Use express-validator with `middleware/validation.js` helpers
 - **Response Format**: Use `ResponseFormatter` class from `utils/response.js`
+- **Rate Limiting**: Apply appropriate rate limits based on endpoint sensitivity
+- **Background Jobs**: Use cron jobs for automated tasks, ensure tenant isolation
+- **Meal System**: Follow meal workflow states: `registered` → `opted_out`/`consumed` → `cancelled`
+- **Logging**: All console output automatically saved to daily log files in `logs/year/month/dd-mm-yyyy.log`
 
 ### Development Guidelines
 - All database operations must be tenant-scoped
@@ -233,13 +390,49 @@ curl -X POST http://localhost:3333/api/bulk/students \
 - Use the middleware stack for cross-cutting concerns
 - Docker setup includes health checks and automatic database initialization
 - CSV templates available for bulk operations: `/api/{entity}/template`
+- Background jobs must handle tenant isolation and error recovery
+- Rate limiting should be applied based on endpoint sensitivity
+- Meal system operations must follow the established workflow patterns
+- File-based logging is active by default - all console output is automatically captured
+- Use `/api/logs/*` endpoints for log management and monitoring
 
 ### Additional Endpoints & Features
-**Meal Management**: Student meal flow with check-in/check-out tracking
+
+#### **Comprehensive Meal Management System**
+**Meal Registration & Consumption**: Complete student meal lifecycle with QR-based registration and consumption
+**Automatic Registration**: Background cron jobs for automatic meal registration with opt-out capability
+**Meal Settings**: Configurable meal timings and schedules per tenant and day of week
+**Meal Preferences**: Support for vegetarian/non-vegetarian preferences
+**Meal Opt-out**: Students can opt-out of meals with automatic refund handling
+**Queue Management**: Real-time meal queue tracking and analytics
+
+#### **Mess Management System**
+**Menu Management**: Daily/weekly menu creation and management by mess staff
+**Meal Tracking**: Real-time tracking of meal registrations and consumption
+**Special Requests**: Handling of special dietary requirements and custom meal requests
+**Analytics Dashboard**: Comprehensive mess analytics and reporting
+
+#### **Multi-Tenant Enhancements**
+**Linked Tenants**: Users can switch between multiple tenants with JWT re-issuing
+**User Management**: Complete role-based user management system
+**Tenant Settings**: Per-tenant configuration and customization
+
+#### **Automation & Background Jobs**
+**Cron Job System**: Automated background tasks using `node-cron`
+**Email Reports**: Automated daily report generation and email delivery
+**Meal Auto-Registration**: Scheduled automatic meal registration for active students
+
+#### **Security & Performance**
+**Rate Limiting**: Multi-tier rate limiting with tenant-aware restrictions
+**Enhanced Security**: Helmet middleware for security headers
+**File Processing**: Advanced image processing with Sharp
+
+#### **Other Core Features**
 **Analytics**: Comprehensive analytics via `/api/analytics` endpoints  
 **FCM Integration**: Push notifications for mobile apps via `/api/fcm`
 **File Management**: Secure file uploads with validation in `middleware/upload.js`
 **Vehicle Management**: Vehicle tracking and management capabilities
+**PDF Generation**: Dynamic PDF report generation using PDFMake
 
 ## Database Testing Scripts
 
@@ -429,3 +622,306 @@ INSERT INTO Tenant (TenantName, TenantCode, ...) VALUES (...);
 - Create concurrent visitor scenarios
 - Test database query optimization
 - Validate caching and indexing strategies
+- Test cron job performance under high tenant loads
+- Validate rate limiting effectiveness during peak usage
+
+## Background Jobs & Automation
+
+### Meal Auto-Registration System
+**Daily Workflow**:
+1. **Job Initialization**: Server startup initializes cron jobs for all active tenants
+2. **Schedule Parsing**: Each tenant's meal settings parsed for day-specific timings
+3. **Automatic Trigger**: Jobs trigger at lunch/dinner booking start times
+4. **Student Registration**: All active students automatically registered for meals
+5. **Opt-out Period**: Students can opt-out during designated windows
+6. **Consumption Tracking**: QR-based meal consumption during serving times
+
+**Cron Job Commands**:
+```bash
+# Monitor active cron jobs
+docker-compose exec app node -e "console.log(require('./jobs/mealCronJobs').getJobsStatus())"
+
+# Manual trigger for testing
+curl -X POST http://localhost:3333/api/meals/auto-register \
+  -H "Authorization: Bearer $JWT_TOKEN" \
+  -d '{"mealType": "lunch"}'
+
+# Restart all meal cron jobs
+docker-compose restart app
+```
+
+### Email Reporting System
+**Automated Daily Reports**:
+- **Visitor Analytics**: Daily visitor statistics and patterns
+- **Meal Reports**: Registration, opt-out, and consumption summaries
+- **Security Reports**: Gate pass approvals and security incidents
+- **Operational Metrics**: System health and performance indicators
+
+**Report Configuration**:
+```bash
+# Add email recipients
+curl -X POST http://localhost:3333/api/email-reports/recipients \
+  -H "Authorization: Bearer $JWT_TOKEN" \
+  -d '{"recipientEmail": "admin@company.com", "recipientName": "Admin User"}'
+
+# Trigger manual daily report
+curl -X POST http://localhost:3333/api/email-reports/send-daily-report \
+  -H "Authorization: Bearer $JWT_TOKEN" \
+  -d '{"date": "2024-12-01"}'
+```
+
+### Job Management Best Practices
+**Development**:
+- All cron jobs are tenant-aware and isolated
+- Jobs include comprehensive error handling and retry logic
+- Job status and execution logs are tracked and monitored
+- Manual triggers available for testing and debugging
+
+**Production Considerations**:
+- Jobs run in Asia/Kolkata timezone by default
+- Database transactions ensure data consistency
+- Failed jobs are logged with detailed error information
+- Job scheduling automatically adjusts for tenant settings changes
+
+## Meal System Architecture
+
+### Daily Meal Workflow
+**Morning Setup**:
+1. **Auto-Registration**: Cron job triggers at booking start time
+2. **Student Notification**: Students notified of automatic registration
+3. **Opt-out Window**: Students can opt-out during designated period
+4. **Menu Display**: Daily menu displayed via mess management system
+
+**Meal Service**:
+1. **QR Generation**: Unique QR codes generated for registered students
+2. **Queue Management**: Real-time queue tracking during serving hours
+3. **Consumption Tracking**: QR scanning tracks actual meal consumption
+4. **Analytics Update**: Real-time analytics updated with consumption data
+
+**End-of-Day**:
+1. **Report Generation**: Daily meal reports generated automatically
+2. **Email Delivery**: Reports sent to designated recipients
+3. **Data Archival**: Meal data archived for historical analysis
+4. **Cleanup Tasks**: Temporary files and expired tokens cleaned up
+
+### Meal Settings Management
+**Configuration Hierarchy**:
+```
+Tenant Level
+├── Global meal settings (enabled/disabled)
+├── Weekly Schedule
+│   ├── Monday Settings (lunch/dinner times)
+│   ├── Tuesday Settings
+│   └── ... (other days)
+└── Operational Parameters
+    ├── Booking windows
+    ├── Serving windows
+    └── Opt-out policies
+```
+
+**Key Endpoints**:
+```bash
+# Get current meal settings
+GET /api/meal-settings
+
+# Update meal settings for specific day
+PUT /api/meal-settings/day/monday
+
+# Get current meal status
+GET /api/meal-settings/status
+
+# Validate meal action (booking/checkin)
+POST /api/meal-settings/validate
+```
+
+## Rate Limiting & Security
+
+### Multi-Tier Rate Limiting
+**Implementation Details**:
+```javascript
+// middleware/rateLimit.js
+const generalLimit = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 100, // 100 requests per window per IP+tenant
+  keyGenerator: (req) => `${ip}-${req.user?.tenantId || 'anonymous'}`
+});
+```
+
+**Rate Limit Tiers**:
+- **General API**: 100 requests/15min (tenant-aware)
+- **Authentication**: 5 attempts/15min (IP-based)
+- **OTP Requests**: 5 requests/5min (IP+mobile)
+- **File Uploads**: 20 uploads/hour (IP+tenant)
+- **Bulk Operations**: 5 operations/hour (IP+tenant)
+
+### Security Enhancements
+**Headers Applied via Helmet**:
+- Content Security Policy (CSP)
+- HTTP Strict Transport Security (HSTS)
+- X-Content-Type-Options: nosniff
+- X-Frame-Options: DENY
+- X-XSS-Protection: 1; mode=block
+
+## File-Based Logging System
+
+### Overview
+**Comprehensive file-based logging system** that captures all console output and stores it in organized daily log files. The system automatically creates folder structures and files based on dates, ensuring easy log management and historical tracking.
+
+### Directory Structure
+```
+logs/
+├── 2025/
+│   ├── august/
+│   │   ├── 29-08-2025.log
+│   │   ├── 30-08-2025.log
+│   │   └── 31-08-2025.log
+│   ├── september/
+│   │   ├── 01-09-2025.log
+│   │   └── 02-09-2025.log
+│   └── ...
+└── 2024/
+    └── december/
+        └── 31-12-2024.log
+```
+
+### Log Format
+**Entry Structure**: `[TIMESTAMP] [LEVEL] MESSAGE`
+**Timestamp Format**: `YYYY-MM-DD HH:mm:ss.SSS` (Asia/Kolkata timezone)
+**Log Levels**: `INFO`, `ERROR`, `WARN`, `DEBUG`
+
+**Example Log Entries**:
+```
+[2025-08-29 10:34:16.733] [INFO] 🚀 System running in development mode on port 9002
+[2025-08-29 10:34:17.491] [INFO] Database connection established successfully  
+[2025-08-29 10:34:18.792] [INFO] ✅ Meal cron jobs initialization completed successfully
+[2025-08-29 10:32:57.099] [ERROR] ValidationError: The 'X-Forwarded-For' header is set...
+```
+
+### Automatic Features
+1. **Daily File Rotation**: New log file created automatically each day
+2. **Directory Creation**: Month and year directories created automatically
+3. **Console Override**: All `console.log`, `console.error`, `console.warn`, `console.info` captured
+4. **Timezone Aware**: Uses Asia/Kolkata timezone for consistent timestamps
+5. **Object Serialization**: JSON objects and complex data structures properly formatted
+6. **Error Stack Traces**: Complete error stack traces preserved in logs
+
+### Logging API Endpoints
+**Base URL**: `/api/logs` (Admin access required)
+
+```bash
+# Get logging system statistics
+GET /api/logs/stats
+
+# Read logs for specific date (DD-MM-YYYY format)
+GET /api/logs/read?date=29-08-2025
+
+# Get current log file information
+GET /api/logs/current
+
+# Test logging functionality
+POST /api/logs/test
+
+# Clean up old logs (keep last N days)
+POST /api/logs/cleanup
+{
+  "daysToKeep": 30
+}
+
+# Check logging system health
+GET /api/logs/health
+```
+
+### Usage Examples
+```bash
+# View today's logs
+curl -X GET "http://localhost:3333/api/logs/read?date=29-08-2025" \
+  -H "Authorization: Bearer $JWT_TOKEN"
+
+# Get logging statistics
+curl -X GET "http://localhost:3333/api/logs/stats" \
+  -H "Authorization: Bearer $JWT_TOKEN"
+
+# Test logging system
+curl -X POST "http://localhost:3333/api/logs/test" \
+  -H "Authorization: Bearer $JWT_TOKEN"
+
+# Clean up logs older than 7 days
+curl -X POST "http://localhost:3333/api/logs/cleanup" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $JWT_TOKEN" \
+  -d '{"daysToKeep": 7}'
+```
+
+### Configuration & Environment
+**Timezone Setting**:
+```bash
+# Set timezone in environment variables
+TIMEZONE=Asia/Kolkata
+```
+
+**Log Directory**: `logs/` (created automatically in project root)
+
+### Maintenance Features
+1. **Automatic Cleanup**: Remove logs older than specified days
+2. **Log Statistics**: Track total files, sizes, date ranges
+3. **Health Monitoring**: Verify logging system operational status  
+4. **Manual Log Reading**: API endpoint to read logs for any date
+5. **Testing Tools**: Built-in endpoints to test logging functionality
+
+### Implementation Details
+**Logger Utility**: `utils/logger.js`
+- **Console Override**: Intercepts all console methods
+- **File Management**: Handles directory creation and file writing
+- **Error Handling**: Robust error handling for file system operations
+- **Memory Efficient**: Append-only writes, no memory buffering
+- **Thread Safe**: Synchronous file operations prevent race conditions
+
+**Integration**:
+- **Early Initialization**: Logger starts before any other modules
+- **Zero Configuration**: Works out-of-the-box with sensible defaults
+- **Backward Compatible**: Existing console.log usage continues to work
+- **Performance Impact**: Minimal overhead on application performance
+
+## Advanced Features
+
+### Linked Tenants System
+**Multi-Tenant Access Flow**:
+1. **Initial Login**: User authenticates with primary credentials
+2. **Tenant Discovery**: System returns list of linked tenants
+3. **Tenant Selection**: User selects target tenant from dropdown
+4. **JWT Re-issue**: New JWT issued with selected tenant context
+5. **Context Switch**: User interface updates to selected tenant
+
+**Key Endpoints**:
+```bash
+# Get user's linked tenants
+GET /api/linked-tenants/my-tenants
+
+# Link user to new tenant
+POST /api/linked-tenants/manage
+
+# Verify tenant access
+GET /api/linked-tenants/verify-access/:loginId/:tenantId
+```
+
+### File Processing System
+**Enhanced Upload Pipeline**:
+1. **Upload Validation**: File type, size, and security checks
+2. **Image Processing**: Sharp-based optimization and resizing
+3. **Tenant Organization**: Files organized by tenant and category
+4. **Metadata Storage**: File metadata stored with audit trails
+5. **Cleanup Jobs**: Automated cleanup of temporary and expired files
+
+**Upload Directory Structure**:
+```
+uploads/
+├── temp/                    # Temporary files
+├── visitors/               # Visitor photos
+├── registered_visitors/    # Pre-registered visitor photos
+├── vehicles/              # Vehicle images
+├── qr_codes/             # Generated QR codes
+├── logos/                # Tenant logos
+├── users/               # User profile images
+├── approvers/           # Approver photos
+└── reports/            # Generated reports
+```

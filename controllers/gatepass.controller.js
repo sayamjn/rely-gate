@@ -1,7 +1,9 @@
 const GatepassService = require("../services/gatepass.service");
 const StaffService = require("../services/staff.service");
+const MessagingService = require("../services/messaging.service");
 const responseUtils = require("../utils/constants");
-
+const visitorService = require("../services/visitor.service");
+const VisitorService = require("../services/visitor.service");
 class GatepassController {
   // POST /api/gatepass - Create new gatepass
   static async createGatepass(req, res) {
@@ -34,7 +36,7 @@ class GatepassController {
         finalPurposeName = purposeName.trim();
       } else {
         // Fetch purpose from database - ONLY gate pass purposes (PurposeCatID = 6)
-        const purposeResult = await GatepassService.getPurposeById(
+        const purposeResult = await VisitorService.getPurposeById(
           parsedPurposeId,
           tenantId
         );
@@ -346,7 +348,7 @@ class GatepassController {
       // Use path param tenantId if provided, otherwise use the user's tenantId
       const tenantId = pathTenantId || userTenantId;
     
-      const result = await GatepassService.getGatepassPurposes(tenantId);
+      const result = await visitorService.getVisitorPurposes(tenantId);
       res.json(result);
     } catch (error) {
       console.error("Error in getGatepassPurposes:", error);
@@ -547,6 +549,78 @@ class GatepassController {
       res.status(statusCode).json(result);
     } catch (error) {
       console.error("Error in deleteGatePassPurpose:", error);
+      res.status(500).json({
+        responseCode: responseUtils.RESPONSE_CODES.ERROR,
+        responseMessage: "Internal server error",
+      });
+    }
+  }
+
+  // POST /api/gatepass/send-otp - Send OTP for gatepass registration
+  static async sendOTP(req, res) {
+    try {
+      const { mobile, tenantId } = req.body;
+      const appUser = req.user ? req.user.username : "System";
+
+      if (!mobile) {
+        return res.status(400).json({
+          responseCode: responseUtils.RESPONSE_CODES.ERROR,
+          responseMessage: "Mobile number is required",
+        });
+      }
+
+
+      const result = await GatepassService.sendOTP(
+        mobile,
+        tenantId
+            );
+
+      res.json(result);
+    } catch (error) {
+      console.error("Error in sendOTP:", error);
+      res.status(500).json({
+        responseCode: responseUtils.RESPONSE_CODES.ERROR,
+        responseMessage: "Internal server error",
+      });
+    }
+  }
+
+  // POST /api/gatepass/verify-otp - Verify OTP for gatepass
+  static async verifyOTP(req, res) {
+    try {
+      const { refId, otpNumber, mobile, tenantId } = req.body;
+
+      if (!refId || !otpNumber || !mobile) {
+        return res.status(400).json({
+          responseCode: responseUtils.RESPONSE_CODES.ERROR,
+          responseMessage: "RefId, OTP number, and mobile are required",
+        });
+      }
+
+      const result = await GatepassService.verifyOTP(
+        refId,
+        otpNumber,
+        mobile,
+        tenantId
+      );
+
+      res.json(result);
+    } catch (error) {
+      console.error("Error in verifyOTP:", error);
+      res.status(500).json({
+        responseCode: responseUtils.RESPONSE_CODES.ERROR,
+        responseMessage: "Internal server error",
+      });
+    }
+  }
+
+  // GET /api/gatepass/tenants - Get all tenants
+  static async getTenants(req, res) {
+    try {
+      const result = await GatepassService.getTenants();
+      res.json(result);
+    } catch (error) {
+      console.error("Error in getTenants:", error);
       res.status(500).json({
         responseCode: responseUtils.RESPONSE_CODES.ERROR,
         responseMessage: "Internal server error",

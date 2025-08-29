@@ -111,8 +111,14 @@ class MealConsumptionService {
       const now = new Date();
       const currentTime = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:00`;
 
+      // Get current day of week (0 = Sunday, 1 = Monday, etc.)
+      const dayOfWeek = now.getDay();
+      const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+      const currentDay = dayNames[dayOfWeek];
+
       // Helper function to convert time to minutes
       const timeToMinutes = (timeString) => {
+        if (!timeString) return null;
         const [hours, minutes] = timeString.split(':').map(Number);
         return hours * 60 + minutes;
       };
@@ -120,26 +126,54 @@ class MealConsumptionService {
       const currentMinutes = timeToMinutes(currentTime);
 
       if (mealType === 'lunch') {
-        const servingStart = timeToMinutes(settings.lunchstarttime || settings.lunchStartTime);
-        const servingEnd = timeToMinutes(settings.lunchendtime || settings.lunchEndTime);
+        // Check if lunch is enabled for current day
+        const lunchEnabledKey = `lunchEnabled${currentDay}`;
+        if (!settings[lunchEnabledKey]) {
+          return { valid: false, message: `Lunch is not available on ${currentDay}` };
+        }
+
+        // Get serving times for current day
+        const servingStartKey = `lunchStart${currentDay}`;
+        const servingEndKey = `lunchEnd${currentDay}`;
+        
+        const servingStart = timeToMinutes(settings[servingStartKey]);
+        const servingEnd = timeToMinutes(settings[servingEndKey]);
+
+        if (!servingStart || !servingEnd) {
+          return { valid: false, message: `Lunch serving times not configured for ${currentDay}` };
+        }
 
         if (currentMinutes >= servingStart && currentMinutes <= servingEnd) {
           return { valid: true, message: 'Lunch serving window is open' };
         } else if (currentMinutes < servingStart) {
-          return { valid: false, message: `Lunch serving starts at ${settings.lunchstarttime || settings.lunchStartTime}` };
+          return { valid: false, message: `Lunch serving starts at ${settings[servingStartKey]}` };
         } else {
-          return { valid: false, message: `Lunch serving ended at ${settings.lunchendtime || settings.lunchEndTime}` };
+          return { valid: false, message: `Lunch serving ended at ${settings[servingEndKey]}` };
         }
       } else if (mealType === 'dinner') {
-        const servingStart = timeToMinutes(settings.dinnerstarttime || settings.dinnerStartTime);
-        const servingEnd = timeToMinutes(settings.dinnerendtime || settings.dinnerEndTime);
+        // Check if dinner is enabled for current day
+        const dinnerEnabledKey = `dinnerEnabled${currentDay}`;
+        if (!settings[dinnerEnabledKey]) {
+          return { valid: false, message: `Dinner is not available on ${currentDay}` };
+        }
+
+        // Get serving times for current day
+        const servingStartKey = `dinnerStart${currentDay}`;
+        const servingEndKey = `dinnerEnd${currentDay}`;
+        
+        const servingStart = timeToMinutes(settings[servingStartKey]);
+        const servingEnd = timeToMinutes(settings[servingEndKey]);
+
+        if (!servingStart || !servingEnd) {
+          return { valid: false, message: `Dinner serving times not configured for ${currentDay}` };
+        }
 
         if (currentMinutes >= servingStart && currentMinutes <= servingEnd) {
           return { valid: true, message: 'Dinner serving window is open' };
         } else if (currentMinutes < servingStart) {
-          return { valid: false, message: `Dinner serving starts at ${settings.dinnerstarttime || settings.dinnerStartTime}` };
+          return { valid: false, message: `Dinner serving starts at ${settings[servingStartKey]}` };
         } else {
-          return { valid: false, message: `Dinner serving ended at ${settings.dinnerendtime || settings.dinnerEndTime}` };
+          return { valid: false, message: `Dinner serving ended at ${settings[servingEndKey]}` };
         }
       }
 
@@ -267,7 +301,7 @@ class MealConsumptionService {
       const targetDate = mealDate || new Date().toISOString().split('T')[0];
       const pendingMeals = await MealModel.getRegisteredMeals(tenantId, mealType, targetDate);
 
-      return ResponseFormatter.success('Pending meals retrieved', {
+      return ResponseFormatter.success({
         mealType,
         date: targetDate,
         totalPending: pendingMeals.length,
@@ -299,7 +333,7 @@ class MealConsumptionService {
       const targetDate = mealDate || new Date().toISOString().split('T')[0];
       const consumedMeals = await MealModel.getConsumedMeals(tenantId, mealType, targetDate);
 
-      return ResponseFormatter.success('Consumed meals retrieved', {
+      return ResponseFormatter.success({
         mealType,
         date: targetDate,
         totalConsumed: consumedMeals.length,
@@ -335,14 +369,14 @@ class MealConsumptionService {
       const pendingResult = await this.getPendingMeals(tenantId, mealType, targetDate);
       const consumedResult = await this.getConsumedMeals(tenantId, mealType, targetDate);
 
-      if (!pendingResult.success || !consumedResult.success) {
+      if (pendingResult.responseCode !== 'S' || consumedResult.responseCode !== 'S') {
         return ResponseFormatter.error('Failed to get meal queue data');
       }
 
       const windowCheck = await this.validateServingWindow(tenantId, mealType);
       const statistics = await this.getServingStatistics(tenantId, mealType, targetDate);
 
-      return ResponseFormatter.success('Meal queue retrieved', {
+      return ResponseFormatter.success({
         mealType,
         date: targetDate,
         isServingOpen: windowCheck.valid,
@@ -351,7 +385,7 @@ class MealConsumptionService {
         pending: pendingResult.data.meals,
         consumed: consumedResult.data.meals,
         totalInQueue: pendingResult.data.totalPending + consumedResult.data.totalConsumed
-      });
+      }, 'Meal queue retrieved');
 
     } catch (error) {
       console.error('Error getting meal queue:', error);

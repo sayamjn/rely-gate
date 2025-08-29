@@ -1,65 +1,113 @@
--- MealSettings table for tenant-specific meal timing configurations
+-- Enhanced MealSettings table for day-wise meal configurations with enable/disable options.
+-- This replaces the existing MealSettings table structure.
+
+-- Drop existing table if updating (uncomment if needed)
+-- DROP TABLE IF EXISTS MealSettings CASCADE;
+
 CREATE TABLE IF NOT EXISTS MealSettings (
     MealSettingID SERIAL PRIMARY KEY,
     TenantID INTEGER NOT NULL,
-    
-    -- Lunch Settings
-    LunchBookingStartTime TIME NOT NULL DEFAULT '10:00:00',
-    LunchBookingEndTime TIME NOT NULL DEFAULT '12:00:00',
-    LunchStartTime TIME NOT NULL DEFAULT '13:00:00',
-    LunchEndTime TIME NOT NULL DEFAULT '15:00:00',
-    
-    -- Dinner Settings
-    DinnerBookingStartTime TIME NOT NULL DEFAULT '16:00:00',
-    DinnerBookingEndTime TIME NOT NULL DEFAULT '18:00:00',
-    DinnerStartTime TIME NOT NULL DEFAULT '19:00:00',
-    DinnerEndTime TIME NOT NULL DEFAULT '21:00:00',
-    
+
+    -- Lunch enable/disable for each day
+    LunchEnabledMonday BOOLEAN DEFAULT TRUE,
+    LunchEnabledTuesday BOOLEAN DEFAULT TRUE,
+    LunchEnabledWednesday BOOLEAN DEFAULT TRUE,
+    LunchEnabledThursday BOOLEAN DEFAULT TRUE,
+    LunchEnabledFriday BOOLEAN DEFAULT TRUE,
+    LunchEnabledSaturday BOOLEAN DEFAULT TRUE,
+    LunchEnabledSunday BOOLEAN DEFAULT TRUE,
+
+    -- Dinner enable/disable for each day
+    DinnerEnabledMonday BOOLEAN DEFAULT TRUE,
+    DinnerEnabledTuesday BOOLEAN DEFAULT TRUE,
+    DinnerEnabledWednesday BOOLEAN DEFAULT TRUE,
+    DinnerEnabledThursday BOOLEAN DEFAULT TRUE,
+    DinnerEnabledFriday BOOLEAN DEFAULT TRUE,
+    DinnerEnabledSaturday BOOLEAN DEFAULT TRUE,
+    DinnerEnabledSunday BOOLEAN DEFAULT TRUE,
+
+    -- Lunch booking times
+    LunchBookingStartMonday TIME DEFAULT '10:00:00',
+    LunchBookingEndMonday   TIME DEFAULT '12:00:00',
+    LunchBookingStartTuesday TIME DEFAULT '10:00:00',
+    LunchBookingEndTuesday   TIME DEFAULT '12:00:00',
+    LunchBookingStartWednesday TIME DEFAULT '10:00:00',
+    LunchBookingEndWednesday   TIME DEFAULT '12:00:00',
+    LunchBookingStartThursday TIME DEFAULT '10:00:00',
+    LunchBookingEndThursday   TIME DEFAULT '12:00:00',
+    LunchBookingStartFriday TIME DEFAULT '10:00:00',
+    LunchBookingEndFriday   TIME DEFAULT '12:00:00',
+    LunchBookingStartSaturday TIME DEFAULT '10:00:00',
+    LunchBookingEndSaturday   TIME DEFAULT '12:00:00',
+    LunchBookingStartSunday TIME DEFAULT '10:00:00',
+    LunchBookingEndSunday   TIME DEFAULT '12:00:00',
+
+    -- Lunch meal times
+    LunchStartMonday TIME DEFAULT '13:00:00',
+    LunchEndMonday   TIME DEFAULT '15:00:00',
+    LunchStartTuesday TIME DEFAULT '13:00:00',
+    LunchEndTuesday   TIME DEFAULT '15:00:00',
+    LunchStartWednesday TIME DEFAULT '13:00:00',
+    LunchEndWednesday   TIME DEFAULT '15:00:00',
+    LunchStartThursday TIME DEFAULT '13:00:00',
+    LunchEndThursday   TIME DEFAULT '15:00:00',
+    LunchStartFriday TIME DEFAULT '13:00:00',
+    LunchEndFriday   TIME DEFAULT '15:00:00',
+    LunchStartSaturday TIME DEFAULT '13:00:00',
+    LunchEndSaturday   TIME DEFAULT '15:00:00',
+    LunchStartSunday TIME DEFAULT '13:00:00',
+    LunchEndSunday   TIME DEFAULT '15:00:00',
+
+    -- Dinner booking times
+    DinnerBookingStartMonday TIME DEFAULT '16:00:00',
+    DinnerBookingEndMonday   TIME DEFAULT '18:00:00',
+    DinnerBookingStartTuesday TIME DEFAULT '16:00:00',
+    DinnerBookingEndTuesday   TIME DEFAULT '18:00:00',
+    DinnerBookingStartWednesday TIME DEFAULT '16:00:00',
+    DinnerBookingEndWednesday   TIME DEFAULT '18:00:00',
+    DinnerBookingStartThursday TIME DEFAULT '16:00:00',
+    DinnerBookingEndThursday   TIME DEFAULT '18:00:00',
+    DinnerBookingStartFriday TIME DEFAULT '16:00:00',
+    DinnerBookingEndFriday   TIME DEFAULT '18:00:00',
+    DinnerBookingStartSaturday TIME DEFAULT '16:00:00',
+    DinnerBookingEndSaturday   TIME DEFAULT '18:00:00',
+    DinnerBookingStartSunday TIME DEFAULT '16:00:00',
+    DinnerBookingEndSunday   TIME DEFAULT '18:00:00',
+
+    -- Dinner meal times
+    DinnerStartMonday TIME DEFAULT '19:00:00',
+    DinnerEndMonday   TIME DEFAULT '21:00:00',
+    DinnerStartTuesday TIME DEFAULT '19:00:00',
+    DinnerEndTuesday   TIME DEFAULT '21:00:00',
+    DinnerStartWednesday TIME DEFAULT '19:00:00',
+    DinnerEndWednesday   TIME DEFAULT '21:00:00',
+    DinnerStartThursday TIME DEFAULT '19:00:00',
+    DinnerEndThursday   TIME DEFAULT '21:00:00',
+    DinnerStartFriday TIME DEFAULT '19:00:00',
+    DinnerEndFriday   TIME DEFAULT '21:00:00',
+    DinnerStartSaturday TIME DEFAULT '19:00:00',
+    DinnerEndSaturday   TIME DEFAULT '21:00:00',
+    DinnerStartSunday TIME DEFAULT '19:00:00',
+    DinnerEndSunday   TIME DEFAULT '21:00:00',
+
     -- Audit fields
     IsActive VARCHAR(1) DEFAULT 'Y' CHECK (IsActive IN ('Y', 'N')),
     CreatedDate TIMESTAMP DEFAULT NOW(),
     UpdatedDate TIMESTAMP DEFAULT NOW(),
     CreatedBy VARCHAR(100),
     UpdatedBy VARCHAR(100),
-    
+
     -- Constraints
     CONSTRAINT fk_meal_settings_tenant FOREIGN KEY (TenantID) REFERENCES Tenant(TenantID),
-    CONSTRAINT unique_meal_settings_tenant UNIQUE (TenantID, IsActive),
-    
-    -- Time validation constraints
-    CONSTRAINT check_lunch_booking_times CHECK (LunchBookingStartTime < LunchBookingEndTime),
-    CONSTRAINT check_lunch_meal_times CHECK (LunchStartTime < LunchEndTime),
-    CONSTRAINT check_dinner_booking_times CHECK (DinnerBookingStartTime < DinnerBookingEndTime),
-    CONSTRAINT check_dinner_meal_times CHECK (DinnerStartTime < DinnerEndTime),
-    CONSTRAINT check_lunch_booking_before_meal CHECK (LunchBookingEndTime <= LunchStartTime),
-    CONSTRAINT check_dinner_booking_before_meal CHECK (DinnerBookingEndTime <= DinnerStartTime)
+    CONSTRAINT uq_meal_settings_tenant UNIQUE (TenantID, IsActive)
 );
 
--- Create index for performance
+-- Index for performance
 CREATE INDEX IF NOT EXISTS idx_meal_settings_tenant ON MealSettings(TenantID, IsActive);
 
--- Insert default settings for existing tenants
-INSERT INTO MealSettings (
-    TenantID, 
-    LunchBookingStartTime, LunchBookingEndTime, LunchStartTime, LunchEndTime,
-    DinnerBookingStartTime, DinnerBookingEndTime, DinnerStartTime, DinnerEndTime,
-    CreatedBy
-)
-SELECT 
-    TenantID,
-    '10:00:00', '12:00:00', '13:00:00', '15:00:00',
-    '16:00:00', '18:00:00', '19:00:00', '21:00:00',
-    'SYSTEM_DEFAULT'
-FROM Tenant 
-WHERE TenantID NOT IN (SELECT TenantID FROM MealSettings WHERE IsActive = 'Y');
-
--- Comments
-COMMENT ON TABLE MealSettings IS 'Tenant-specific meal timing configurations for booking and serving times';
-COMMENT ON COLUMN MealSettings.LunchBookingStartTime IS 'Time when lunch booking opens';
-COMMENT ON COLUMN MealSettings.LunchBookingEndTime IS 'Time when lunch booking closes';
-COMMENT ON COLUMN MealSettings.LunchStartTime IS 'Time when lunch serving starts';
-COMMENT ON COLUMN MealSettings.LunchEndTime IS 'Time when lunch serving ends';
-COMMENT ON COLUMN MealSettings.DinnerBookingStartTime IS 'Time when dinner booking opens';
-COMMENT ON COLUMN MealSettings.DinnerBookingEndTime IS 'Time when dinner booking closes';
-COMMENT ON COLUMN MealSettings.DinnerStartTime IS 'Time when dinner serving starts';
-COMMENT ON COLUMN MealSettings.DinnerEndTime IS 'Time when dinner serving ends';
+-- Table comments
+COMMENT ON TABLE MealSettings IS 'Enhanced tenant-specific meal timing configurations with day-wise settings and enable/disable options';
+COMMENT ON COLUMN MealSettings.LunchEnabledMonday IS 'Enable/disable lunch for Monday';
+COMMENT ON COLUMN MealSettings.DinnerEnabledMonday IS 'Enable/disable dinner for Monday';
+COMMENT ON COLUMN MealSettings.LunchBookingStartMonday IS 'Lunch booking start time for Monday';
+COMMENT ON COLUMN MealSettings.LunchStartMonday IS 'Lunch serving start time for Monday';
